@@ -1,7 +1,7 @@
 from itertools import permutations
 from gamma import gama_encode
 
-def MTF(text, dictionary=None):
+def MTF_move_ahead(text, dictionary=None, k=2):
     if not dictionary: 
         dictionary = [chr(i) for i in range(0,255)]
     else:
@@ -12,11 +12,12 @@ def MTF(text, dictionary=None):
         rank = dictionary.index(c)
         result.append(rank)
         dictionary.pop(rank)
-        dictionary.insert(0, c)
+        index = max(0, rank-k)
+        dictionary.insert(index, c)
 
     return result
 
-def iMTF(sequence, dictionary=None):
+def iMTF_move_ahead(sequence, dictionary=None, k=2):
     if not dictionary:
         dictionary = [chr(i) for i in range(0,255)]
     else:
@@ -26,7 +27,8 @@ def iMTF(sequence, dictionary=None):
     for rank in sequence:
         result += dictionary[rank]
         e = dictionary.pop(rank)
-        dictionary.insert(0, e)
+        index = max(0, rank-k)
+        dictionary.insert(index, e)
     return result
 
 if __name__ == "__main__":
@@ -36,7 +38,7 @@ if __name__ == "__main__":
         print(len(list(permutations(list(set(text))))))
         for i, perm in enumerate(permutations(list(set(text)))):
             dictionary = list(perm)
-            mtf = MTF(text, dictionary)
+            mtf = MTF_move_ahead(text, dictionary)
             encoded = gama_encode(mtf)
             length = len(encoded)
             if length < smallest_bit_count:
@@ -46,8 +48,8 @@ if __name__ == "__main__":
                 smallest_dictionary = dictionary
                 smallest_encoded = encoded
     else:
-        smallest_dictionary = ['K', 'R', 'A', 'N', 'V', 'L', 'O', '_', 'I', 'H']
-        smallest_mtf = MTF(text, smallest_dictionary)
+        smallest_dictionary = ['K', 'L', 'A', '_', 'N', 'R', 'V', 'H', 'I', 'O']
+        smallest_mtf = MTF_move_ahead(text, smallest_dictionary)
         smallest_encoded = gama_encode(smallest_mtf)
 
     print(f"{len(smallest_dictionary):08b}", "# slovnik")
