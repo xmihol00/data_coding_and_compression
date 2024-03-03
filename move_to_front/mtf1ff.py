@@ -1,5 +1,6 @@
 from itertools import permutations
 from gamma import gama_encode
+from huffman import huffman_encode
 
 def MTF1FF(text, dictionary=None):
     if not dictionary: 
@@ -50,10 +51,13 @@ if __name__ == "__main__":
             smallest_dictionary = [chr(i) for i in range(0,255)]
             smallest_encoded = encoded
 
-        for i, perm in enumerate(permutations(list(set(text)))):
+        alphabet = list(set(text))
+        alphabet_len = len(alphabet)
+        for i, perm in enumerate(permutations(alphabet)):
             dictionary = list(perm)
             mtf = MTF1FF(text, dictionary)
-            encoded = gama_encode(mtf)
+            #encoded = gama_encode(mtf)
+            encoded = huffman_encode(mtf, alphabet_len)
             length = len(encoded)
             if length < smallest_bit_count:
                 print("New smallest:", length)
