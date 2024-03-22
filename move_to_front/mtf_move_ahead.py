@@ -55,7 +55,7 @@ if __name__ == "__main__":
         print(len(list(permutations(alphabet))))
         for i, perm in enumerate(permutations(alphabet)):
             dictionary = list(perm)
-            mtf = MTF_move_ahead(text, dictionary, 5)
+            mtf = MTF_move_ahead(text, dictionary, 1)
             encoded = gama_encode(mtf)
             #encoded = huffman_encode(mtf, alphabet_len)
             length = len(encoded)
