@@ -17,12 +17,19 @@ public:
 
 private:
     void readInputFile(std::string inputFileName);
+    void computeHistogram();
+    void compressStatic();
+    void compressAdaptive();
+    void compressStaticModel();
+    void compressAdaptiveModel();
 
     bool _model;
     bool _adaptive;
     uint32_t _width;
     uint32_t _height;
     uint64_t _size;
+
+    uint32_t _histogram[256] = {0};
 
     pixel_t *_image = nullptr;
 };

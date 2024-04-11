@@ -48,3 +48,16 @@ void Compressor::readInputFile(std::string inputFileName)
 
     inputFile.read(reinterpret_cast<char *>(_image), _size);
 }
+
+void Compressor::computeHistogram()
+{
+    for (uint32_t i = 0; i < _size; i++)
+    {
+        _histogram[_image[i]]++;
+    }
+}
+
+void Compressor::compressStatic()
+{
+    computeHistogram();
+}
