@@ -20,7 +20,7 @@ void Compressor::compress(string inputFileName, string outputFileName)
 
 void Compressor::readInputFile(std::string inputFileName)
 {
-    ifstream inputFile(inputFileName, ios::in);
+    ifstream inputFile(inputFileName, ios::binary);
     if (!inputFile.is_open())
     {
         cerr << "Error: Unable to open input file '" << inputFileName << "'." << endl;
@@ -29,11 +29,11 @@ void Compressor::readInputFile(std::string inputFileName)
 
     // get the size of the input file
     inputFile.seekg(0, ios::end);
-    size_t fileSize = inputFile.tellg();
+    _size = inputFile.tellg();
     inputFile.seekg(0, ios::beg);
 
-    _height = fileSize / _width;
-    if (_height * _width != fileSize) // verify that file is rectangular
+    _height = _size / _width;
+    if (_height * _width != _size) // verify that file is rectangular
     {
         cerr << "Error: The input file size is not a multiple of the specified width." << endl;
         exit(1);
@@ -45,4 +45,6 @@ void Compressor::readInputFile(std::string inputFileName)
         cerr << "Error: Unable to allocate memory for the image." << endl;
         exit(1);
     }
+
+    inputFile.read(reinterpret_cast<char *>(_image), _size);
 }

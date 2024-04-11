@@ -162,3 +162,5 @@ cython_debug/
 huff_codec
 huff_codec_test
 huff_codec_debug
+
+.vscode/

@@ -22,6 +22,7 @@ private:
     bool _adaptive;
     uint32_t _width;
     uint32_t _height;
+    uint64_t _size;
 
     pixel_t *_image = nullptr;
 };
