@@ -5,7 +5,9 @@ using namespace std;
 
 int main(int argc, char* argv[])
 {
-    cout << "Hello, World!" << endl;
+    Arguments args = parseArguments(argc, argv);
+    Compressor compressor(args.model, args.adaptive, args.width);
+    compressor.compress(args.inputFileName, args.outputFileName);
     return 0;
 }
 
