@@ -98,7 +98,7 @@ void Compressor::printTree(uint16_t nodeIdx, uint16_t indent = 0)
     if (_tree[nodeIdx].isLeaf())
     {
         Leaf leaf = reinterpret_cast<Leaf *>(_tree)[nodeIdx];
-        cerr << string(indent, ' ') << "Leaf: " << leaf.count << " " << static_cast<char>(leaf.pixelValue) << endl;
+        cerr << string(indent, ' ') << "Leaf: " << leaf.count << " " << (char)(leaf.pixelValue) << endl;
     }
     else
     {
