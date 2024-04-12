@@ -170,7 +170,7 @@ void Compressor::compressStatic()
     nodeTree[3].right = 2;
     _treeIndex = 3;
 
-    _sortedNodesHead = NUMBER_OF_SYMBOLS >> 1; // TODO: solve issue with underflow
+    _sortedNodesHead = NUMBER_OF_SYMBOLS << 1; // TODO: solve issue with underflow
     _sortedNodesTail = _sortedNodesHead + 1;
     _sortedNodes[_sortedNodesHead] = nodeTree[3];
     _sortedNodes[_sortedNodesHead].left = 3;
@@ -229,7 +229,7 @@ void Compressor::compressStatic()
         _treeIndex++;
     }
 
-    //printTree(_treeIndex);
+    printTree(_treeIndex);
 
     for (uint16_t i = 1; i <= _treeIndex; i++)
     {

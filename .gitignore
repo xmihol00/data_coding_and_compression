@@ -166,3 +166,4 @@ huff_codec_debug
 .vscode/
 tmp
 tmp.*
+*.tmp

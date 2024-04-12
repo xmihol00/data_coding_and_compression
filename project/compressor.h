@@ -68,11 +68,11 @@ private:
         uint16_t code;
     };
 
-    uint8_t _memoryPool[NUMBER_OF_SYMBOLS * NUMBER_OF_SYMBOLS + 2 * NUMBER_OF_SYMBOLS] __attribute__((aligned(64))) = {0, };
+    uint8_t _memoryPool[NUMBER_OF_SYMBOLS * NUMBER_OF_SYMBOLS + 2 * NUMBER_OF_SYMBOLS * sizeof(Node)] __attribute__((aligned(64))) = {0, };
     Node *_tree{reinterpret_cast<Node *>(_memoryPool)};
-    Leaf *_histogram{reinterpret_cast<Leaf *>(_memoryPool + 2 * NUMBER_OF_SYMBOLS)};
-    Node *_sortedNodes{reinterpret_cast<Node *>(_memoryPool + 3 * NUMBER_OF_SYMBOLS)};
-    v8_int32 *_codeTable{reinterpret_cast<v8_int32 *>(_memoryPool + 2 * NUMBER_OF_SYMBOLS)};
+    Leaf *_histogram{reinterpret_cast<Leaf *>(_memoryPool + 2 * NUMBER_OF_SYMBOLS * sizeof(Node))};
+    Node *_sortedNodes{reinterpret_cast<Node *>(_memoryPool + 4 * NUMBER_OF_SYMBOLS * sizeof(Node))};
+    v8_int32 *_codeTable{reinterpret_cast<v8_int32 *>(_memoryPool + 2 * NUMBER_OF_SYMBOLS * sizeof(Node))};
     
     uint16_t _treeIndex;
     uint16_t _sortedNodesHead;
