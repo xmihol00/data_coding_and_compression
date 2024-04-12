@@ -29,10 +29,11 @@ void Compressor::computeHistogram()
 
 void Compressor::fixSortedNodes()
 {
-    uint16_t idx = _sortedNodesHead;
+    uint16_t idx = _sortedNodesTail - 1;
     Node tail = _sortedNodes[_sortedNodesTail];
-    while (idx > _sortedNodesHead && _sortedNodes[idx].count > tail.count)
+    while (idx >= _sortedNodesHead && _sortedNodes[idx].count > tail.count)
     {
+        cerr << "sorting " << idx << " " << _sortedNodesHead << " " << _sortedNodes[idx].count << " " << tail.count << endl;   
         _sortedNodes[idx + 1] = _sortedNodes[idx];
         idx--;
     }
@@ -44,7 +45,7 @@ void Compressor::populateCodeTable()
     v8_int32 lastCode = _mm256_set1_epi32(0);
     uint32_t delta = 0;
     queue<Node> nodeQueue;
-    _tree[_treeIndex].count = -1UL; // use the count as depth counter
+    _tree[_treeIndex].count = 0; // use the count as depth counter
     nodeQueue.push(_tree[_treeIndex]);
     
     while (nodeQueue.front().isNode())
@@ -57,12 +58,10 @@ void Compressor::populateCodeTable()
         nodeQueue.pop();
     }
 
-    uint32_t code[8];
+    uint32_t lastDepth = nodeQueue.front().count;
     _codeTable[nodeQueue.front().right] = lastCode;
-    _mm256_storeu_si256((__m256i *)code, _codeTable[nodeQueue.front().right]);
     nodeQueue.pop();
 
-    uint32_t lastDepth = 0;
     while (!nodeQueue.empty())
     {
         Node node = nodeQueue.front();
@@ -98,11 +97,11 @@ void Compressor::printTree(uint16_t nodeIdx, uint16_t indent = 0)
     if (_tree[nodeIdx].isLeaf())
     {
         Leaf leaf = reinterpret_cast<Leaf *>(_tree)[nodeIdx];
-        cerr << string(indent, ' ') << "Leaf: " << leaf.count << " " << (char)(leaf.pixelValue) << endl;
+        cerr << string(indent, ' ') <<  nodeIdx << ": Leaf: " << leaf.count << " " << (char)(leaf.pixelValue) << endl;
     }
     else
     {
-        cerr << string(indent, ' ') << "Node: " << _tree[nodeIdx].count << " " << _tree[nodeIdx].left << " " << _tree[nodeIdx].right << endl;
+        cerr << string(indent, ' ') <<  nodeIdx << ": Node: " << _tree[nodeIdx].count << " " << _tree[nodeIdx].left << " " << _tree[nodeIdx].right << endl;
         printTree(_tree[nodeIdx].left, indent + 2);
         printTree(_tree[nodeIdx].right, indent + 2);
     }
@@ -171,15 +170,15 @@ void Compressor::compressStatic()
     _treeIndex = 3;
 
     _sortedNodesHead = NUMBER_OF_SYMBOLS << 1; // TODO: solve issue with underflow
-    _sortedNodesTail = _sortedNodesHead + 1;
+    _sortedNodesTail = _sortedNodesHead;
     _sortedNodes[_sortedNodesHead] = nodeTree[3];
     _sortedNodes[_sortedNodesHead].left = 3;
 
     bool connectTree = false;
 
-    while (histogramIndex < NUMBER_OF_SYMBOLS - 1)
+    while (histogramIndex < NUMBER_OF_SYMBOLS)
     {
-        if (_histogram[histogramIndex + 1].count < _sortedNodes[_sortedNodesHead].count) // node from 2 symbols
+        if (histogramIndex + 1 < NUMBER_OF_SYMBOLS && _histogram[histogramIndex + 1].count < _sortedNodes[_sortedNodesHead].count) // node from 2 symbols
         {
             leafTree[++_treeIndex] = _histogram[histogramIndex++];
             leafTree[++_treeIndex] = _histogram[histogramIndex++];
@@ -190,11 +189,13 @@ void Compressor::compressStatic()
             nodeTree[_treeIndex].right = _treeIndex - 1;
 
             connectTree = _sortedNodes[_sortedNodesHead].count <= nodeTree[_treeIndex].count;
+            cerr << "double connect " << _treeIndex << " " << connectTree << endl;
         }
         else // node from 1 symbol and already existing sub-tree
         {
             leafTree[++_treeIndex] = _histogram[histogramIndex++];
             connectTree = true;
+            cerr << "single connect " << _treeIndex << " " << connectTree << endl;
         }
 
         if (connectTree) // newly created node must be connected to the existing tree
@@ -205,29 +206,51 @@ void Compressor::compressStatic()
                 nodeTree[_treeIndex + 1].left = _sortedNodes[_sortedNodesHead++].left;
                 nodeTree[_treeIndex + 1].right = _treeIndex;
                 _treeIndex++;
+                cerr << "connect " << _treeIndex << " " << _sortedNodesHead << " " << _sortedNodesTail << endl;
             }
-            while (_sortedNodesHead < _sortedNodesTail && _sortedNodes[_sortedNodesHead].count <= nodeTree[_treeIndex].count);
+            while (_sortedNodesHead <= _sortedNodesTail && _sortedNodes[_sortedNodesHead].count <= nodeTree[_treeIndex].count);
             
-            _sortedNodes[_sortedNodesTail] = nodeTree[_treeIndex];
+            if (_sortedNodesHead >= _sortedNodesTail)
+            {
+                cerr << _sortedNodesHead << " = " << _sortedNodesTail << endl;
+            }
+            _sortedNodes[++_sortedNodesTail] = nodeTree[_treeIndex];
             _sortedNodes[_sortedNodesTail].left = _treeIndex;
             fixSortedNodes();
-            _sortedNodesTail++;
+            cerr << "connected " << _treeIndex << " " << _sortedNodesHead << " " << _sortedNodesTail << endl;
         }
         else // newly created node has the smallest count
         {
+            //cerr << "no connect " << _treeIndex << " " << _sortedNodesHead << " " << _sortedNodesTail << endl;
             _sortedNodes[--_sortedNodesHead] = nodeTree[_treeIndex];
             _sortedNodes[_sortedNodesHead].left = _treeIndex;
+            //cerr << "no connected " << _treeIndex << " " << _sortedNodesHead << " " << _sortedNodesTail << endl;
         }
     }
 
-    if (histogramIndex < NUMBER_OF_SYMBOLS)
+    if (_sortedNodesHead < _sortedNodesTail)
+    {
+        cerr << _sortedNodes[_sortedNodesHead].count << " - fst\n";
+        _sortedNodesHead++;
+        for (uint16_t i = _sortedNodesHead; i <= _sortedNodesTail; i++)
+        {
+            cerr << _sortedNodes[i].count << " " << _treeIndex << " " << _sortedNodes[i].left << "\n";
+            nodeTree[_treeIndex + 1].count = _sortedNodes[i].count + nodeTree[_treeIndex].count;
+            nodeTree[_treeIndex + 1].left = _sortedNodes[i].left;
+            nodeTree[_treeIndex + 1].right = _treeIndex;
+            _treeIndex++;
+        }
+        cerr << _sortedNodesHead << " < " << _sortedNodesTail << " " << _sortedNodes[_sortedNodesHead].left << " " << _sortedNodes[_sortedNodesTail].left << endl;
+    }
+
+    /*if (histogramIndex < NUMBER_OF_SYMBOLS)
     {
         leafTree[++_treeIndex] = _histogram[histogramIndex];
         nodeTree[_treeIndex + 1].count = leafTree[_treeIndex].count + _sortedNodes[_sortedNodesHead].count;
         nodeTree[_treeIndex + 1].left = _treeIndex;
         nodeTree[_treeIndex + 1].right = _sortedNodes[_sortedNodesHead].left;
         _treeIndex++;
-    }
+    }*/
 
     printTree(_treeIndex);
 
@@ -288,10 +311,11 @@ void Compressor::compressStatic()
                 uint32_t code[8];
                 bitset<64> codeBitset(code[0]);
                 _mm256_storeu_si256((__m256i *)code, _codeTable[_image[i]]);
-                cerr << (char)_image[i] << ": ";
+                cerr << (void *)_image[i] << ": ";
                 for (int j = 0; j < 8; j++)
                 {
                     bitset<32> codeBitset(code[j]);
+                    cerr << codeBitset;
                 }
                 cerr << endl;    
             #endif

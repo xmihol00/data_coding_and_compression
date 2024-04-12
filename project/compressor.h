@@ -24,7 +24,7 @@ public:
     void compress(std::string inputFileName, std::string outputFileName);
 
 private:
-    static constexpr uint32_t NUMBER_OF_SYMBOLS{256};
+    static constexpr uint16_t NUMBER_OF_SYMBOLS{256};
     static constexpr v8_int32 VINT8_LSB{reinterpret_cast<v8_int32>((__v8si){0, 0, 0, 0, 0, 0, 0, 1})};
 
     void readInputFile(std::string inputFileName);
