@@ -2,8 +2,10 @@ MAKEFILE_DIR = $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 CURRENT_DIR = $(shell pwd)
 PROJECT_DIR = $(MAKEFILE_DIR:$(CURRENT_DIR)/%=%)
 
+AVX512 = $(shell grep avx512cd /proc/cpuinfo >/dev/null && grep avx512vl /proc/cpuinfo >/dev/null && echo "-mavx512cd -mavx512vl" || echo "")
+
 CC = g++
-CFLAGS = -Wall -Wextra -std=c++20 -fopenmp -O3 -Wno-cast-function-type
+CFLAGS = -Wall -Wextra -std=c++20 -mavx2 -fopenmp -O3 -Wno-cast-function-type $(AVX512)
 CPP_SRC = $(wildcard $(PROJECT_DIR)/*.cpp)
 
 TARGET = $(PROJECT_DIR)/huff_codec

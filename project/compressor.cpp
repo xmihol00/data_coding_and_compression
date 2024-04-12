@@ -41,28 +41,55 @@ void Compressor::fixSortedNodes()
 
 void Compressor::populateCodeTable()
 {
-    vint8 lastCode = _mm256_set1_epi32(0);
-    uint16_t delta = 0;
-
-
-    while (_tree[_treeIndex].isNode())
+    v8_int32 lastCode = _mm256_set1_epi32(0);
+    uint32_t delta = 0;
+    queue<Node> nodeQueue;
+    _tree[_treeIndex].count = -1UL; // use the count as depth counter
+    nodeQueue.push(_tree[_treeIndex]);
+    
+    while (nodeQueue.front().isNode())
     {
-        _treeIndex--;
+        Node node = nodeQueue.front();
+        _tree[node.left].count = node.count + 1;
+        _tree[node.right].count = node.count + 1;
+        nodeQueue.push(_tree[node.left]);
+        nodeQueue.push(_tree[node.right]);
+        nodeQueue.pop();
     }
 
-    _codeTable[_tree[_treeIndex].right] = lastCode;
-    
-    for (uint16_t i = _treeIndex; i >= 1; i--)
+    uint32_t code[8];
+    _codeTable[nodeQueue.front().right] = lastCode;
+    _mm256_storeu_si256((__m256i *)code, _codeTable[nodeQueue.front().right]);
+    nodeQueue.pop();
+
+    uint32_t lastDepth = 0;
+    while (!nodeQueue.empty())
     {
-        if (_tree[i].isLeaf())
+        Node node = nodeQueue.front();
+        if (node.isLeaf())
         {
-            // TODO
-            delta = 0;
+
+            delta = node.count - lastDepth;
+            cerr << "Delta: " << delta << ", Last depth: " << lastDepth << ", Current depth: " << node.count << endl;
+            lastDepth = node.count;
+            
+            v8_int32 incremented = _mm256_add_epi32(lastCode, VINT8_LSB);
+            v8_int32 leftShifted = _mm256_sll_epi32(incremented, _mm_set_epi32(0, 0, 0, delta));
+            v8_int32 rightShifted = _mm256_srl_epi32(incremented, _mm_set_epi32(0, 0, 0, 32 - delta));
+            v8_int32 permuted = _mm256_permutevar8x32_epi32(rightShifted, _mm256_set_epi32(0, 7, 6, 5, 4, 3, 2, 1));
+            v8_int32 masked = _mm256_and_si256(permuted, _mm256_set_epi32(0x00000000, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff));
+            lastCode = _mm256_or_si256(masked, leftShifted);
+
+            _codeTable[node.right] = lastCode;
         }
         else
         {
-            delta++;
+            _tree[node.left].count = node.count + 1;
+            _tree[node.right].count = node.count + 1;
+            nodeQueue.push(_tree[node.left]);
+            nodeQueue.push(_tree[node.right]);
         }
+        nodeQueue.pop();
     }
 }
 
@@ -108,7 +135,7 @@ void Compressor::readInputFile(std::string inputFileName)
         exit(1);
     }
 
-    _image = static_cast<pixel_t *>(aligned_alloc(64, _width * _height * sizeof(pixel_t)));
+    _image = static_cast<symbol_t *>(aligned_alloc(64, _width * _height * sizeof(symbol_t)));
     if (_image == nullptr)
     {
         cerr << "Error: Unable to allocate memory for the image." << endl;
@@ -202,7 +229,7 @@ void Compressor::compressStatic()
         _treeIndex++;
     }
 
-    printTree(_treeIndex);
+    //printTree(_treeIndex);
 
     for (uint16_t i = 1; i <= _treeIndex; i++)
     {
@@ -214,6 +241,60 @@ void Compressor::compressStatic()
         else
         {
             cerr << i << ": Node: " << _tree[i].count << " " << _tree[i].left << " " << _tree[i].right << endl;
+        }
+    }
+
+    populateCodeTable();
+
+    symbol_t seen[NUMBER_OF_SYMBOLS] = {0};
+    for (size_t i = 0; i < _size; i++)
+    {
+        if (seen[_image[i]] == 0)
+        {
+            seen[_image[i]] = 1;
+            #if __AVX512CD__ && __AVX512VL__
+                uint32_t code[8];
+                _mm256_storeu_si256((__m256i *)code, _codeTable[_image[i]]);
+                v4_int64 leadingZeros = _mm256_lzcnt_epi32(_codeTable[_image[i]]);
+                uint32_t leadingZerosAlias[8];
+                _mm256_storeu_si256((__m256i *)leadingZerosAlias, leadingZeros);
+
+                cerr << (char)_image[i] << ": ";
+                int j = 0;
+                for (; j < 8; j++)
+                {
+                    if (leadingZerosAlias[j] < 32)
+                    {
+                        bitset<32> codeBitset(code[j]);
+                        for (int k = 31 - leadingZerosAlias[j]; k >= 0; k--)
+                        {
+                            cerr << codeBitset[k];
+                        }
+                        j++;
+                        break;
+                    }
+                }
+                for (; j < 8; j++)
+                {
+                    bitset<32> codeBitset(code[j]);
+                    cerr << codeBitset;
+                }
+                if (leadingZerosAlias[7] == 32)
+                {
+                    cerr << "0";
+                }
+                cerr << endl;
+            #else
+                uint32_t code[8];
+                bitset<64> codeBitset(code[0]);
+                _mm256_storeu_si256((__m256i *)code, _codeTable[_image[i]]);
+                cerr << (char)_image[i] << ": ";
+                for (int j = 0; j < 8; j++)
+                {
+                    bitset<32> codeBitset(code[j]);
+                }
+                cerr << endl;    
+            #endif
         }
     }
 }

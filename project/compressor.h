@@ -9,9 +9,12 @@
 #include <cstdlib>
 #include <cstring>
 #include <immintrin.h>
+#include <queue>
+#include <bitset>
 
-using pixel_t = uint8_t;
-using vint8 = __m256i;
+using symbol_t = uint8_t;
+using v8_int32 = __m256i;
+using v4_int64 = __m256i;
 
 class Compressor
 {
@@ -22,7 +25,7 @@ public:
 
 private:
     static constexpr uint32_t NUMBER_OF_SYMBOLS{256};
-    static constexpr vint8 ONE{reinterpret_cast<vint8>((__v8si){0, 0, 0, 0, 0, 0, 0, 1})};
+    static constexpr v8_int32 VINT8_LSB{reinterpret_cast<v8_int32>((__v8si){0, 0, 0, 0, 0, 0, 0, 1})};
 
     void readInputFile(std::string inputFileName);
     void computeHistogram();
@@ -45,8 +48,8 @@ private:
     {
         uint32_t count;
         uint16_t : 16;
+        symbol_t pixelValue;
         uint8_t  : 8;
-        pixel_t pixelValue;
     };
 
     struct Node
@@ -69,13 +72,13 @@ private:
     Node *_tree{reinterpret_cast<Node *>(_memoryPool)};
     Leaf *_histogram{reinterpret_cast<Leaf *>(_memoryPool + 2 * NUMBER_OF_SYMBOLS)};
     Node *_sortedNodes{reinterpret_cast<Node *>(_memoryPool + 3 * NUMBER_OF_SYMBOLS)};
-    vint8 *_codeTable{reinterpret_cast<vint8 *>(_memoryPool + 2 * NUMBER_OF_SYMBOLS)};
+    v8_int32 *_codeTable{reinterpret_cast<v8_int32 *>(_memoryPool + 2 * NUMBER_OF_SYMBOLS)};
     
     uint16_t _treeIndex;
     uint16_t _sortedNodesHead;
     uint16_t _sortedNodesTail;
 
-    pixel_t *_image{nullptr};
+    symbol_t *_image{nullptr};
 };
 
 #endif
