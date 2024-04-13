@@ -122,10 +122,21 @@ void Compressor::buildHuffmanTree()
 
 void Compressor::populateCodeTable()
 {
-    for (uint16_t i = 0; i < NUMBER_OF_SYMBOLS; i++) // clear the code table, TODO: possibly useless
-    {
-        _codeTable[i] = 0;
-    }
+    #if __AVX512F__
+        __m512i codes = _mm512_set1_epi32(1);
+        #pragma GCC unroll NUMBER_OF_SYMBOLS / 16
+        for (uint16_t i = 0; i < NUMBER_OF_SYMBOLS; i += 16)
+        {
+            _mm512_storeu_si512(_codeTable + i, codes);
+        }
+    #else
+        __m256i codes = _mm256_set1_epi32(1);
+        #pragma GCC unroll NUMBER_OF_SYMBOLS / 8
+        for (uint16_t i = 0; i < NUMBER_OF_SYMBOLS; i += 8)
+        {
+            _mm256_storeu_si256(reinterpret_cast<__m256i *>(_codeTable + i), codes);
+        }
+    #endif
 
     uint32_t lastCode = 0;
     uint32_t delta = 0;
@@ -244,10 +255,11 @@ void Compressor::createHeader()
 {
     if (_longestCode >= 16)
     {
-        StaticHeader32 header;
-        header.width = _width;
-        header.blockSize = _compressedSize;
-        header.headerType = HEADER_OPTIONS.STATIC | HEADER_OPTIONS.DIRECT | HEADER_OPTIONS.ALL_SYMBOLS | HEADER_OPTIONS.CODE_LENGTHS_32;
+        _headerSize = sizeof(CodeLengthsHeader);
+        CodeLengthsHeader &header = reinterpret_cast<CodeLengthsHeader &>(_header);
+        header.width = static_cast<uint32_t>(_width);
+        header.blockSize = static_cast<uint32_t>(_size);
+        header.headerType = HEADERS.STATIC | HEADERS.DIRECT | HEADERS.ALL_SYMBOLS | HEADERS.CODE_LENGTHS_32;
         header.version = 0;
         for (uint16_t i = 0; i < NUMBER_OF_SYMBOLS; i++)
         {
@@ -256,16 +268,33 @@ void Compressor::createHeader()
     }
     else
     {
-        StaticHeader16 header;
-        header.width = _width;
-        header.blockSize = _compressedSize;
-        header.headerType = HEADER_OPTIONS.STATIC | HEADER_OPTIONS.DIRECT | HEADER_OPTIONS.ALL_SYMBOLS | HEADER_OPTIONS.CODE_LENGTHS_16;
+        _headerSize = sizeof(CodeLengthsHeader);
+        CodeLengthsHeader &header = reinterpret_cast<CodeLengthsHeader &>(_header);
+        header.width = static_cast<uint32_t>(_width);
+        header.blockSize = static_cast<uint32_t>(_size);
+        header.headerType = HEADERS.STATIC | HEADERS.DIRECT | HEADERS.ALL_SYMBOLS | HEADERS.CODE_LENGTHS_16;
         header.version = 0;
-        for (uint16_t i = 0; i < NUMBER_OF_SYMBOLS; i++)
+
+        for (uint16_t i = 0, j = 0; i < NUMBER_OF_SYMBOLS; i += 2, j++)
         {
-            // TODO: fill in the header
+            header.codeLengths[j] = (31 - countl_zero(_codeTable[i])) << 4;
+            header.codeLengths[j] |= 31 - countl_zero(_codeTable[i + 1]);
         }
     }
+}
+
+void Compressor::writeOutputFile(std::string outputFileName)
+{
+    ofstream outputFile(outputFileName, ios::binary);
+    if (!outputFile.is_open())
+    {
+        cerr << "Error: Unable to open output file '" << outputFileName << "'." << endl;
+        exit(1);
+    }
+
+    outputFile.write(reinterpret_cast<char *>(&_header), _headerSize);
+    outputFile.write(reinterpret_cast<char *>(_compressedData), _compressedSize * sizeof(uint32_t)); // TODO remove last up to 3 bytes
+    outputFile.close();
 }
 
 void Compressor::printTree(uint16_t nodeIdx, uint16_t indent = 0)
@@ -287,6 +316,7 @@ void Compressor::compress(string inputFileName, string outputFileName)
 {
     readInputFile(inputFileName);
     compressStatic();
+    writeOutputFile(outputFileName);
 }
 
 void Compressor::readInputFile(std::string inputFileName)
@@ -359,6 +389,8 @@ void Compressor::compressStatic()
     }
 
     transformRLE();
+
+    createHeader();
 
     for (uint32_t i = 0; i < _compressedSize; i++)
     {

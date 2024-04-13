@@ -2,7 +2,7 @@ MAKEFILE_DIR = $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 CURRENT_DIR = $(shell pwd)
 PROJECT_DIR = $(MAKEFILE_DIR:$(CURRENT_DIR)/%=%)
 
-AVX512 = $(shell grep avx512cd /proc/cpuinfo >/dev/null && grep avx512vl /proc/cpuinfo >/dev/null && echo "-mavx512cd -mavx512vl" || echo "")
+AVX512 = $(shell grep mavx512f /proc/cpuinfo >/dev/null && echo "-mavx512f" || echo "")
 
 CC = g++
 CFLAGS = -Wall -Wextra -std=c++20 -mavx2 -fopenmp -O3 -Wno-cast-function-type $(AVX512)

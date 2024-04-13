@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "compressor.h"
+#include "decompressor.h"
 
 struct Arguments
 {

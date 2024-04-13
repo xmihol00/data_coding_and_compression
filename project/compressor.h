@@ -17,7 +17,7 @@
 
 using symbol_t = uint8_t;
 
-class Compressor
+class Compressor : public HuffmanRLECompression
 {
 public:
     Compressor(bool model, bool adaptive, uint64_t width);
@@ -26,14 +26,14 @@ public:
 
 private:
     static constexpr uint16_t DATA_POOL_PADDING{64};
-    static constexpr uint16_t NUMBER_OF_SYMBOLS{256};
-
+    
     void readInputFile(std::string inputFileName);
     void computeHistogram();
     void buildHuffmanTree();
     void populateCodeTable();
     void transformRLE();
     void createHeader();
+    void writeOutputFile(std::string outputFileName);
 
     void compressStatic();
     void compressAdaptive();
@@ -72,7 +72,7 @@ private:
         uint16_t code;
     };
 
-    uint8_t _memoryPool[6 * NUMBER_OF_SYMBOLS * sizeof(Node)] __attribute__((aligned(64))) = {0, };
+    uint8_t _memoryPool[6 * NUMBER_OF_SYMBOLS * sizeof(Node)] __attribute__((aligned(64)));
     Node *_tree{reinterpret_cast<Node *>(_memoryPool)};
     Leaf *_histogram{reinterpret_cast<Leaf *>(_memoryPool + 2 * NUMBER_OF_SYMBOLS * sizeof(Node))};
     Node *_sortedNodes{reinterpret_cast<Node *>(_memoryPool + 3 * NUMBER_OF_SYMBOLS * sizeof(Node))};
@@ -88,6 +88,9 @@ private:
 
     uint8_t _longestCode;
     uint32_t _compressedSize;
+
+    FullHeader _header;
+    uint16_t _headerSize;
 };
 
 #endif

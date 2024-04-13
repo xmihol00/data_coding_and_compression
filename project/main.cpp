@@ -6,8 +6,17 @@ using namespace std;
 int main(int argc, char* argv[])
 {
     Arguments args = parseArguments(argc, argv);
-    Compressor compressor(args.model, args.adaptive, args.width);
-    compressor.compress(args.inputFileName, args.outputFileName);
+    if (args.compress)
+    {
+        Compressor compressor(args.model, args.adaptive, args.width);
+        compressor.compress(args.inputFileName, args.outputFileName);
+    }
+    else
+    {
+        Decompressor decompressor;
+        decompressor.decompress(args.inputFileName, args.outputFileName);
+    }
+    
     return 0;
 }
 
