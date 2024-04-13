@@ -19,7 +19,7 @@ using v4_int64 = __m256i;
 class Compressor
 {
 public:
-    Compressor(bool model, bool adaptive, uint32_t width);
+    Compressor(bool model, bool adaptive, uint64_t width);
     ~Compressor();
     void compress(std::string inputFileName, std::string outputFileName);
 
@@ -33,22 +33,21 @@ private:
     void compressAdaptive();
     void compressStaticModel();
     void compressAdaptiveModel();
-    void fixSortedNodes();
     void populateCodeTable();
 
     void printTree(uint16_t nodeIdx, uint16_t indent);
 
     bool _model;
     bool _adaptive;
-    uint32_t _width;
-    uint32_t _height;
+    uint64_t _width;
+    uint64_t _height;
     uint64_t _size;
 
     struct Leaf
     {
         uint32_t count;
         uint16_t : 16;
-        symbol_t pixelValue;
+        symbol_t symbol;
         uint8_t  : 8;
     };
 

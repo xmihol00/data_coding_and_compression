@@ -15,7 +15,7 @@ struct Arguments
     bool adaptive;
     std::string inputFileName;
     std::string outputFileName;
-    uint32_t width;
+    uint64_t width;
 };
 
 Arguments parseArguments(int argc, char* argv[]);

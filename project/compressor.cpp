@@ -2,7 +2,7 @@
 
 using namespace std;
 
-Compressor::Compressor(bool model, bool adaptive, uint32_t width)
+Compressor::Compressor(bool model, bool adaptive, uint64_t width)
     : _model(model), _adaptive(adaptive), _width(width) { }
 
 Compressor::~Compressor()
@@ -18,26 +18,13 @@ void Compressor::computeHistogram()
 {
     for (uint32_t i = 0; i < NUMBER_OF_SYMBOLS; i++)
     {
-        _histogram[i].pixelValue = i;
+        _histogram[i].symbol = i;
     }
 
-    for (uint32_t i = 0; i < _size; i++)
+    for (uint64_t i = 0; i < _size; i++)
     {
         _histogram[_image[i]].count++;
     }
-}
-
-void Compressor::fixSortedNodes()
-{
-    uint16_t idx = _sortedNodesTail - 1;
-    Node tail = _sortedNodes[_sortedNodesTail];
-    while (idx >= _sortedNodesHead && _sortedNodes[idx].count > tail.count)
-    {
-        cerr << "sorting " << idx << " " << _sortedNodesHead << " " << _sortedNodes[idx].count << " " << tail.count << endl;   
-        _sortedNodes[idx + 1] = _sortedNodes[idx];
-        idx--;
-    }
-    _sortedNodes[idx + 1] = tail;
 }
 
 void Compressor::populateCodeTable()
@@ -69,7 +56,6 @@ void Compressor::populateCodeTable()
         {
 
             delta = node.count - lastDepth;
-            cerr << "Delta: " << delta << ", Last depth: " << lastDepth << ", Current depth: " << node.count << endl;
             lastDepth = node.count;
             
             v8_int32 incremented = _mm256_add_epi32(lastCode, VINT8_LSB);
@@ -97,7 +83,7 @@ void Compressor::printTree(uint16_t nodeIdx, uint16_t indent = 0)
     if (_tree[nodeIdx].isLeaf())
     {
         Leaf leaf = reinterpret_cast<Leaf *>(_tree)[nodeIdx];
-        cerr << string(indent, ' ') <<  nodeIdx << ": Leaf: " << leaf.count << " " << (char)(leaf.pixelValue) << endl;
+        cerr << string(indent, ' ') <<  nodeIdx << ": Leaf: " << leaf.count << " " << (char)(leaf.symbol) << endl;
     }
     else
     {
@@ -126,6 +112,17 @@ void Compressor::readInputFile(std::string inputFileName)
     inputFile.seekg(0, ios::end);
     _size = inputFile.tellg();
     inputFile.seekg(0, ios::beg);
+
+    if (_size > UINT32_MAX) // TODO: possibly allow larger files
+    {
+        cerr << "Error: The input file is too large." << endl;
+        exit(1);
+    }
+    else if (_size == 0) // TODO: possibly allow empty files
+    {
+        cerr << "Error: The input file is empty. Nothing to compress here." << endl;
+        exit(1);
+    }
 
     _height = _size / _width;
     if (_height * _width != _size) // verify that file is rectangular
@@ -162,164 +159,137 @@ void Compressor::compressStatic()
     Leaf *leafTree = reinterpret_cast<Leaf *>(_tree);
     Node *nodeTree = _tree;
 
-    leafTree[1] = _histogram[histogramIndex++]; // TODO: solve only one character in histogram
-    leafTree[2] = _histogram[histogramIndex++];
-    nodeTree[3].count = leafTree[1].count + leafTree[2].count;
-    nodeTree[3].left = 1;
-    nodeTree[3].right = 2;
-    _treeIndex = 3;
-
-    _sortedNodesHead = NUMBER_OF_SYMBOLS << 1; // TODO: solve issue with underflow
-    _sortedNodesTail = _sortedNodesHead;
-    _sortedNodes[_sortedNodesHead] = nodeTree[3];
-    _sortedNodes[_sortedNodesHead].left = 3;
-
-    bool connectTree = false;
-
-    while (histogramIndex < NUMBER_OF_SYMBOLS)
+    if (histogramIndex == NUMBER_OF_SYMBOLS - 1) // only a single type of symbol
     {
-        if (histogramIndex + 1 < NUMBER_OF_SYMBOLS && _histogram[histogramIndex + 1].count < _sortedNodes[_sortedNodesHead].count) // node from 2 symbols
-        {
-            leafTree[++_treeIndex] = _histogram[histogramIndex++];
-            leafTree[++_treeIndex] = _histogram[histogramIndex++];
-            
-            ++_treeIndex;
-            nodeTree[_treeIndex].count = leafTree[_treeIndex - 2].count + leafTree[_treeIndex - 1].count;
-            nodeTree[_treeIndex].left = _treeIndex - 2;
-            nodeTree[_treeIndex].right = _treeIndex - 1;
-
-            connectTree = _sortedNodes[_sortedNodesHead].count <= nodeTree[_treeIndex].count;
-            cerr << "double connect " << _treeIndex << " " << connectTree << endl;
-        }
-        else // node from 1 symbol and already existing sub-tree
-        {
-            leafTree[++_treeIndex] = _histogram[histogramIndex++];
-            connectTree = true;
-            cerr << "single connect " << _treeIndex << " " << connectTree << endl;
-        }
-
-        if (connectTree) // newly created node must be connected to the existing tree
-        {
-            do
-            {
-                nodeTree[_treeIndex + 1].count = _sortedNodes[_sortedNodesHead].count + nodeTree[_treeIndex].count;
-                nodeTree[_treeIndex + 1].left = _sortedNodes[_sortedNodesHead++].left;
-                nodeTree[_treeIndex + 1].right = _treeIndex;
-                _treeIndex++;
-                cerr << "connect " << _treeIndex << " " << _sortedNodesHead << " " << _sortedNodesTail << endl;
-            }
-            while (_sortedNodesHead <= _sortedNodesTail && _sortedNodes[_sortedNodesHead].count <= nodeTree[_treeIndex].count);
-            
-            if (_sortedNodesHead >= _sortedNodesTail)
-            {
-                cerr << _sortedNodesHead << " = " << _sortedNodesTail << endl;
-            }
-            _sortedNodes[++_sortedNodesTail] = nodeTree[_treeIndex];
-            _sortedNodes[_sortedNodesTail].left = _treeIndex;
-            fixSortedNodes();
-            cerr << "connected " << _treeIndex << " " << _sortedNodesHead << " " << _sortedNodesTail << endl;
-        }
-        else // newly created node has the smallest count
-        {
-            //cerr << "no connect " << _treeIndex << " " << _sortedNodesHead << " " << _sortedNodesTail << endl;
-            _sortedNodes[--_sortedNodesHead] = nodeTree[_treeIndex];
-            _sortedNodes[_sortedNodesHead].left = _treeIndex;
-            //cerr << "no connected " << _treeIndex << " " << _sortedNodesHead << " " << _sortedNodesTail << endl;
-        }
+        leafTree[1] = _histogram[histogramIndex];
+        _treeIndex = 1;
+        _codeTable[leafTree[1].symbol] = _mm256_set1_epi32(0b10); // TODO
     }
-
-    if (_sortedNodesHead < _sortedNodesTail)
+    else
     {
-        cerr << _sortedNodes[_sortedNodesHead].count << " - fst\n";
-        _sortedNodesHead++;
-        for (uint16_t i = _sortedNodesHead; i <= _sortedNodesTail; i++)
+        leafTree[1] = _histogram[histogramIndex++];
+        leafTree[2] = _histogram[histogramIndex++];
+        nodeTree[3].count = leafTree[1].count + leafTree[2].count;
+        nodeTree[3].left = 1;
+        nodeTree[3].right = 2;
+        _treeIndex = 3;
+
+        _sortedNodesHead = NUMBER_OF_SYMBOLS << 1;
+        _sortedNodesTail = _sortedNodesHead;
+        _sortedNodes[_sortedNodesHead] = nodeTree[3];
+        _sortedNodes[_sortedNodesHead].left = 3;
+
+        bool connectTree = false;
+
+        while (histogramIndex < NUMBER_OF_SYMBOLS)
         {
-            cerr << _sortedNodes[i].count << " " << _treeIndex << " " << _sortedNodes[i].left << "\n";
+            if (histogramIndex + 1 < NUMBER_OF_SYMBOLS && _histogram[histogramIndex + 1].count < _sortedNodes[_sortedNodesHead].count) // node from 2 symbols
+            {
+                leafTree[++_treeIndex] = _histogram[histogramIndex++];
+                leafTree[++_treeIndex] = _histogram[histogramIndex++];
+                
+                ++_treeIndex;
+                nodeTree[_treeIndex].count = leafTree[_treeIndex - 2].count + leafTree[_treeIndex - 1].count;
+                nodeTree[_treeIndex].left = _treeIndex - 2;
+                nodeTree[_treeIndex].right = _treeIndex - 1;
+
+                connectTree = _sortedNodes[_sortedNodesHead].count <= nodeTree[_treeIndex].count;
+            }
+            else // node from 1 symbol and already existing sub-tree
+            {
+                leafTree[++_treeIndex] = _histogram[histogramIndex++];
+                connectTree = true;
+            }
+
+            if (connectTree) // newly created node must be connected to the existing tree
+            {
+                do
+                {
+                    nodeTree[_treeIndex + 1].count = _sortedNodes[_sortedNodesHead].count + nodeTree[_treeIndex].count;
+                    nodeTree[_treeIndex + 1].left = _sortedNodes[_sortedNodesHead++].left;
+                    nodeTree[_treeIndex + 1].right = _treeIndex;
+                    _treeIndex++;
+                }
+                while (_sortedNodesHead <= _sortedNodesTail && _sortedNodes[_sortedNodesHead].count <= nodeTree[_treeIndex].count);
+                
+                _sortedNodes[++_sortedNodesTail] = nodeTree[_treeIndex];
+                _sortedNodes[_sortedNodesTail].left = _treeIndex;
+
+                // buble sort the new node into the sorted nodes
+                uint16_t idx = _sortedNodesTail - 1;
+                Node tail = _sortedNodes[_sortedNodesTail];
+                while (idx >= _sortedNodesHead && _sortedNodes[idx].count > tail.count)
+                {
+                    _sortedNodes[idx + 1] = _sortedNodes[idx];
+                    idx--;
+                }
+                _sortedNodes[idx + 1] = tail;
+            }
+            else // newly created node has the smallest count
+            {
+                _sortedNodes[--_sortedNodesHead] = nodeTree[_treeIndex];
+                _sortedNodes[_sortedNodesHead].left = _treeIndex;
+            }
+        }
+
+        for (uint16_t i = ++_sortedNodesHead; i <= _sortedNodesTail; i++)
+        {
             nodeTree[_treeIndex + 1].count = _sortedNodes[i].count + nodeTree[_treeIndex].count;
             nodeTree[_treeIndex + 1].left = _sortedNodes[i].left;
             nodeTree[_treeIndex + 1].right = _treeIndex;
             _treeIndex++;
         }
-        cerr << _sortedNodesHead << " < " << _sortedNodesTail << " " << _sortedNodes[_sortedNodesHead].left << " " << _sortedNodes[_sortedNodesTail].left << endl;
+        
+        populateCodeTable();
     }
-
-    /*if (histogramIndex < NUMBER_OF_SYMBOLS)
-    {
-        leafTree[++_treeIndex] = _histogram[histogramIndex];
-        nodeTree[_treeIndex + 1].count = leafTree[_treeIndex].count + _sortedNodes[_sortedNodesHead].count;
-        nodeTree[_treeIndex + 1].left = _treeIndex;
-        nodeTree[_treeIndex + 1].right = _sortedNodes[_sortedNodesHead].left;
-        _treeIndex++;
-    }*/
-
+    
     printTree(_treeIndex);
 
-    for (uint16_t i = 1; i <= _treeIndex; i++)
+    for (size_t i = 0; i < NUMBER_OF_SYMBOLS; i++)
     {
-        if (_tree[i].isLeaf())
-        {
-            Leaf leaf = reinterpret_cast<Leaf *>(_tree)[i];
-            cerr << i << ": Leaf: " << leaf.count << " " << (char)leaf.pixelValue << endl;
-        }
-        else
-        {
-            cerr << i << ": Node: " << _tree[i].count << " " << _tree[i].left << " " << _tree[i].right << endl;
-        }
-    }
+        #if __AVX512CD__ && __AVX512VL__
+            uint32_t code[8];
+            _mm256_storeu_si256((__m256i *)code, _codeTable[i]);
+            v4_int64 leadingZeros = _mm256_lzcnt_epi32(_codeTable[i]);
+            uint32_t leadingZerosAlias[8];
+            _mm256_storeu_si256((__m256i *)leadingZerosAlias, leadingZeros);
 
-    populateCodeTable();
-
-    symbol_t seen[NUMBER_OF_SYMBOLS] = {0};
-    for (size_t i = 0; i < _size; i++)
-    {
-        if (seen[_image[i]] == 0)
-        {
-            seen[_image[i]] = 1;
-            #if __AVX512CD__ && __AVX512VL__
-                uint32_t code[8];
-                _mm256_storeu_si256((__m256i *)code, _codeTable[_image[i]]);
-                v4_int64 leadingZeros = _mm256_lzcnt_epi32(_codeTable[_image[i]]);
-                uint32_t leadingZerosAlias[8];
-                _mm256_storeu_si256((__m256i *)leadingZerosAlias, leadingZeros);
-
-                cerr << (char)_image[i] << ": ";
-                int j = 0;
-                for (; j < 8; j++)
+            cerr << (char)i << ": ";
+            int j = 0;
+            for (; j < 8; j++)
+            {
+                if (leadingZerosAlias[j] < 32)
                 {
-                    if (leadingZerosAlias[j] < 32)
+                    bitset<32> codeBitset(code[j]);
+                    for (int k = 31 - leadingZerosAlias[j]; k >= 0; k--)
                     {
-                        bitset<32> codeBitset(code[j]);
-                        for (int k = 31 - leadingZerosAlias[j]; k >= 0; k--)
-                        {
-                            cerr << codeBitset[k];
-                        }
-                        j++;
-                        break;
+                        cerr << codeBitset[k];
                     }
+                    j++;
+                    break;
                 }
-                for (; j < 8; j++)
-                {
-                    bitset<32> codeBitset(code[j]);
-                    cerr << codeBitset;
-                }
-                if (leadingZerosAlias[7] == 32)
-                {
-                    cerr << "0";
-                }
-                cerr << endl;
-            #else
-                uint32_t code[8];
-                bitset<64> codeBitset(code[0]);
-                _mm256_storeu_si256((__m256i *)code, _codeTable[_image[i]]);
-                cerr << (void *)_image[i] << ": ";
-                for (int j = 0; j < 8; j++)
-                {
-                    bitset<32> codeBitset(code[j]);
-                    cerr << codeBitset;
-                }
-                cerr << endl;    
-            #endif
-        }
+            }
+            for (; j < 8; j++)
+            {
+                bitset<32> codeBitset(code[j]);
+                cerr << codeBitset;
+            }
+            if (leadingZerosAlias[7] == 32)
+            {
+                cerr << "0";
+            }
+            cerr << endl;
+        #else
+            uint32_t code[8];
+            bitset<64> codeBitset(code[0]);
+            _mm256_storeu_si256((__m256i *)code, _codeTable[i]);
+            cerr << (void *)i << ": ";
+            for (int j = 0; j < 8; j++)
+            {
+                bitset<32> codeBitset(code[j]);
+                cerr << codeBitset;
+            }
+            cerr << endl;    
+        #endif
     }
 }
-

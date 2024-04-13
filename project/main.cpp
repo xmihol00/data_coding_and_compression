@@ -45,12 +45,7 @@ Arguments parseArguments(int argc, char* argv[])
         {
             try
             {
-                unsigned long width = stoul(arguments[++i]);
-                if (width > UINT32_MAX)
-                {
-                    throw out_of_range("Error: Width is out of range.");
-                }
-                args.width = static_cast<uint32_t>(width);
+                args.width = stoul(arguments[++i]);
             }
             catch (const invalid_argument& e)
             {
