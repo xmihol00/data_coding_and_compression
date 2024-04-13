@@ -167,3 +167,4 @@ huff_codec_debug
 tmp
 tmp.*
 *.tmp
+data/
