@@ -1,21 +1,7 @@
 #ifndef _COMPRESSOR_H_
 #define _COMPRESSOR_H_
 
-#include <string>
-#include <cstdint>
-#include <iostream>
-#include <fstream>
-#include <algorithm>
-#include <cstdlib>
-#include <cstring>
-#include <immintrin.h>
-#include <queue>
-#include <bitset>
-#include <bit>
-
 #include "common.h"
-
-using symbol_t = uint8_t;
 
 class Compressor : public HuffmanRLECompression
 {
@@ -52,8 +38,8 @@ private:
     {
         uint32_t count;
         uint16_t : 16;
-        symbol_t symbol;
-        uint8_t  : 8;
+        uint8_t symbol;
+        uint8_t : 8;
     };
 
     struct Node

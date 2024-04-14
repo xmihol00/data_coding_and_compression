@@ -15,8 +15,11 @@ Compressor::~Compressor()
 
 void Compressor::computeHistogram()
 {
+    DEBUG_PRINT("Computing histogram");
+
     for (uint32_t i = 0; i < NUMBER_OF_SYMBOLS; i++)
     {
+        reinterpret_cast<uint64_t *>(_histogram)[i] = 0;
         _histogram[i].symbol = i;
     }
 
@@ -24,10 +27,14 @@ void Compressor::computeHistogram()
     {
         _histogram[_fileData[i]].count++;
     }
+
+    DEBUG_PRINT("Histogram computed");
 }
 
 void Compressor::buildHuffmanTree()
 {
+    DEBUG_PRINT("Building Huffman tree");
+
     // create the Huffman tree starting from first character that occurred at least once
     uint16_t histogramIndex = 0;
     while (_histogram[histogramIndex].count == 0) // filter out characters that did not occur
@@ -118,10 +125,14 @@ void Compressor::buildHuffmanTree()
             _treeIndex++;
         }
     }
+
+    DEBUG_PRINT("Huffman tree built");
 }
 
 void Compressor::populateCodeTable()
 {
+    DEBUG_PRINT("Populating code table");
+
     #if __AVX512F__
         __m512i codes = _mm512_set1_epi32(1);
         #pragma GCC unroll NUMBER_OF_SYMBOLS / 16
@@ -143,16 +154,6 @@ void Compressor::populateCodeTable()
     queue<Node> nodeQueue;       // TODO optimize with array
     _tree[_treeIndex].count = 0; // use the count as depth counter
     nodeQueue.push(_tree[_treeIndex]);
-    
-    while (nodeQueue.front().isNode())
-    {
-        Node node = nodeQueue.front();
-        _tree[node.left].count = node.count + 1;
-        _tree[node.right].count = node.count + 1;
-        nodeQueue.push(_tree[node.left]);
-        nodeQueue.push(_tree[node.right]);
-        nodeQueue.pop();
-    }
 
     uint32_t lastDepth = 0;
     while (!nodeQueue.empty())
@@ -160,7 +161,6 @@ void Compressor::populateCodeTable()
         Node node = nodeQueue.front();
         if (node.isLeaf())
         {
-
             delta = node.count - lastDepth;
             lastDepth = node.count;
             lastCode = (lastCode + 1) << delta;
@@ -177,10 +177,14 @@ void Compressor::populateCodeTable()
     }
 
     _longestCode = 31 - countl_zero(lastCode);
+
+    DEBUG_PRINT("Code table populated");
 }
 
 void Compressor::transformRLE()
 {
+    DEBUG_PRINT("Transforming RLE");
+
     _compressedData = reinterpret_cast<uint32_t *>(_dataPool);
     _compressedData[0] = 0;
     uint32_t currentCompressedIndex = 0;
@@ -190,69 +194,132 @@ void Compressor::transformRLE()
     symbol_t current = _fileData[0];
     uint8_t chunkIndex = 0;
 
-    while (imageIndex <= _size)
+    if (_longestCode >= 16)
     {
-        if (_fileData[imageIndex] == current)
+        while (imageIndex <= _size)
         {
-            sameSymbolCount++;
+            if (_fileData[imageIndex] == current)
+            {
+                sameSymbolCount++;
+            }
+            else
+            {
+                uint32_t code = _codeTable[current];
+                uint32_t leadingZeros = countl_zero(code);
+                uint32_t codeLength = 31 - leadingZeros;
+                uint32_t mask = ~(1 << codeLength);
+                uint32_t maskedCode = code & mask;
+                bitset<32> maskedCodeBits(maskedCode);
+                cerr << (char)current << ": " << maskedCodeBits << endl;
+
+                for (uint32_t i = 0; i < sameSymbolCount && i < 3; i++)
+                {
+                    chunkIndex += codeLength;
+                    uint32_t upShiftedCode = maskedCode << (32 - chunkIndex);
+                    uint32_t downShiftedCode = maskedCode >> chunkIndex;
+                    _compressedData[currentCompressedIndex] |= upShiftedCode;
+                    _compressedData[nextCompressedIndex] = 0;
+                    _compressedData[nextCompressedIndex] |= downShiftedCode;
+                    bool moveChunk = chunkIndex >= 32;
+                    chunkIndex &= 31;
+                    currentCompressedIndex += moveChunk;
+                    nextCompressedIndex += moveChunk;
+                }
+
+                bool repeating = sameSymbolCount >= 3;
+                sameSymbolCount -= 3;
+                while (repeating)
+                {
+                    uint32_t count = sameSymbolCount & 0x7F;
+                    sameSymbolCount >>= 7;
+                    repeating = sameSymbolCount > 0;
+                    count |= repeating << 7;
+                    chunkIndex += 8;
+                    uint32_t upShiftedCount = count << chunkIndex;
+                    uint32_t downShiftedCount = count >> (32 - chunkIndex);
+                    _compressedData[currentCompressedIndex] |= upShiftedCount;
+                    _compressedData[nextCompressedIndex] = 0;
+                    _compressedData[nextCompressedIndex] |= downShiftedCount;
+                    bool moveChunk = chunkIndex >= 32;
+                    chunkIndex &= 31;
+                    currentCompressedIndex += moveChunk;
+                    nextCompressedIndex += moveChunk;
+                }
+
+                sameSymbolCount = 1;
+                current = _fileData[imageIndex];
+            }
+            imageIndex++;
         }
-        else
+    }
+    else
+    {
+        uint16_t *compressedData = reinterpret_cast<uint16_t *>(_compressedData);
+        while (imageIndex <= _size)
         {
-            cerr << "s: " << sameSymbolCount << " c: " << (char)current << endl;
-            uint32_t code = _codeTable[current];
-            bitset<32> codeBits(code);
-            cerr << " c: " << codeBits << endl;
-            uint32_t leadingZeros = countl_zero(code);
-            uint32_t codeLength = 31 - leadingZeros;
-            uint32_t mask = ~(1 << codeLength);
-            uint32_t maskedCode = code & mask;
-            bitset<32> maskedCodeBits(maskedCode);
-            cerr << "mc: " << maskedCodeBits << endl;
-
-            for (uint32_t i = 0; i < sameSymbolCount && i < 3; i++)
+            if (_fileData[imageIndex] == current)
             {
-                uint32_t upShiftedCode = maskedCode << chunkIndex;
-                uint32_t downShiftedCode = maskedCode >> (32 - chunkIndex);
-                _compressedData[currentCompressedIndex] |= upShiftedCode;
-                _compressedData[nextCompressedIndex] = 0;
-                _compressedData[nextCompressedIndex] |= downShiftedCode;
-                chunkIndex += codeLength;
-                bool moveChunk = chunkIndex >= 32;
-                chunkIndex &= 31;
-                currentCompressedIndex += moveChunk;
-                nextCompressedIndex += moveChunk;
+                sameSymbolCount++;
             }
-
-            bool repeating = sameSymbolCount >= 3;
-            sameSymbolCount -= 3;
-            while (repeating)
+            else
             {
-                uint32_t count = sameSymbolCount & 0x7F;
-                sameSymbolCount >>= 7;
-                repeating = sameSymbolCount > 0;
-                count |= repeating << 7;
-                uint32_t upShiftedCount = count << chunkIndex;
-                uint32_t downShiftedCount = count >> (32 - chunkIndex);
-                _compressedData[currentCompressedIndex] |= upShiftedCount;
-                _compressedData[nextCompressedIndex] = 0;
-                _compressedData[nextCompressedIndex] |= downShiftedCount;
-                chunkIndex += 8;
-                bool moveChunk = chunkIndex >= 32;
-                chunkIndex &= 31;
-                currentCompressedIndex += moveChunk;
-                nextCompressedIndex += moveChunk;
-            }
+                uint16_t code = _codeTable[current];
+                uint16_t leadingZeros = countl_zero(code);
+                uint16_t codeLength = 15 - leadingZeros;
+                uint16_t maskedCode = code << (16 - codeLength);
+                bitset<16> maskedCodeBits(maskedCode);
+                cerr << (char)current << ": " << maskedCodeBits << " " << codeLength << endl;
 
-            sameSymbolCount = 1;
-            current = _fileData[imageIndex];
+                for (uint32_t i = 0; i < sameSymbolCount && i < 3; i++)
+                {
+                    uint16_t downShiftedCode = maskedCode >> chunkIndex;
+                    uint16_t upShiftedCode = maskedCode << (16 - chunkIndex);
+                    compressedData[currentCompressedIndex] |= downShiftedCode;
+                    compressedData[nextCompressedIndex] = 0;
+                    compressedData[nextCompressedIndex] |= upShiftedCode;
+                    chunkIndex += codeLength;
+                    bool moveChunk = chunkIndex >= 16;
+                    chunkIndex &= 15;
+                    currentCompressedIndex += moveChunk;
+                    nextCompressedIndex += moveChunk;
+                }
+
+                bool repeating = sameSymbolCount >= 3;
+                sameSymbolCount -= 3;
+                while (repeating)
+                {
+                    uint16_t count = sameSymbolCount & 0x7F;
+                    sameSymbolCount >>= 7;
+                    repeating = sameSymbolCount > 0;
+                    count |= repeating << 7;
+                    count <<= 8;
+                    uint16_t downShiftedCount = count >> chunkIndex;
+                    uint16_t upShiftedCount = count << (16 - chunkIndex);
+                    compressedData[currentCompressedIndex] |= downShiftedCount;
+                    compressedData[nextCompressedIndex] = 0;
+                    compressedData[nextCompressedIndex] |= upShiftedCount;
+                    chunkIndex += 8;
+                    bool moveChunk = chunkIndex >= 16;
+                    chunkIndex &= 15;
+                    currentCompressedIndex += moveChunk;
+                    nextCompressedIndex += moveChunk;
+                }
+
+                sameSymbolCount = 1;
+                current = _fileData[imageIndex];
+            }
+            imageIndex++;
         }
-        imageIndex++;
     }
     _compressedSize = nextCompressedIndex;
+
+    DEBUG_PRINT("RLE transformed");
 }
 
 void Compressor::createHeader()
 {
+    DEBUG_PRINT("Creating header");
+
     if (_longestCode >= 16)
     {
         _headerSize = sizeof(CodeLengthsHeader);
@@ -268,12 +335,13 @@ void Compressor::createHeader()
     }
     else
     {
-        _headerSize = sizeof(CodeLengthsHeader);
         CodeLengthsHeader &header = reinterpret_cast<CodeLengthsHeader &>(_header);
         header.width = static_cast<uint32_t>(_width);
         header.blockSize = static_cast<uint32_t>(_size);
         header.headerType = HEADERS.STATIC | HEADERS.DIRECT | HEADERS.ALL_SYMBOLS | HEADERS.CODE_LENGTHS_16;
         header.version = 0;
+
+        _headerSize = sizeof(BaseHeader) + ADDITIONAL_HEADER_SIZES[header.headerType];
 
         for (uint16_t i = 0, j = 0; i < NUMBER_OF_SYMBOLS; i += 2, j++)
         {
@@ -281,10 +349,14 @@ void Compressor::createHeader()
             header.codeLengths[j] |= 31 - countl_zero(_codeTable[i + 1]);
         }
     }
+
+    DEBUG_PRINT("Header created");
 }
 
 void Compressor::writeOutputFile(std::string outputFileName)
 {
+    DEBUG_PRINT("Writing output file");
+
     ofstream outputFile(outputFileName, ios::binary);
     if (!outputFile.is_open())
     {
@@ -295,6 +367,8 @@ void Compressor::writeOutputFile(std::string outputFileName)
     outputFile.write(reinterpret_cast<char *>(&_header), _headerSize);
     outputFile.write(reinterpret_cast<char *>(_compressedData), _compressedSize * sizeof(uint32_t)); // TODO remove last up to 3 bytes
     outputFile.close();
+
+    DEBUG_PRINT("Output file written");
 }
 
 void Compressor::printTree(uint16_t nodeIdx, uint16_t indent = 0)
@@ -369,8 +443,8 @@ void Compressor::compressStatic()
     computeHistogram();
 
     // sort the histogram by frequency of symbols in ascending order
-    sort(_histogram, _histogram + NUMBER_OF_SYMBOLS, [](const Leaf &a, const Leaf &b) { return a.symbol < b.symbol; });
-    sort(_histogram, _histogram + NUMBER_OF_SYMBOLS, [](const Leaf &a, const Leaf &b) { return a.count < b.count; });
+    sort(_histogram, _histogram + NUMBER_OF_SYMBOLS, 
+         [](const Leaf &a, const Leaf &b) { return a.count < b.count || (a.count == b.count && a.symbol < b.symbol); });
     
     buildHuffmanTree();
 
@@ -378,23 +452,14 @@ void Compressor::compressStatic()
     
     printTree(_treeIndex);
 
-    for (size_t i = 0; i < NUMBER_OF_SYMBOLS; i++)
-    {
-        if (_codeTable[i])
-        {
-            cerr << (void *)i << ": ";
-            bitset<32> codeBitset(_codeTable[i]);
-            cerr << codeBitset << endl;
-        }
-    }
-
     transformRLE();
 
     createHeader();
 
+    uint16_t *compressedData = reinterpret_cast<uint16_t *>(_compressedData);
     for (uint32_t i = 0; i < _compressedSize; i++)
     {
-        bitset<32> codeBitset(_compressedData[i]);
+        bitset<16> codeBitset(compressedData[i]);
         cerr << codeBitset << " ";
     }
     cerr << endl;
