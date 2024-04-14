@@ -123,7 +123,7 @@ void Decompressor::parseHeader()
 void Decompressor::decompressStatic()
 {
     parseHeader();
-#if __AVX512BW__ && __AVX512VL__
+#if __AVX512BW__ && __AVX512VL__ || 1
     uint16_t *compressedData = reinterpret_cast<uint16_t *>(_compressedData);
     bool overflow;
     uint32_t decompressedIdx = 0;
@@ -146,7 +146,7 @@ void Decompressor::decompressStatic()
     uint8_t codeLength = 16 + prefixLength - suffixShift;
     symbol_t symbol = _symbolsTable[_prefixIndices[prefixIdx] + suffix];
     _decompressedData[decompressedIdx++] = symbol;
-    cerr << "Symbol: " << (char) symbol << endl;
+    cerr << "Symbol: " << (char)symbol << " " << (int)symbol << endl;
     bitLength += codeLength;
     symbol_t lastSymbol = symbol;
     uint8_t sameSymbolCount = 1;
@@ -170,7 +170,7 @@ void Decompressor::decompressStatic()
         suffix = static_cast<uint16_t>(current << prefixLength) >> suffixShift;
         codeLength = 16 + prefixLength - suffixShift;
         symbol = _symbolsTable[_prefixIndices[prefixIdx] + suffix];
-        cerr << "Symbol: " << (char) symbol << endl;
+        cerr << "Symbol: " << (char)symbol << " " << (int)symbol << endl;
         _decompressedData[decompressedIdx++] = symbol;
         sameSymbolCount += lastSymbol == symbol;
         sameSymbolCount >>= lastSymbol != symbol;
@@ -188,14 +188,16 @@ void Decompressor::decompressStatic()
             sameSymbolCount = 0;
             constexpr uint8_t repetition_bits = 8; // TODO move to header
             bool repeat;
+            uint8_t multiplier = 0;
             do
             {
                 current = (compressedData[currentIdx] << bitLength) | (compressedData[nextIdx] >> inverseBitLength);
                 repeat = current & 0x8000;
-                uint8_t repetitions = (current & 0x7FFF) >> repetition_bits;
-                cerr << "Repetitions: " << bitset<8>(repetitions) << " " << (int)repetitions << endl;
+                uint32_t repetitions = ((current & 0x7FFF) >> repetition_bits);
+                repetitions <<= multiplier;
+                cerr << "Repetitions: " << repetitions << endl;
 
-                for (uint8_t i = 0; i < repetitions; i++)
+                for (uint32_t i = 0; i < repetitions; i++)
                 {
                     _decompressedData[decompressedIdx++] = symbol;
                 }
@@ -206,6 +208,7 @@ void Decompressor::decompressStatic()
                 nextIdx += overflow;
                 currentIdx += overflow;
                 inverseBitLength = 16 - bitLength;
+                multiplier += (repetition_bits - 1);
             }
             while (repeat);
         }
