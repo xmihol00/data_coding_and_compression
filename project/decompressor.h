@@ -39,13 +39,13 @@ private:
 
     uint32_t _codeTableLarge[NUMBER_OF_SYMBOLS] __attribute__((aligned(64)));
     uint16_t *_codeTableSmall{reinterpret_cast<uint16_t *>(_codeTableLarge)};
-    uint8_t _symbolsTable[NUMBER_OF_SYMBOLS] __attribute__((aligned(64)));
+    uint8_t _symbolsTable[NUMBER_OF_SYMBOLS * 2] __attribute__((aligned(64)));
 
     FullHeader _header;
 
-    uint8_t _prefixIndices[MAX_LONG_CODE_LENGTH];
-    uint8_t _prefixLengths[1 << (sizeof(uint8_t) * 8)];
-    uint8_t _suffixShifts[1 << (sizeof(uint8_t) * 8)];
+    uint16_t _prefixIndices[MAX_LONG_CODE_LENGTH];
+    uint16_t _prefixLengths[1 << (sizeof(uint8_t) * 8)];
+    uint16_t _suffixShifts[1 << (sizeof(uint8_t) * 8)];
 
     uint32v16_t _codePrefixesLargeVector[MAX_LONG_CODE_LENGTH / 16] __attribute__((aligned(64)));
     uint16v16_t *_codePrefixesSmallVector{reinterpret_cast<uint16v16_t *>(_codePrefixesLargeVector)};

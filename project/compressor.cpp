@@ -151,6 +151,7 @@ void Compressor::populateCodeTable()
 
     uint32_t lastCode = 0;
     uint32_t delta = 0;
+    uint32_t increment = 1;
     queue<Node> nodeQueue;       // TODO optimize with array
     _tree[_treeIndex].count = 0; // use the count as depth counter
     nodeQueue.push(_tree[_treeIndex]);
@@ -162,8 +163,14 @@ void Compressor::populateCodeTable()
         if (node.isLeaf())
         {
             delta = node.count - lastDepth;
+            increment |= !delta;
             lastDepth = node.count;
-            lastCode = (lastCode + 1) << delta;
+            lastCode = (lastCode + increment) << delta;
+            if (delta)
+            {
+                cerr << "Delta: " << delta << " Last code: " << bitset<16>(lastCode) << "length: " << lastDepth << endl;
+            }
+            increment = !delta;
             _codeTable[node.right] = lastCode;
         }
         else
@@ -178,6 +185,14 @@ void Compressor::populateCodeTable()
 
     _longestCode = 31 - countl_zero(lastCode);
 
+    for (uint16_t i = 0; i < NUMBER_OF_SYMBOLS; i++)
+    {
+        uint16_t code = _codeTable[i];
+        uint16_t leadingZeros = countl_zero(code);
+        uint16_t codeLength = 15 - leadingZeros;
+        bitset<32> codeBits(code);
+        cerr << (int)i << ": " << codeBits << " " << codeLength << endl;
+    }
     DEBUG_PRINT("Code table populated");
 }
 
@@ -209,8 +224,8 @@ void Compressor::transformRLE()
                 uint32_t codeLength = 31 - leadingZeros;
                 uint32_t mask = ~(1 << codeLength);
                 uint32_t maskedCode = code & mask;
-                bitset<32> maskedCodeBits(maskedCode);
-                cerr << (char)current << ": " << maskedCodeBits << endl;
+                //bitset<32> maskedCodeBits(maskedCode);
+                //cerr << (char)current << ": " << maskedCodeBits << endl;
 
                 for (uint32_t i = 0; i < sameSymbolCount && i < 3; i++)
                 {
@@ -267,8 +282,8 @@ void Compressor::transformRLE()
                 uint16_t leadingZeros = countl_zero(code);
                 uint16_t codeLength = 15 - leadingZeros;
                 uint16_t maskedCode = code << (16 - codeLength);
-                bitset<16> maskedCodeBits(maskedCode);
-                cerr << (char)current << ": " << maskedCodeBits << " " << codeLength << endl;
+                //bitset<16> maskedCodeBits(maskedCode);
+                //cerr << (char)current << ": " << maskedCodeBits << " " << codeLength << endl;
 
                 for (uint32_t i = 0; i < sameSymbolCount && i < 3; i++)
                 {
@@ -457,7 +472,7 @@ void Compressor::compressStatic()
     createHeader();
 
     uint16_t *compressedData = reinterpret_cast<uint16_t *>(_compressedData);
-    for (uint32_t i = 0; i < _compressedSize; i++)
+    for (uint32_t i = 0; i < _compressedSize && i < 100; i++)
     {
         bitset<16> codeBitset(compressedData[i]);
         cerr << codeBitset << " ";

@@ -47,18 +47,13 @@ void Decompressor::parseHeader()
         case HEADERS.STATIC | HEADERS.DIRECT | HEADERS.ALL_SYMBOLS | HEADERS.CODE_LENGTHS_16:
             {
                 CodeLengthsHeader &header = reinterpret_cast<CodeLengthsHeader &>(_header);
-                uint16_t uniqueCodes = 0;
                 for (uint16_t i = 0, j = 0; i < NUMBER_OF_SYMBOLS / 2; i++, j += 2)
                 {
                     _codeLengthsSymbols[j].codeLength = header.codeLengths[i] >> 4;
                     _codeLengthsSymbols[j].symbol = j;
-                    uniqueCodes |= 1 << _codeLengthsSymbols[j].codeLength;
                     _codeLengthsSymbols[j + 1].codeLength = header.codeLengths[i] & 0x0F;
                     _codeLengthsSymbols[j + 1].symbol = j + 1;
-                    uniqueCodes |= 1 << _codeLengthsSymbols[j + 1].codeLength;
                 }
-                uniqueCodes = popcount(uniqueCodes) - 1;
-                cerr << "Unique codes: " << (int)uniqueCodes << endl;
 
                 sort(_codeLengthsSymbols, _codeLengthsSymbols + NUMBER_OF_SYMBOLS, 
                      [](const CodeLengthSymbol &a, const CodeLengthSymbol &b) 
@@ -73,20 +68,20 @@ void Decompressor::parseHeader()
                 uint16_t lastCode = -1;
                 uint16_t samePrefixCount = 0;
                 uint8_t lastCodeLength = 0;
-                uint8_t codesIndex = 16 - uniqueCodes;
-                uint8_t prefixIdx = uniqueCodes;
+                uint8_t maskIdx = 0;
+                uint8_t prefixIdx = 16;
                 constexpr uint8_t I = 1;
 
-                for (uint8_t i = 0; codesIdx < NUMBER_OF_SYMBOLS; codesIdx++, i++)
+                for (uint16_t i = 0; codesIdx < NUMBER_OF_SYMBOLS; codesIdx++, i++)
                 {
                     uint8_t delta = _codeLengthsSymbols[codesIdx].codeLength - lastCodeLength;
                     lastCode = (lastCode + 1) << delta;
 
                     // overwrite the currently stored values in all lookup tables (some delayed by one iteration)
-                    _codePrefixesSmall[codesIndex] = lastCode << (16 - _codeLengthsSymbols[codesIdx].codeLength);
-                    _codeMasksSmall[codesIndex - I] = (~0U) << (32 - lastCodeLength - countl_zero(samePrefixCount));
+                    _codePrefixesSmall[maskIdx] = lastCode << (16 - _codeLengthsSymbols[codesIdx].codeLength);
+                    _codeMasksSmall[maskIdx - I] = (~0U) << (32 - lastCodeLength - countl_zero(samePrefixCount));
                     _prefixIndices[prefixIdx - I] = i;
-                    _prefixLengths[prefixIdx] = popcount(_codeMasksSmall[codesIndex - I]);
+                    _prefixLengths[prefixIdx] = popcount(_codeMasksSmall[maskIdx - I]);
                     _suffixShifts[prefixIdx] = 16 - lastCodeLength + _prefixLengths[prefixIdx];
 
                     // store the symbol at its sorted position by the code length
@@ -96,14 +91,25 @@ void Decompressor::parseHeader()
                     bool positiveDelta = delta > 0;
                     lastCodeLength = _codeLengthsSymbols[codesIdx].codeLength;
                     samePrefixCount++;
-                    codesIndex += positiveDelta;
+                    maskIdx += positiveDelta;
                     prefixIdx -= positiveDelta;
                     samePrefixCount *= !positiveDelta; // reset if code length has changed
                 }
                 // fill in the delayed lookup table entries
-                _codeMasksSmall[codesIndex - I] = (~0U) << (32 - lastCodeLength - countl_zero(samePrefixCount));
-                _prefixLengths[prefixIdx] = popcount(_codeMasksSmall[codesIndex - I]);
-                _suffixShifts[prefixIdx] = 16 - lastCodeLength + _prefixLengths[prefixIdx];
+                uint16_t mask = (~0U) << (32 - lastCodeLength - countl_zero(samePrefixCount));
+                uint8_t prefixLength = popcount(mask);
+                uint8_t sufixShift = 16 - lastCodeLength + prefixLength;
+
+                // set the rest of the table to repeat the last entry
+                for ( ; maskIdx <= MAX_SHORT_CODE_LENGTH; maskIdx++, prefixIdx--)
+                {
+                    _codePrefixesSmall[maskIdx] = _codePrefixesSmall[maskIdx - I];
+                    _codeMasksSmall[maskIdx - I] = mask;
+                    _prefixLengths[prefixIdx] = prefixLength;
+                    _suffixShifts[prefixIdx] = sufixShift;
+                    _prefixIndices[prefixIdx - I] = _prefixIndices[prefixIdx];
+                }
+                _codePrefixesSmallVector[0] = _mm256_and_si256(_codeMasksSmallVector[0], _codePrefixesSmallVector[0]);
                 
                 for (uint16_t i = 0; i < MAX_SHORT_CODE_LENGTH; i++)
                 {
@@ -123,7 +129,7 @@ void Decompressor::parseHeader()
 void Decompressor::decompressStatic()
 {
     parseHeader();
-#if __AVX512BW__ && __AVX512VL__ || 1
+#if __AVX512BW__ && __AVX512VL__
     uint16_t *compressedData = reinterpret_cast<uint16_t *>(_compressedData);
     bool overflow;
     uint32_t decompressedIdx = 0;
@@ -135,13 +141,16 @@ void Decompressor::decompressStatic()
     uint16v16_t masks = _mm256_load_si256(_codeMasksSmallVector);
     uint16_t current = (compressedData[currentIdx] << bitLength) | (compressedData[nextIdx] >> inverseBitLength);
     uint16v16_t currentVector = _mm256_set1_epi16(current);
-    uint16v16_t xored = _mm256_xor_si256(prefixes, currentVector);
-    uint16v16_t masked = _mm256_and_si256(xored, masks);
-    uint16_t prefixBitMap = _mm256_cmp_epu16_mask(masked, _mm256_setzero_si256(), _MM_CMPINT_EQ);
+    uint16v16_t masked = _mm256_and_si256(currentVector, masks);
+    uint16v16_t xored = _mm256_xor_si256(prefixes, masked);
+    uint16_t prefixBitMap = _mm256_cmp_epu16_mask(xored, _mm256_setzero_si256(), _MM_CMPINT_EQ);
+    cerr << "PrefixBitMap: " << bitset<16>(prefixBitMap) << endl;
     uint8_t prefixIdx = countl_zero(prefixBitMap);
     cerr << "PrefixIdx: " << (int)prefixIdx << endl;
     uint8_t prefixLength = _prefixLengths[prefixIdx];
+    cerr << "PrefixLength: " << (int)prefixLength << endl;
     uint8_t suffixShift = _suffixShifts[prefixIdx];
+    cerr << "SuffixShift: " << (int)suffixShift << endl;
     uint8_t suffix = static_cast<uint16_t>(current << prefixLength) >> suffixShift;
     uint8_t codeLength = 16 + prefixLength - suffixShift;
     symbol_t symbol = _symbolsTable[_prefixIndices[prefixIdx] + suffix];
@@ -161,6 +170,7 @@ void Decompressor::decompressStatic()
         masked = _mm256_and_si256(currentVector, masks);
         xored = _mm256_xor_si256(prefixes, masked);
         prefixBitMap = _mm256_cmp_epu16_mask(xored, _mm256_setzero_si256(), _MM_CMPINT_EQ);
+        cerr << "PrefixBitMap: " << bitset<16>(prefixBitMap) << endl;
         prefixIdx = countl_zero(prefixBitMap);
         //cerr << "PrefixIdx: " << (int)prefixIdx << endl;
         prefixLength = _prefixLengths[prefixIdx];
@@ -213,12 +223,12 @@ void Decompressor::decompressStatic()
             while (repeat);
         }
 
-        cerr << "DecompressedIdx: " << decompressedIdx << " block size:" << _header.blockSize << endl;
-        /*if (nextIdx >= 60)
+        if (nextIdx >= 5)
         {
             exit(0);
-        }*/
+        }
     }
+    cerr << "DecompressedIdx: " << decompressedIdx << " block size:" << _header.blockSize << endl;
 #endif
 }
 
