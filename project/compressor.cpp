@@ -151,7 +151,6 @@ void Compressor::populateCodeTable()
 
     uint32_t lastCode = 0;
     uint32_t delta = 0;
-    uint32_t increment = 1;
     queue<Node> nodeQueue;       // TODO optimize with array
     _tree[_treeIndex].count = 0; // use the count as depth counter
     nodeQueue.push(_tree[_treeIndex]);
@@ -163,14 +162,12 @@ void Compressor::populateCodeTable()
         if (node.isLeaf())
         {
             delta = node.count - lastDepth;
-            increment |= !delta;
             lastDepth = node.count;
-            lastCode = (lastCode + increment) << delta;
+            lastCode = (lastCode + 1) << delta;
             if (delta)
             {
                 cerr << "Delta: " << delta << " Last code: " << bitset<16>(lastCode) << "length: " << lastDepth << endl;
             }
-            increment = !delta;
             _codeTable[node.right] = lastCode;
         }
         else

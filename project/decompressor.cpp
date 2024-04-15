@@ -46,14 +46,23 @@ void Decompressor::parseHeader()
     {
         case HEADERS.STATIC | HEADERS.DIRECT | HEADERS.ALL_SYMBOLS | HEADERS.CODE_LENGTHS_16:
             {
+                uint8_t codeLengthsCounts[16] = {0};
                 CodeLengthsHeader &header = reinterpret_cast<CodeLengthsHeader &>(_header);
                 for (uint16_t i = 0, j = 0; i < NUMBER_OF_SYMBOLS / 2; i++, j += 2)
                 {
                     _codeLengthsSymbols[j].codeLength = header.codeLengths[i] >> 4;
                     _codeLengthsSymbols[j].symbol = j;
+                    codeLengthsCounts[_codeLengthsSymbols[j].codeLength]++;
                     _codeLengthsSymbols[j + 1].codeLength = header.codeLengths[i] & 0x0F;
                     _codeLengthsSymbols[j + 1].symbol = j + 1;
+                    codeLengthsCounts[_codeLengthsSymbols[j + 1].codeLength]++;
                 }
+
+                for (uint16_t i = 0, j = 0; i < 16; i++, j += 2)
+                {
+                    cerr << (int)i << ": " << (int)codeLengthsCounts[i] << endl;
+                }
+                cerr << endl;
 
                 sort(_codeLengthsSymbols, _codeLengthsSymbols + NUMBER_OF_SYMBOLS, 
                      [](const CodeLengthSymbol &a, const CodeLengthSymbol &b) 
@@ -95,6 +104,9 @@ void Decompressor::parseHeader()
                     prefixIdx -= positiveDelta;
                     samePrefixCount *= !positiveDelta; // reset if code length has changed
                 }
+
+                // TODO sort by mask length
+
                 // fill in the delayed lookup table entries
                 uint16_t mask = (~0U) << (32 - lastCodeLength - countl_zero(samePrefixCount));
                 uint8_t prefixLength = popcount(mask);
