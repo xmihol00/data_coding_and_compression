@@ -46,21 +46,38 @@ void Decompressor::parseHeader()
     {
         case HEADERS.STATIC | HEADERS.DIRECT | HEADERS.ALL_SYMBOLS | HEADERS.CODE_LENGTHS_16:
             {
+                for (uint8_t i = 0; i < MAX_SHORT_CODE_LENGTH; i++)
+                {
+                    _codeLengthCounts[i].codeLength = i;
+                    _codeLengthCounts[i].count = 0;
+                }
+
                 uint8_t codeLengthsCounts[16] = {0};
                 CodeLengthsHeader &header = reinterpret_cast<CodeLengthsHeader &>(_header);
                 for (uint16_t i = 0, j = 0; i < NUMBER_OF_SYMBOLS / 2; i++, j += 2)
                 {
                     _codeLengthsSymbols[j].codeLength = header.codeLengths[i] >> 4;
                     _codeLengthsSymbols[j].symbol = j;
+                    _codeLengthCounts[_codeLengthsSymbols[j].codeLength].count++;
                     codeLengthsCounts[_codeLengthsSymbols[j].codeLength]++;
                     _codeLengthsSymbols[j + 1].codeLength = header.codeLengths[i] & 0x0F;
                     _codeLengthsSymbols[j + 1].symbol = j + 1;
                     codeLengthsCounts[_codeLengthsSymbols[j + 1].codeLength]++;
+                    _codeLengthCounts[_codeLengthsSymbols[j + 1].codeLength].count++;
                 }
 
-                for (uint16_t i = 0, j = 0; i < 16; i++, j += 2)
+                for (uint16_t i = 1, j = 0; i < 16; i++, j += 2)
                 {
-                    cerr << (int)i << ": " << (int)codeLengthsCounts[i] << endl;
+                    cerr << (int)i << ": " << _codeLengthCounts[i].codeLength << " counts: " << _codeLengthCounts[i].count << endl;
+                    _codeLengthCounts[i].count = (i - 16 + countl_zero(static_cast<uint16_t>(_codeLengthCounts[i].count - 1)));
+                }
+                sort(_codeLengthCounts, _codeLengthCounts + MAX_SHORT_CODE_LENGTH, 
+                     [](const CodeLengthCounts &a, const CodeLengthCounts &b) 
+                     { return a.count < b.count; });
+                
+                for (uint16_t i = 1, j = 0; i < 16; i++, j += 2)
+                {
+                    cerr << (int)i << ": " << _codeLengthCounts[i].codeLength << " prefixLength: " << _codeLengthCounts[i].count << endl;
                 }
                 cerr << endl;
 

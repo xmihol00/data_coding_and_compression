@@ -37,6 +37,12 @@ private:
         uint8_t symbol;
     } _codeLengthsSymbols[NUMBER_OF_SYMBOLS] __attribute__((aligned(64)));
 
+    struct CodeLengthCounts
+    {
+        uint16_t codeLength;
+        int16_t count;
+    } _codeLengthCounts[MAX_SHORT_CODE_LENGTH] __attribute__((aligned(64)));
+
     uint32_t _codeTableLarge[NUMBER_OF_SYMBOLS] __attribute__((aligned(64)));
     uint16_t *_codeTableSmall{reinterpret_cast<uint16_t *>(_codeTableLarge)};
     uint8_t _symbolsTable[NUMBER_OF_SYMBOLS * 2] __attribute__((aligned(64)));
