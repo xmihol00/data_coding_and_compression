@@ -58,6 +58,9 @@ private:
         uint16_t code;
     };
 
+    uint32_t _usedDepths;
+    uint64v4_t _symbolsAtDepths[MAX_LONG_CODE_LENGTH];
+
     uint8_t _memoryPool[6 * NUMBER_OF_SYMBOLS * sizeof(Node)] __attribute__((aligned(64)));
     Node *_tree{reinterpret_cast<Node *>(_memoryPool)};
     Leaf *_histogram{reinterpret_cast<Leaf *>(_memoryPool + 2 * NUMBER_OF_SYMBOLS * sizeof(Node))};

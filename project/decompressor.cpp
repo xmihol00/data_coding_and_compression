@@ -46,7 +46,10 @@ void Decompressor::parseHeader()
     {
         case HEADERS.STATIC | HEADERS.DIRECT | HEADERS.ALL_SYMBOLS | HEADERS.CODE_LENGTHS_16:
             {
-                //reinterpret_cast<uint32v16_t *>(_indexPrefixLengthCodeCount)[0] = _mm512_setzero_si512();
+            #if __AVX512BW__ && __AVX512VL__
+                reinterpret_cast<uint32v16_t *>(_indexPrefixLengthCodeCount)[0] = _mm512_setzero_si512();
+                reinterpret_cast<uint32v16_t *>(_indexPrefixLengthCodeCount)[1] = _mm512_setzero_si512();
+            #endif
 
                 CodeLengthsHeader &header = reinterpret_cast<CodeLengthsHeader &>(_header);
                 for (uint16_t i = 0, j = 0; i < NUMBER_OF_SYMBOLS / 2; i++, j += 2)
@@ -59,8 +62,11 @@ void Decompressor::parseHeader()
                     _indexPrefixLengthCodeCount[_codeLengthsSymbols[j + 1].codeLength].codeCount++;
                 }
 
+                uint8_t lastCodeCount = 0;
                 for (uint8_t i = 0; i < MAX_SHORT_CODE_LENGTH; i++)
                 {
+                    _indexPrefixLengthCodeCount[i].cumulativeCodeCount = lastCodeCount;
+                    lastCodeCount += _indexPrefixLengthCodeCount[i].codeCount; 
                     cerr << (int)i << " counts: " << _indexPrefixLengthCodeCount[i].codeCount << endl;
                     _indexPrefixLengths[i].index = i;
                     _indexPrefixLengths[i].prefixLength = (i - 16 + countl_zero(static_cast<uint16_t>(_indexPrefixLengthCodeCount[i].codeCount - 1)));
@@ -75,7 +81,8 @@ void Decompressor::parseHeader()
                     _indexPrefixLengthCodeCount[_indexPrefixLengths[i].index].index = i;
                     cerr << (int)_indexPrefixLengths[i].index << ": " << (unsigned)_indexPrefixLengthCodeCount[_indexPrefixLengths[i].index].index 
                          << ", prefixLength: " << (int)_indexPrefixLengthCodeCount[_indexPrefixLengths[i].index].prefixLength 
-                         << ", codeCount: " << (int)_indexPrefixLengthCodeCount[_indexPrefixLengths[i].index].codeCount << endl;
+                         << ", codeCount: " << (int)_indexPrefixLengthCodeCount[_indexPrefixLengths[i].index].codeCount 
+                         << ", cumulativeCodeCount: " << (int)_indexPrefixLengthCodeCount[_indexPrefixLengths[i].index].cumulativeCodeCount << endl;
                 }
                 cerr << endl;
 
@@ -111,7 +118,8 @@ void Decompressor::parseHeader()
                         cerr << "SymbolIdx: " << symbolIdx << endl;
                         for (uint16_t j = 0; j < _indexPrefixLengthCodeCount[i].codeCount; j++)
                         {
-                            _symbolsTable[symbolIdx++] = _codeLengthsSymbols[codesIdx++].symbol;
+                            _symbolsTable[symbolIdx++] = _indexPrefixLengthCodeCount[i].cumulativeCodeCount + j;
+                            cerr << "Symbol: " << (char)_symbolsTable[symbolIdx - 1] << " " << (int)_symbolsTable[symbolIdx - 1] << " " << symbolIdx - 1 << endl;
                         }
                         cerr << "CodeCount: " << (int)_indexPrefixLengthCodeCount[i].codeCount - 1 << endl;
                         lastCode += _indexPrefixLengthCodeCount[i].codeCount - 1;

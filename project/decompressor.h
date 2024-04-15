@@ -40,8 +40,9 @@ private:
     struct IndexPrefixLengthCodeCount
     {
         uint16_t codeCount;
-        uint8_t index;
-        int8_t prefixLength;
+        uint16_t cumulativeCodeCount;
+        uint16_t index;
+        int16_t prefixLength;
     } _indexPrefixLengthCodeCount[MAX_SHORT_CODE_LENGTH] __attribute__((aligned(64)));
 
     struct IndexPrefixLength

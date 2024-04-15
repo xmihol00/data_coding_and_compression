@@ -23,6 +23,8 @@ using symbol_t = uint8_t;
 using uint16v16_t = __m256i;
 using uint32v8_t = __m256i;
 using uint32v16_t = __m512i;
+using uint64v4_t = __m256i;
+using uint64v8_t = __m512i;
 
 class HuffmanRLECompression
 {

@@ -141,12 +141,20 @@ void Compressor::populateCodeTable()
         {
             _mm512_storeu_si512(_codeTable + i, codes);
         }
+        for (uint8_t i = 0; i < MAX_SHORT_CODE_LENGTH; i++)
+        {
+            reinterpret_cast<uint64v8_t *>(_symbolsAtDepths)[i] = _mm512_setzero_si512();
+        }
     #else
         __m256i codes = _mm256_set1_epi32(1);
         #pragma GCC unroll NUMBER_OF_SYMBOLS / 8
         for (uint16_t i = 0; i < NUMBER_OF_SYMBOLS; i += 8)
         {
             _mm256_storeu_si256(reinterpret_cast<__m256i *>(_codeTable + i), codes);
+        }
+        for (uint8_t i = 0; i < MAX_LONG_CODE_LENGTH; i++)
+        {
+            _symbolsAtDepths[i] = _mm256_setzero_si256();
         }
     #endif
 
@@ -157,6 +165,7 @@ void Compressor::populateCodeTable()
     nodeQueue.push(_tree[_treeIndex]);
 
     uint32_t lastDepth = 0;
+    _usedDepths = 0;
     while (!nodeQueue.empty())
     {
         Node node = nodeQueue.front();
@@ -170,6 +179,17 @@ void Compressor::populateCodeTable()
                 cerr << "Delta: " << delta << " Last code: " << bitset<16>(lastCode) << " length: " << lastDepth << endl;
             }
             _codeTable[node.right] = lastCode;
+
+            uint64_t bits[4];
+            reinterpret_cast<uint64v4_t *>(bits)[0] = _mm256_setzero_si256();
+            //vectorBits = _mm256_insert_epi64(vectorBits, 1UL << node.right, 0);
+            _usedDepths |= 1UL << node.count;
+            node.right = 255 - node.right;
+            bits[3] = (uint64_t)(node.right < 64) << node.right;
+            bits[2] = (uint64_t)(node.right < 128 && node.right >= 64) << (node.right - 64);
+            bits[1] = (uint64_t)(node.right < 192 && node.right >= 128) << (node.right - 128);
+            bits[0] = (uint64_t)(node.right >= 192) << (node.right - 192);
+            _symbolsAtDepths[node.count] = _mm256_or_si256(_symbolsAtDepths[node.count], reinterpret_cast<uint64v4_t *>(bits)[0]);
         }
         else
         {
@@ -182,6 +202,34 @@ void Compressor::populateCodeTable()
     }
 
     _longestCode = 31 - countl_zero(lastCode);
+    lastCode = 0;
+    delta = 0;
+    for (uint8_t i = 0; i < MAX_LONG_CODE_LENGTH; i++)
+    {
+        if (_usedDepths & (1UL << i))
+        {
+            uint64_t *bits = reinterpret_cast<uint64_t *>(_symbolsAtDepths + i);
+            cerr << "Depth: " << (int)i << " Bits: " << bitset<64>(bits[0]) << " " << bitset<64>(bits[1]) << " " << bitset<64>(bits[2]) << " " << bitset<64>(bits[3]) << endl;
+            lastCode = (lastCode + 1) << delta;
+            lastCode--;
+            delta = 0;
+            for (uint8_t j = 0; j < 4; j++)
+            {
+                uint8_t symbol = j << 6;
+                uint8_t leadingZeros;
+                cerr << "LZ: " << countl_zero(bits[j]) << endl;
+                while ((leadingZeros = countl_zero(bits[j])) < 64)
+                {
+                    uint8_t adjustedSymbol = symbol + leadingZeros;
+                    lastCode++;
+                    bits[j] ^= 1UL << (63 - leadingZeros);
+                    cerr << (int)adjustedSymbol << " " << lastCode << " " << bitset<16>(lastCode) << endl;
+                    _codeTable[adjustedSymbol] = lastCode;
+                }
+            }
+        }
+        delta++;
+    }
 
     for (uint16_t i = 0; i < NUMBER_OF_SYMBOLS; i++)
     {
@@ -280,8 +328,8 @@ void Compressor::transformRLE()
                 uint16_t leadingZeros = countl_zero(code);
                 uint16_t codeLength = 15 - leadingZeros;
                 uint16_t maskedCode = code << (16 - codeLength);
-                bitset<16> maskedCodeBits(maskedCode);
-                cerr << (int)current << ": " << maskedCodeBits << ", times:" << sameSymbolCount << endl;
+                //bitset<16> maskedCodeBits(maskedCode);
+                //cerr << (int)current << ": " << maskedCodeBits << ", times:" << sameSymbolCount << endl;
 
                 for (uint32_t i = 0; i < sameSymbolCount && i < 3; i++)
                 {
