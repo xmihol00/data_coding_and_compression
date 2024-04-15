@@ -37,11 +37,18 @@ private:
         uint8_t symbol;
     } _codeLengthsSymbols[NUMBER_OF_SYMBOLS] __attribute__((aligned(64)));
 
-    struct CodeLengthCounts
+    struct IndexPrefixLengthCodeCount
     {
-        uint16_t codeLength;
-        int16_t count;
-    } _codeLengthCounts[MAX_SHORT_CODE_LENGTH] __attribute__((aligned(64)));
+        uint16_t codeCount;
+        uint8_t index;
+        int8_t prefixLength;
+    } _indexPrefixLengthCodeCount[MAX_SHORT_CODE_LENGTH] __attribute__((aligned(64)));
+
+    struct IndexPrefixLength
+    {
+        uint16_t index;
+        int16_t prefixLength;
+    } _indexPrefixLengths[MAX_SHORT_CODE_LENGTH] __attribute__((aligned(64)));
 
     uint32_t _codeTableLarge[NUMBER_OF_SYMBOLS] __attribute__((aligned(64)));
     uint16_t *_codeTableSmall{reinterpret_cast<uint16_t *>(_codeTableLarge)};
@@ -50,7 +57,7 @@ private:
     FullHeader _header;
 
     uint16_t _prefixIndices[MAX_LONG_CODE_LENGTH];
-    uint16_t _prefixLengths[1 << (sizeof(uint8_t) * 8)];
+    uint16_t _prefixShifts[1 << (sizeof(uint8_t) * 8)];
     uint16_t _suffixShifts[1 << (sizeof(uint8_t) * 8)];
 
     uint32v16_t _codePrefixesLargeVector[MAX_LONG_CODE_LENGTH / 16] __attribute__((aligned(64)));

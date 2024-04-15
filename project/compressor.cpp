@@ -133,6 +133,7 @@ void Compressor::populateCodeTable()
 {
     DEBUG_PRINT("Populating code table");
 
+    // set all codes to 1 (code boundary)
     #if __AVX512F__
         __m512i codes = _mm512_set1_epi32(1);
         #pragma GCC unroll NUMBER_OF_SYMBOLS / 16
@@ -166,7 +167,7 @@ void Compressor::populateCodeTable()
             lastCode = (lastCode + 1) << delta;
             if (delta)
             {
-                cerr << "Delta: " << delta << " Last code: " << bitset<16>(lastCode) << "length: " << lastDepth << endl;
+                cerr << "Delta: " << delta << " Last code: " << bitset<16>(lastCode) << " length: " << lastDepth << endl;
             }
             _codeTable[node.right] = lastCode;
         }
@@ -187,7 +188,7 @@ void Compressor::populateCodeTable()
         uint16_t code = _codeTable[i];
         uint16_t leadingZeros = countl_zero(code);
         uint16_t codeLength = 15 - leadingZeros;
-        bitset<32> codeBits(code);
+        bitset<10> codeBits(code);
         cerr << (int)i << ": " << codeBits << " " << codeLength << endl;
     }
     DEBUG_PRINT("Code table populated");
@@ -221,8 +222,8 @@ void Compressor::transformRLE()
                 uint32_t codeLength = 31 - leadingZeros;
                 uint32_t mask = ~(1 << codeLength);
                 uint32_t maskedCode = code & mask;
-                //bitset<32> maskedCodeBits(maskedCode);
-                //cerr << (char)current << ": " << maskedCodeBits << endl;
+                bitset<32> maskedCodeBits(maskedCode);
+                cerr << (int)current << ": " << maskedCodeBits << ", times:" << sameSymbolCount << endl;
 
                 for (uint32_t i = 0; i < sameSymbolCount && i < 3; i++)
                 {
@@ -279,8 +280,8 @@ void Compressor::transformRLE()
                 uint16_t leadingZeros = countl_zero(code);
                 uint16_t codeLength = 15 - leadingZeros;
                 uint16_t maskedCode = code << (16 - codeLength);
-                //bitset<16> maskedCodeBits(maskedCode);
-                //cerr << (char)current << ": " << maskedCodeBits << " " << codeLength << endl;
+                bitset<16> maskedCodeBits(maskedCode);
+                cerr << (int)current << ": " << maskedCodeBits << ", times:" << sameSymbolCount << endl;
 
                 for (uint32_t i = 0; i < sameSymbolCount && i < 3; i++)
                 {
@@ -388,7 +389,7 @@ void Compressor::printTree(uint16_t nodeIdx, uint16_t indent = 0)
     if (_tree[nodeIdx].isLeaf())
     {
         Leaf leaf = reinterpret_cast<Leaf *>(_tree)[nodeIdx];
-        cerr << string(indent, ' ') <<  nodeIdx << ": Leaf: " << leaf.count << " " << (char)(leaf.symbol) << endl;
+        cerr << string(indent, ' ') <<  nodeIdx << ": Leaf: " << leaf.count << " " << (int)(leaf.symbol) << endl;
     }
     else
     {
@@ -456,7 +457,7 @@ void Compressor::compressStatic()
 
     // sort the histogram by frequency of symbols in ascending order
     sort(_histogram, _histogram + NUMBER_OF_SYMBOLS, 
-         [](const Leaf &a, const Leaf &b) { return a.count < b.count || (a.count == b.count && a.symbol < b.symbol); });
+         [](const Leaf &a, const Leaf &b) { return a.count < b.count; });
     
     buildHuffmanTree();
 
