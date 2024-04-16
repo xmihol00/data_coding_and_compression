@@ -209,7 +209,7 @@ void Compressor::populateCodeTable()
         if (_usedDepths & (1UL << i))
         {
             uint64_t *bits = reinterpret_cast<uint64_t *>(_symbolsAtDepths + i);
-            cerr << "Depth: " << (int)i << " Bits: " << bitset<64>(bits[0]) << " " << bitset<64>(bits[1]) << " " << bitset<64>(bits[2]) << " " << bitset<64>(bits[3]) << endl;
+            //cerr << "Depth: " << (int)i << " Bits: " << bitset<64>(bits[0]) << " " << bitset<64>(bits[1]) << " " << bitset<64>(bits[2]) << " " << bitset<64>(bits[3]) << endl;
             lastCode = (lastCode + 1) << delta;
             lastCode--;
             delta = 0;
@@ -217,13 +217,13 @@ void Compressor::populateCodeTable()
             {
                 uint8_t symbol = j << 6;
                 uint8_t leadingZeros;
-                cerr << "LZ: " << countl_zero(bits[j]) << endl;
+                //cerr << "LZ: " << countl_zero(bits[j]) << endl;
                 while ((leadingZeros = countl_zero(bits[j])) < 64)
                 {
                     uint8_t adjustedSymbol = symbol + leadingZeros;
                     lastCode++;
                     bits[j] ^= 1UL << (63 - leadingZeros);
-                    cerr << (int)adjustedSymbol << " " << lastCode << " " << bitset<16>(lastCode) << endl;
+                    //cerr << (int)adjustedSymbol << " " << lastCode << " " << bitset<16>(lastCode) << endl;
                     _codeTable[adjustedSymbol] = lastCode;
                 }
             }
@@ -517,11 +517,11 @@ void Compressor::compressStatic()
 
     createHeader();
 
-    uint16_t *compressedData = reinterpret_cast<uint16_t *>(_compressedData);
+    /*uint16_t *compressedData = reinterpret_cast<uint16_t *>(_compressedData);
     for (uint32_t i = 0; i < _compressedSize && i < 100; i++)
     {
         bitset<16> codeBitset(compressedData[i]);
         cerr << codeBitset << " ";
     }
-    cerr << endl;
+    cerr << endl;*/
 }

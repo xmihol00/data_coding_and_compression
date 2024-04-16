@@ -67,11 +67,9 @@ void Decompressor::parseHeader()
                 {
                     _indexPrefixLengthCodeCount[i].cumulativeCodeCount = lastCodeCount;
                     lastCodeCount += _indexPrefixLengthCodeCount[i].codeCount; 
-                    cerr << (int)i << " counts: " << _indexPrefixLengthCodeCount[i].codeCount << endl;
                     _indexPrefixLengths[i].index = i;
                     _indexPrefixLengths[i].prefixLength = (i - 16 + countl_zero(static_cast<uint16_t>(_indexPrefixLengthCodeCount[i].codeCount - 1)));
                 }
-                cerr << endl;
                 sort(_indexPrefixLengths, _indexPrefixLengths + MAX_SHORT_CODE_LENGTH, 
                      [](const IndexPrefixLength &a, const IndexPrefixLength &b) { return a.prefixLength < b.prefixLength; });
                 
@@ -79,12 +77,10 @@ void Decompressor::parseHeader()
                 {
                     _indexPrefixLengthCodeCount[_indexPrefixLengths[i].index].prefixLength = _indexPrefixLengths[i].prefixLength;
                     _indexPrefixLengthCodeCount[_indexPrefixLengths[i].index].index = i;
-                    cerr << (int)_indexPrefixLengths[i].index << ": " << (unsigned)_indexPrefixLengthCodeCount[_indexPrefixLengths[i].index].index 
-                         << ", prefixLength: " << (int)_indexPrefixLengthCodeCount[_indexPrefixLengths[i].index].prefixLength 
-                         << ", codeCount: " << (int)_indexPrefixLengthCodeCount[_indexPrefixLengths[i].index].codeCount 
-                         << ", cumulativeCodeCount: " << (int)_indexPrefixLengthCodeCount[_indexPrefixLengths[i].index].cumulativeCodeCount << endl;
                 }
-                cerr << endl;
+
+                sort(_codeLengthsSymbols, _codeLengthsSymbols + NUMBER_OF_SYMBOLS, 
+                     [](const CodeLengthSymbol &a, const CodeLengthSymbol &b) { return a.codeLength < b.codeLength || (a.codeLength == b.codeLength && a.symbol < b.symbol); });
 
                 uint16_t codesIdx = 0;
                 while (_codeLengthsSymbols[codesIdx].codeLength == 0)
@@ -103,25 +99,18 @@ void Decompressor::parseHeader()
                     }
                     else
                     {
-                        cerr << "Delta: " << (int)delta << " LastCode: " << lastCode << endl;
                         lastCode = (lastCode + 1) << delta;
-                        cerr << "CurrentCode: " << lastCode << endl;
                         delta = 1;
                         _codePrefixesSmall[_indexPrefixLengthCodeCount[i].index] = lastCode << (16 - i);
                         _codeMasksSmall[_indexPrefixLengthCodeCount[i].index] = (~0U) << (16 - _indexPrefixLengthCodeCount[i].prefixLength);
                         _prefixIndices[15 - _indexPrefixLengthCodeCount[i].index] = symbolIdx;
                         _prefixShifts[15 - _indexPrefixLengthCodeCount[i].index] = _indexPrefixLengthCodeCount[i].prefixLength;
                         _suffixShifts[15 - _indexPrefixLengthCodeCount[i].index] = 16 - i + _indexPrefixLengthCodeCount[i].prefixLength;
-                        cerr << "SymbolAdjustment: " << (int)(lastCode & (static_cast<uint16_t>(~0) >> (16 - i + _indexPrefixLengthCodeCount[i].prefixLength))) << endl;
-                        cerr << "LastCode: " << lastCode << endl;
                         symbolIdx += lastCode & (static_cast<uint16_t>(~0) >> (16 - i + _indexPrefixLengthCodeCount[i].prefixLength));
-                        cerr << "SymbolIdx: " << symbolIdx << endl;
                         for (uint16_t j = 0; j < _indexPrefixLengthCodeCount[i].codeCount; j++)
                         {
-                            _symbolsTable[symbolIdx++] = _indexPrefixLengthCodeCount[i].cumulativeCodeCount + j;
-                            cerr << "Symbol: " << (char)_symbolsTable[symbolIdx - 1] << " " << (int)_symbolsTable[symbolIdx - 1] << " " << symbolIdx - 1 << endl;
+                            _symbolsTable[symbolIdx++] = _codeLengthsSymbols[codesIdx++].symbol;
                         }
-                        cerr << "CodeCount: " << (int)_indexPrefixLengthCodeCount[i].codeCount - 1 << endl;
                         lastCode += _indexPrefixLengthCodeCount[i].codeCount - 1;
                     }
                 }
@@ -228,22 +217,22 @@ void Decompressor::decompressStatic()
     {
         //cerr << "BitLength: " << (int)bitLength << endl;
         current = (compressedData[currentIdx] << bitLength) | (compressedData[nextIdx] >> inverseBitLength);
-        cerr << "Current: " << bitset<16>(current) << endl;
+        //cerr << "Current: " << bitset<16>(current) << endl;
         currentVector = _mm256_set1_epi16(current);
         masked = _mm256_and_si256(currentVector, masks);
         xored = _mm256_xor_si256(prefixes, masked);
         prefixBitMap = _mm256_cmp_epu16_mask(xored, _mm256_setzero_si256(), _MM_CMPINT_EQ);
-        cerr << "PrefixBitMap: " << bitset<16>(prefixBitMap) << endl;
+        //cerr << "PrefixBitMap: " << bitset<16>(prefixBitMap) << endl;
         prefixIdx = countl_zero(prefixBitMap);
-        cerr << "PrefixIdx: " << (int)prefixIdx << endl;
+        //cerr << "PrefixIdx: " << (int)prefixIdx << endl;
         prefixLength = _prefixShifts[prefixIdx];
-        cerr << "PrefixLength: " << (int)prefixLength << endl;
+        //cerr << "PrefixLength: " << (int)prefixLength << endl;
         suffixShift = _suffixShifts[prefixIdx];
-        cerr << "SuffixShift: " << (int)suffixShift << endl;
+        //cerr << "SuffixShift: " << (int)suffixShift << endl;
         suffix = static_cast<uint16_t>(current << prefixLength) >> suffixShift;
         codeLength = 16 + prefixLength - suffixShift;
         symbol = _symbolsTable[_prefixIndices[prefixIdx] + suffix];
-        cerr << "Suffix: " << (int)suffix << endl;
+        //cerr << "Suffix: " << (int)suffix << endl;
         cerr << "Symbol: " << (char)symbol << " " << (int)symbol << "\n" << endl;
         _decompressedData[decompressedIdx++] = symbol;
         sameSymbolCount += lastSymbol == symbol;
@@ -289,10 +278,10 @@ void Decompressor::decompressStatic()
             cerr << endl;
         }
 
-        if (nextIdx >= 5)
+        /*if (nextIdx >= 5)
         {
             exit(0);
-        }
+        }*/
     }
     cerr << "DecompressedIdx: " << decompressedIdx << " block size:" << _header.blockSize << endl;
 #endif
