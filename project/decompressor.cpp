@@ -58,39 +58,37 @@ void Decompressor::parseHeader()
     {
         case HEADERS.STATIC | HEADERS.DIRECT | HEADERS.ALL_SYMBOLS | HEADERS.CODE_LENGTHS_16:
             {
-            #if __AVX512BW__ && __AVX512VL__
-                reinterpret_cast<uint32v16_t *>(_indexPrefixLengthCodeCount)[0] = _mm512_setzero_si512();
-                reinterpret_cast<uint32v16_t *>(_indexPrefixLengthCodeCount)[1] = _mm512_setzero_si512();
-            #endif
-
                 uint8_t depthIdx = 0;
                 for (uint8_t i = 0; i < MAX_LONG_CODE_LENGTH; i++)
                 {
                     if (_usedDepths & (1UL << i))
                     {
+                    #if __AVX512VPOPCNTDQ__
                         uint64v4_t popCounts = _mm256_popcnt_epi64(_symbolsAtDepths[depthIdx]); // AVX512VPOPCNTDQ
                         uint64_t *bits = reinterpret_cast<uint64_t *>(&popCounts);
                         uint16_t sum1 = bits[0] + bits[1];
                         uint16_t sum2 = bits[2] + bits[3];
                         uint16_t symbolCount = sum1 + sum2;
+                    #else
+                        uint64_t *bits = reinterpret_cast<uint64_t *>(_symbolsAtDepths + depthIdx);
+                        uint16_t symbolCount = _mm_popcnt_u64(bits[0]) + _mm_popcnt_u64(bits[1]) + _mm_popcnt_u64(bits[2]) + _mm_popcnt_u64(bits[3]);
+                    #endif
 
                         _depthsIndices[depthIdx].depth = i;
                         _depthsIndices[depthIdx].prefixLength = i - 16 + countl_zero(static_cast<uint16_t>(symbolCount - 1));
                         _depthsIndices[depthIdx].symbolsAtDepthIndex = depthIdx;
-
-                        // get the correct masks index (longest prefix length must have the smallest index)
-                        int8_t j = depthIdx - 1;
-                        uint8_t currentMasksIdx = depthIdx;
-                        for (; j >= 0 && _depthsIndices[j].prefixLength < _depthsIndices[depthIdx].prefixLength; j--)
-                        {
-                            uint8_t masksIdx = _depthsIndices[j].masksIndex;
-                            _depthsIndices[j].masksIndex = currentMasksIdx;
-                            currentMasksIdx = masksIdx;
-                        }
-                        _depthsIndices[depthIdx].masksIndex = currentMasksIdx;
+                        _depthsIndices[depthIdx].masksIndex = depthIdx;
+                        _indexPrefixLengths[depthIdx].index = depthIdx;
+                        _indexPrefixLengths[depthIdx].prefixLength = _depthsIndices[depthIdx].prefixLength;
 
                         depthIdx++;    
                     }
+                }
+                sort(_indexPrefixLengths, _indexPrefixLengths + depthIdx, 
+                     [](const IndexPrefixLength &a, const IndexPrefixLength &b) { return a.prefixLength > b.prefixLength; });
+                for (uint8_t i = 0; i < depthIdx; i++)
+                {
+                    _depthsIndices[_indexPrefixLengths[i].index].masksIndex = i;
                 }
 
                 uint8_t lastDepth = 0;
@@ -102,9 +100,7 @@ void Decompressor::parseHeader()
 
                     uint8_t delta = _depthsIndices[i].depth - lastDepth;
                     lastDepth = _depthsIndices[i].depth;
-                    cerr << "Delta: " << (int)delta << endl;
                     lastCode = (lastCode + 1) << delta;
-                    cerr << "LastCode: " << (int)lastCode << endl;
                     _codePrefixesSmall[15 - _depthsIndices[i].masksIndex] = lastCode << (16 - _depthsIndices[i].depth);
                     _codeMasksSmall[15 - _depthsIndices[i].masksIndex] = (~0U) << (16 - _depthsIndices[i].prefixLength);
                     _prefixIndices[_depthsIndices[i].masksIndex] = symbolIdx;
@@ -128,7 +124,12 @@ void Decompressor::parseHeader()
                     lastCode += symbolIdx - lastSymbolIdx - 1;
                 }
 
-                /*CodeLengthsHeader &header = reinterpret_cast<CodeLengthsHeader &>(_header);
+            #if 0 // TODO
+                #if __AVX512BW__ && __AVX512VL__
+                    reinterpret_cast<uint32v16_t *>(_indexPrefixLengthCodeCount)[0] = _mm512_setzero_si512();
+                    reinterpret_cast<uint32v16_t *>(_indexPrefixLengthCodeCount)[1] = _mm512_setzero_si512();
+                #endif
+                CodeLengthsHeader &header = reinterpret_cast<CodeLengthsHeader &>(_header);
                 for (uint16_t i = 0, j = 0; i < NUMBER_OF_SYMBOLS / 2; i++, j += 2)
                 {
                     _codeLengthsSymbols[j].codeLength = header.codeLengths[i] >> 4;
@@ -190,7 +191,8 @@ void Decompressor::parseHeader()
                         }
                         lastCode += _indexPrefixLengthCodeCount[i].codeCount - 1;
                     }
-                }*/
+                }
+            #endif
                 _codePrefixesSmallVector[0] = _mm256_and_si256(_codeMasksSmallVector[0], _codePrefixesSmallVector[0]);
                 
                 for (uint16_t i = 0; i < MAX_SHORT_CODE_LENGTH; i++)

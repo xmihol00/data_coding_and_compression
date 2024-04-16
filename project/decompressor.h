@@ -53,10 +53,10 @@ private:
 
     struct DepthIndices
     {
-        uint8_t depth;
-        uint8_t prefixLength;
         uint8_t symbolsAtDepthIndex;
         uint8_t masksIndex;
+        uint8_t depth;
+        uint8_t prefixLength;
     } _depthsIndices[MAX_SHORT_CODE_LENGTH] __attribute__((aligned(64)));
 
     uint32_t _codeTableLarge[NUMBER_OF_SYMBOLS] __attribute__((aligned(64)));
