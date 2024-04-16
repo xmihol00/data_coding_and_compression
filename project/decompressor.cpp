@@ -63,20 +63,41 @@ void Decompressor::parseHeader()
                 reinterpret_cast<uint32v16_t *>(_indexPrefixLengthCodeCount)[1] = _mm512_setzero_si512();
             #endif
 
-                uint8_t depthIndex = 0;
+                uint8_t depthIdx = 0;
+                uint8_t depthsIndicesIdx = 0;
                 for (uint8_t i = 0; i < MAX_LONG_CODE_LENGTH; i++)
                 {
                     if (_usedDepths & (1UL << i))
                     {
-                        uint64v4_t popCounts = _mm256_popcnt_epi64(_symbolsAtDepths[depthIndex]);
+                        uint64v4_t popCounts = _mm256_popcnt_epi64(_symbolsAtDepths[depthIdx]); // AVX512VPOPCNTDQ
                         uint64_t *bits = reinterpret_cast<uint64_t *>(&popCounts);
                         uint16_t sum1 = bits[0] + bits[1];
                         uint16_t sum2 = bits[2] + bits[3];
                         uint16_t symbolCount = sum1 + sum2;
 
-                        depthIndex++;    
+                        DepthIndices current;
+                        current.depth = i;
+                        current.prefixLength = i - 16 + countl_zero(static_cast<uint16_t>(symbolCount - 1));
+                        current.symbolsAtDepthIndex = depthIdx;
+                        current.masksIndex = depthsIndicesIdx;
+
+                        // insert the current at the correct position
+                        int8_t j = depthsIndicesIdx - 1;
+                        for (; j >= 0 && _depthsIndices[j].prefixLength < current.prefixLength; j--)
+                        {
+                            _depthsIndices[j + 1] = _depthsIndices[j];
+                        }
+                        _depthsIndices[j + 1] = current;
+
+                        depthIdx++;    
                     }
                 }
+
+                for (uint8_t i = 0; i < depthIdx; i++)
+                {
+                    cerr << "Depth: " << (int)_depthsIndices[i].depth << " PrefixLength: " << (int)_depthsIndices[i].prefixLength << " SymbolsAtDepthIndex: " << (int)_depthsIndices[i].symbolsAtDepthIndex << " MasksIndex: " << (int)_depthsIndices[i].masksIndex << endl;
+                }
+                exit(0);
 
                 /*CodeLengthsHeader &header = reinterpret_cast<CodeLengthsHeader &>(_header);
                 for (uint16_t i = 0, j = 0; i < NUMBER_OF_SYMBOLS / 2; i++, j += 2)

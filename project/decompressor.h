@@ -51,6 +51,14 @@ private:
         int16_t prefixLength;
     } _indexPrefixLengths[MAX_SHORT_CODE_LENGTH] __attribute__((aligned(64)));
 
+    struct DepthIndices
+    {
+        uint8_t depth;
+        uint8_t prefixLength;
+        uint8_t symbolsAtDepthIndex;
+        uint8_t masksIndex;
+    } _depthsIndices[MAX_SHORT_CODE_LENGTH] __attribute__((aligned(64)));
+
     uint32_t _codeTableLarge[NUMBER_OF_SYMBOLS] __attribute__((aligned(64)));
     uint16_t *_codeTableSmall{reinterpret_cast<uint16_t *>(_codeTableLarge)};
     uint8_t _symbolsTable[NUMBER_OF_SYMBOLS * 2] __attribute__((aligned(64)));
