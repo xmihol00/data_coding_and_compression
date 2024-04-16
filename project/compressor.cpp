@@ -204,12 +204,14 @@ void Compressor::populateCodeTable()
     _longestCode = 31 - countl_zero(lastCode);
     lastCode = 0;
     delta = 0;
+    uint8_t depthIndex = 0;
     for (uint8_t i = 0; i < MAX_LONG_CODE_LENGTH; i++)
     {
         if (_usedDepths & (1UL << i))
         {
-            uint64_t *bits = reinterpret_cast<uint64_t *>(_symbolsAtDepths + i);
-            //cerr << "Depth: " << (int)i << " Bits: " << bitset<64>(bits[0]) << " " << bitset<64>(bits[1]) << " " << bitset<64>(bits[2]) << " " << bitset<64>(bits[3]) << endl;
+            _symbolsAtDepths[depthIndex++] = _symbolsAtDepths[i];
+            uint64v4_t bitsVector = _mm256_load_si256(_symbolsAtDepths + i);
+            uint64_t *bits = reinterpret_cast<uint64_t *>(&bitsVector);
             lastCode = (lastCode + 1) << delta;
             lastCode--;
             delta = 0;
@@ -227,8 +229,19 @@ void Compressor::populateCodeTable()
                     _codeTable[adjustedSymbol] = lastCode;
                 }
             }
+            cerr << "Depth: " << (int)i << " Bits: " << bitset<64>(bits[0]) << " " << bitset<64>(bits[1]) << " " << bitset<64>(bits[2]) << " " << bitset<64>(bits[3]) << endl;
+            bits = reinterpret_cast<uint64_t *>(_symbolsAtDepths + i);
+            cerr << "Depth: " << (int)i << " Vect: " << bitset<64>(bits[0]) << " " << bitset<64>(bits[1]) << " " << bitset<64>(bits[2]) << " " << bitset<64>(bits[3]) << endl;
         }
         delta++;
+    }
+    cerr << endl;
+
+    for (uint8_t i = 0; i < popcount(_usedDepths); i++)
+    {
+        uint64v4_t bitsVector = _mm256_load_si256(_symbolsAtDepths + i);
+        uint64_t *bits = reinterpret_cast<uint64_t *>(&bitsVector);
+        cerr << "Depth: " << (int)i << " Bits: " << bitset<64>(bits[0]) << " " << bitset<64>(bits[1]) << " " << bitset<64>(bits[2]) << " " << bitset<64>(bits[3]) << endl;
     }
 
     for (uint16_t i = 0; i < NUMBER_OF_SYMBOLS; i++)
@@ -396,7 +409,7 @@ void Compressor::createHeader()
     }
     else
     {
-        CodeLengthsHeader &header = reinterpret_cast<CodeLengthsHeader &>(_header);
+        /*CodeLengthsHeader &header = reinterpret_cast<CodeLengthsHeader &>(_header);
         header.width = static_cast<uint32_t>(_width);
         header.blockSize = static_cast<uint32_t>(_size);
         header.headerType = HEADERS.STATIC | HEADERS.DIRECT | HEADERS.ALL_SYMBOLS | HEADERS.CODE_LENGTHS_16;
@@ -408,7 +421,15 @@ void Compressor::createHeader()
         {
             header.codeLengths[j] = (31 - countl_zero(_codeTable[i])) << 4;
             header.codeLengths[j] |= 31 - countl_zero(_codeTable[i + 1]);
-        }
+        }*/
+
+        DepthBitmapsHeader &header = reinterpret_cast<DepthBitmapsHeader &>(_header);
+        header.width = static_cast<uint32_t>(_width);
+        header.blockSize = static_cast<uint32_t>(_size);
+        header.headerType = HEADERS.STATIC | HEADERS.DIRECT | HEADERS.ALL_SYMBOLS | HEADERS.CODE_LENGTHS_16;
+        header.version = 0;
+        header.codeDepths = _usedDepths;
+        _headerSize = sizeof(DepthBitmapsHeader);
     }
 
     DEBUG_PRINT("Header created");
@@ -426,6 +447,7 @@ void Compressor::writeOutputFile(std::string outputFileName)
     }
 
     outputFile.write(reinterpret_cast<char *>(&_header), _headerSize);
+    outputFile.write(reinterpret_cast<char *>(_symbolsAtDepths), sizeof(uint64v4_t) * popcount(_usedDepths));
     outputFile.write(reinterpret_cast<char *>(_compressedData), _compressedSize * sizeof(uint32_t)); // TODO remove last up to 3 bytes
     outputFile.close();
 

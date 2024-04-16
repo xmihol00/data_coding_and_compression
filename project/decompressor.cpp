@@ -23,14 +23,26 @@ void Decompressor::readInputFile(string inputFileName)
     uint64_t fileSize = inputFile.tellg();
     inputFile.seekg(0, ios::beg);
 
-    inputFile.read(reinterpret_cast<char *>(&_header), sizeof(BaseHeader));
+    /*inputFile.read(reinterpret_cast<char *>(&_header), sizeof(BaseHeader));
     // TODO check headers
 
     fileSize -= sizeof(BaseHeader) + ADDITIONAL_HEADER_SIZES[_header.headerType];
-    inputFile.read(reinterpret_cast<char *>(_header.buffer), ADDITIONAL_HEADER_SIZES[_header.headerType]);
+    inputFile.read(reinterpret_cast<char *>(_header.buffer), ADDITIONAL_HEADER_SIZES[_header.headerType]);*/
 
-    _compressedData = reinterpret_cast<uint32_t *>(aligned_alloc(64, fileSize));
-    _decompressedData = reinterpret_cast<uint8_t *>(aligned_alloc(64, _header.blockSize));
+    inputFile.read(reinterpret_cast<char *>(&_header), sizeof(DepthBitmapsHeader));
+    _usedDepths = reinterpret_cast<DepthBitmapsHeader &>(_header).codeDepths;
+    uint16_t additionalHeaderSize = sizeof(uint64v4_t) * popcount(_usedDepths);
+    fileSize -= sizeof(DepthBitmapsHeader) + additionalHeaderSize;
+    inputFile.read(reinterpret_cast<char *>(_symbolsAtDepths), additionalHeaderSize);
+
+    for (uint8_t i = 0; i < popcount(_usedDepths); i++)
+    {
+        uint64_t *bits = reinterpret_cast<uint64_t *>(_symbolsAtDepths + i);
+        cerr << "Bits: " << bitset<64>(bits[0]) << " " << bitset<64>(bits[1]) << " " << bitset<64>(bits[2]) << " " << bitset<64>(bits[3]) << endl;
+    }
+
+    _compressedData = reinterpret_cast<uint32_t *>(aligned_alloc(64, fileSize + 64));
+    _decompressedData = reinterpret_cast<uint8_t *>(aligned_alloc(64, _header.blockSize + 64));
     if (_compressedData == nullptr || _decompressedData == nullptr)
     {
         cout << "Error: Could not allocate memory for data decompression" << endl;
@@ -51,7 +63,22 @@ void Decompressor::parseHeader()
                 reinterpret_cast<uint32v16_t *>(_indexPrefixLengthCodeCount)[1] = _mm512_setzero_si512();
             #endif
 
-                CodeLengthsHeader &header = reinterpret_cast<CodeLengthsHeader &>(_header);
+                uint8_t depthIndex = 0;
+                for (uint8_t i = 0; i < MAX_LONG_CODE_LENGTH; i++)
+                {
+                    if (_usedDepths & (1UL << i))
+                    {
+                        uint64v4_t popCounts = _mm256_popcnt_epi64(_symbolsAtDepths[depthIndex]);
+                        uint64_t *bits = reinterpret_cast<uint64_t *>(&popCounts);
+                        uint16_t sum1 = bits[0] + bits[1];
+                        uint16_t sum2 = bits[2] + bits[3];
+                        uint16_t symbolCount = sum1 + sum2;
+
+                        depthIndex++;    
+                    }
+                }
+
+                /*CodeLengthsHeader &header = reinterpret_cast<CodeLengthsHeader &>(_header);
                 for (uint16_t i = 0, j = 0; i < NUMBER_OF_SYMBOLS / 2; i++, j += 2)
                 {
                     _codeLengthsSymbols[j].codeLength = header.codeLengths[i] >> 4;
@@ -113,55 +140,8 @@ void Decompressor::parseHeader()
                         }
                         lastCode += _indexPrefixLengthCodeCount[i].codeCount - 1;
                     }
-                }
-                _codePrefixesSmallVector[0] = _mm256_and_si256(_codeMasksSmallVector[0], _codePrefixesSmallVector[0]);
-
-                /*uint16_t samePrefixCount = 0;
-                uint8_t lastCodeLength = 0;
-                uint8_t maskIdx = 0;
-                uint8_t prefixIdx = 16;
-                constexpr uint8_t I = 1;
-
-                for (uint16_t i = 0; codesIdx < NUMBER_OF_SYMBOLS; codesIdx++, i++)
-                {
-                    uint8_t delta = _codeLengthsSymbols[codesIdx].codeLength - lastCodeLength;
-                    lastCode = (lastCode + 1) << delta;
-
-                    // overwrite the currently stored values in all lookup tables (some delayed by one iteration)
-                    _codePrefixesSmall[maskIdx] = lastCode << (16 - _codeLengthsSymbols[codesIdx].codeLength);
-                    _codeMasksSmall[maskIdx - I] = (~0U) << (32 - lastCodeLength - countl_zero(samePrefixCount));
-                    _prefixIndices[prefixIdx - I] = i;
-                    _prefixShifts[prefixIdx] = popcount(_codeMasksSmall[maskIdx - I]);
-                    _suffixShifts[prefixIdx] = 16 - lastCodeLength + _prefixShifts[prefixIdx];
-
-                    // store the symbol at its sorted position by the code length
-                    _symbolsTable[i] = _codeLengthsSymbols[codesIdx].symbol;
-
-                    // update state based on the delta, i.e. if the code length has changed
-                    bool positiveDelta = delta > 0;
-                    lastCodeLength = _codeLengthsSymbols[codesIdx].codeLength;
-                    samePrefixCount++;
-                    maskIdx += positiveDelta;
-                    prefixIdx -= positiveDelta;
-                    samePrefixCount *= !positiveDelta; // reset if code length has changed
-                }
-
-                // TODO sort by mask length
-
-                // fill in the delayed lookup table entries
-                uint16_t mask = (~0U) << (32 - lastCodeLength - countl_zero(samePrefixCount));
-                uint8_t prefixLength = popcount(mask);
-                uint8_t sufixShift = 16 - lastCodeLength + prefixLength;
-
-                // set the rest of the table to repeat the last entry
-                for ( ; maskIdx <= MAX_SHORT_CODE_LENGTH; maskIdx++, prefixIdx--)
-                {
-                    _codePrefixesSmall[maskIdx] = _codePrefixesSmall[maskIdx - I];
-                    _codeMasksSmall[maskIdx - I] = mask;
-                    _prefixShifts[prefixIdx] = prefixLength;
-                    _suffixShifts[prefixIdx] = sufixShift;
-                    _prefixIndices[prefixIdx - I] = _prefixIndices[prefixIdx];
                 }*/
+                _codePrefixesSmallVector[0] = _mm256_and_si256(_codeMasksSmallVector[0], _codePrefixesSmallVector[0]);
                 
                 for (uint16_t i = 0; i < MAX_SHORT_CODE_LENGTH; i++)
                 {

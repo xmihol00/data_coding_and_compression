@@ -94,6 +94,11 @@ protected:
         uint8_t codeLengths[];
     } __attribute__((packed));
 
+    struct DepthBitmapsHeader : public BaseHeader
+    {
+        uint16_t codeDepths;
+    } __attribute__((packed));
+
     struct FullHeader : public BaseHeader
     {
         uint8_t buffer[256];
@@ -102,6 +107,9 @@ protected:
     static constexpr uint16_t ADDITIONAL_HEADER_SIZES[16] = {
         CODE_LENGTHS_HEADER_SIZE,
     };
+
+    uint32_t _usedDepths;
+    uint64v4_t _symbolsAtDepths[MAX_LONG_CODE_LENGTH] __attribute__((aligned(64)));
 };
 
 #endif // _COMMON_H_
