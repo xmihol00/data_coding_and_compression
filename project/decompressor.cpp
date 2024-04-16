@@ -102,10 +102,11 @@ void Decompressor::parseHeader()
                     cerr << "Depth: " << (int)_depthsIndices[i].depth << " PrefixLength: " << (int)_depthsIndices[i].prefixLength << " SymbolsAtDepthIndex: " << (int)_depthsIndices[i].symbolsAtDepthIndex << " MasksIndex: " << (int)_depthsIndices[i].masksIndex << endl;
 
                     uint8_t delta = _depthsIndices[i].depth - lastDepth;
+                    lastDepth = _depthsIndices[i].depth;
                     cerr << "Delta: " << (int)delta << endl;
                     lastCode = (lastCode + 1) << delta;
                     cerr << "LastCode: " << (int)lastCode << endl;
-                    _codePrefixesSmall[15 - _depthsIndices[i].masksIndex] = lastCode << (16 - _depthsIndices[i].prefixLength);
+                    _codePrefixesSmall[15 - _depthsIndices[i].masksIndex] = lastCode << (16 - _depthsIndices[i].depth);
                     _codeMasksSmall[15 - _depthsIndices[i].masksIndex] = (~0U) << (16 - _depthsIndices[i].prefixLength);
                     _prefixIndices[_depthsIndices[i].masksIndex] = symbolIdx;
                     _prefixShifts[_depthsIndices[i].masksIndex] = _depthsIndices[i].prefixLength;
@@ -125,7 +126,7 @@ void Decompressor::parseHeader()
                             _symbolsTable[symbolIdx++] = adjustedSymbol;
                         }
                     }
-                    lastCode += symbolIdx - lastSymbolIdx;
+                    lastCode += symbolIdx - lastSymbolIdx - 1;
                 }
 
                 /*CodeLengthsHeader &header = reinterpret_cast<CodeLengthsHeader &>(_header);
