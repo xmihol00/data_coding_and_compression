@@ -2,14 +2,27 @@
 
 using namespace std;
 
-Compressor::Compressor(bool model, bool adaptive, uint64_t width)
-    : _model(model), _adaptive(adaptive), _width(width) { }
+Compressor::Compressor(bool model, bool adaptive, uint64_t width) 
+    : HuffmanRLECompression(model, adaptive, width) { }
 
 Compressor::~Compressor()
 { 
     if (_dataPool != nullptr)
     {
         free(_dataPool);
+    }
+
+    if (_bestBlockTraversals != nullptr)
+    {
+        delete[] _bestBlockTraversals;
+    }
+
+    for (uint8_t i = 0; i < MAX_NUM_THREADS; i++)
+    {
+        if (_rlePerBlockCounts[i] != nullptr)
+        {
+            delete[] _rlePerBlockCounts[i];
+        }
     }
 }
 
@@ -445,10 +458,11 @@ void Compressor::writeOutputFile(std::string outputFileName)
         cerr << "Error: Unable to open output file '" << outputFileName << "'." << endl;
         exit(1);
     }
-
-    outputFile.write(reinterpret_cast<char *>(&_header), _headerSize);
+    
+    outputFile.write(reinterpret_cast<char *>(_fileData), _size); // TODO
+    /*outputFile.write(reinterpret_cast<char *>(&_header), _headerSize);
     outputFile.write(reinterpret_cast<char *>(_symbolsAtDepths), sizeof(uint64v4_t) * popcount(_usedDepths));
-    outputFile.write(reinterpret_cast<char *>(_compressedData), _compressedSize * sizeof(uint32_t)); // TODO remove last up to 3 bytes
+    outputFile.write(reinterpret_cast<char *>(_compressedData), _compressedSize * sizeof(uint32_t)); // TODO remove last up to 3 bytes */
     outputFile.close();
 
     DEBUG_PRINT("Output file written");
@@ -467,13 +481,6 @@ void Compressor::printTree(uint16_t nodeIdx, uint16_t indent = 0)
         printTree(_tree[nodeIdx].left, indent + 2);
         printTree(_tree[nodeIdx].right, indent + 2);
     }
-}
-
-void Compressor::compress(string inputFileName, string outputFileName)
-{
-    readInputFile(inputFileName);
-    compressStatic();
-    writeOutputFile(outputFileName);
 }
 
 void Compressor::readInputFile(std::string inputFileName)
@@ -546,4 +553,194 @@ void Compressor::compressStatic()
         cerr << codeBitset << " ";
     }
     cerr << endl;*/
+}
+
+void Compressor::analyzeImageAdaptive()
+{
+    #pragma omp sections
+    {
+        #pragma omp section // histogram of symbols, same for each traversal technique
+        {
+            computeHistogram();
+            sort(_histogram, _histogram + NUMBER_OF_SYMBOLS, 
+                 [](const Leaf &a, const Leaf &b) { return a.count < b.count; });
+        }
+
+        #pragma omp section // horizontal lines in blocks
+        {
+            constexpr AdaptiveTraversals sectionId = HORIZONTAL;
+            _rlePerBlockCounts[sectionId] = new int32_t[_blockCount];
+            int32_t *rleCounts = _rlePerBlockCounts[sectionId];
+
+            uint32_t blockIdx = 0;
+            for (uint32_t i = 0; i < _width; i += BLOCK_SIZE) // TODO: solve not divisible by BLOCK_SIZE
+            {
+                uint32_t firstRow = i * _width;
+                for (uint32_t j = 0; j < _height; j += BLOCK_SIZE)
+                {
+                    uint32_t firstColumn = firstRow + j;
+                    uint16_t lastSymbol = -1;
+                    int32_t sameSymbolCount = -3;
+                    int32_t rleCount = 0;
+                    for (uint32_t k = 0; k < BLOCK_SIZE; k++)
+                    {
+                        for (uint32_t l = 0; l < BLOCK_SIZE; l++)
+                        {
+                            bool sameSymbol = _fileData[firstColumn + l] == lastSymbol;
+                            lastSymbol = _fileData[firstColumn + l];
+                        #if 0
+                            rleCount += sameSymbolCount * (!sameSymbol && sameSymbolCount >= -1);
+                            sameSymbolCount = (sameSymbolCount + sameSymbol) * sameSymbol + (-3 * !sameSymbol);
+                        #endif
+                            rleCount += !sameSymbol && sameSymbolCount >= -1 ? sameSymbolCount : 0;
+                            sameSymbolCount++;
+                            sameSymbolCount = sameSymbol ? sameSymbolCount : -3;
+                        }
+
+                        firstColumn += _width;
+                    }
+                    rleCounts[blockIdx++] = rleCount;
+                }
+            }
+        }
+
+        #pragma omp section // vertical lines in blocks
+        {
+            constexpr AdaptiveTraversals sectionId = VERTICAL;
+            _rlePerBlockCounts[sectionId] = new int32_t[_blockCount];
+            int32_t *rleCounts = _rlePerBlockCounts[sectionId];
+            
+            int32_t blockIdx = 0;
+            for (uint32_t i = 0; i < _width; i += BLOCK_SIZE) // TODO: solve not divisible by BLOCK_SIZE
+            {
+                uint32_t firstRow = i * _width;
+                for (uint32_t j = 0; j < _height; j += BLOCK_SIZE)
+                {
+                    uint32_t firstColumn = firstRow + j;
+                    uint16_t lastSymbol = -1;
+                    int32_t sameSymbolCount = -3;
+                    int32_t rleCount = 0;
+                    for (uint32_t k = 0; k < BLOCK_SIZE; k++)
+                    {
+                        uint32_t column = firstColumn + k;
+                        for (uint32_t l = 0; l < BLOCK_SIZE; l++)
+                        {
+                            bool sameSymbol = _fileData[column] == lastSymbol;
+                            lastSymbol = _fileData[column];
+                        #if 0
+                            rleCount += sameSymbolCount * (!sameSymbol && sameSymbolCount >= -1);
+                            sameSymbolCount = (sameSymbolCount + sameSymbol) * sameSymbol + (-3 * !sameSymbol);
+                        #endif
+                            rleCount += !sameSymbol && sameSymbolCount >= -1 ? sameSymbolCount : 0;
+                            sameSymbolCount++;
+                            sameSymbolCount = sameSymbol ? sameSymbolCount : -3;
+
+                            column += _width;   
+                        }
+                    }
+                    rleCounts[blockIdx++] = rleCount;
+                }
+            }
+        }
+    }
+}
+
+void Compressor::compressAdaptive()
+{
+    #pragma omp master
+    {
+        DEBUG_PRINT("Adaptive compression started");
+    }
+
+    analyzeImageAdaptive();
+    #pragma omp barrier
+    
+    #pragma omp master
+    {
+        for (uint32_t i = 0; i < _blockCount; i++)
+        {
+            AdaptiveTraversals bestTraversal = HORIZONTAL;
+            int32_t bestRleCount = INT32_MIN;
+            for (uint8_t j = 0; j < 2; j++)
+            {
+                if (_rlePerBlockCounts[j][i] > bestRleCount)
+                {
+                    bestRleCount = _rlePerBlockCounts[j][i];
+                    bestTraversal = static_cast<AdaptiveTraversals>(j);
+                }
+                _bestBlockTraversals[i] = bestTraversal;
+            }
+        }
+    }
+
+    #pragma omp sections
+    {
+        #pragma omp section // with one thread but parallel to the for loop lower
+        {
+            buildHuffmanTree();
+            populateCodeTable();
+        }
+
+        #pragma omp section // with remaining threads serialize the blocks
+        {
+            uint32_t dynamicFactor = _blocksPerRow >> 2;
+            dynamicFactor += !dynamicFactor; // ensure at least 1
+
+            #pragma omp parallel for num_threads(omp_get_num_threads() - 1) schedule(dynamic, dynamicFactor)
+            for (uint32_t i = 0; i < _blockCount; i++)
+            {
+                switch (_bestBlockTraversals[i])
+                {
+                case HORIZONTAL:
+                    // nothing to do here, already serialized
+                    break;
+                
+                case VERTICAL:
+                    cerr << "transposing block " << i << " with thread: " << omp_get_thread_num() << endl;
+                    transposeBlock(_fileData, i);
+                    break;
+                }
+            }
+        }
+    }
+    #pragma omp barrier
+
+
+    cerr << "Adaptive compression not implemented. " << omp_get_thread_num() << endl;
+}
+
+void Compressor::compress(string inputFileName, string outputFileName)
+{
+    readInputFile(inputFileName);
+    
+    if (_model)
+    {
+        if (_adaptive)
+        {
+            //compressAdaptiveModel();
+        }
+        else
+        {
+            //compressStaticModel();
+        }
+    }
+    else
+    {
+        if (_adaptive)
+        {
+            _blocksPerRow = (_width + BLOCK_SIZE - 1) / BLOCK_SIZE;
+            _blocksPerColumn = (_height + BLOCK_SIZE - 1) / BLOCK_SIZE;
+            _blockCount = _blocksPerRow * _blocksPerColumn;
+            _bestBlockTraversals = new AdaptiveTraversals[_blockCount];
+
+            #pragma omp parallel
+            compressAdaptive();
+        }
+        else
+        {
+            compressStatic();
+        }
+    }
+
+    writeOutputFile(outputFileName);
 }

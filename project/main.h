@@ -1,6 +1,8 @@
 #ifndef _MAIN_H_
 #define _MAIN_H_
 
+#include "omp.h"
+
 #include <iostream>
 #include <string>
 #include <vector>

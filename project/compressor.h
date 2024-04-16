@@ -26,13 +26,9 @@ private:
     void compressStaticModel();
     void compressAdaptiveModel();
 
-    void printTree(uint16_t nodeIdx, uint16_t indent);
+    void analyzeImageAdaptive();
 
-    bool _model;
-    bool _adaptive;
-    uint64_t _width;
-    uint64_t _height;
-    uint64_t _size;
+    void printTree(uint16_t nodeIdx, uint16_t indent);
 
     struct Leaf
     {
@@ -77,6 +73,9 @@ private:
 
     FullHeader _header;
     uint16_t _headerSize;
+
+    AdaptiveTraversals *_bestBlockTraversals{nullptr};
+    int32_t *_rlePerBlockCounts[MAX_NUM_THREADS] = {nullptr, };
 };
 
 #endif

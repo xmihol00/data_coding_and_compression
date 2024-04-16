@@ -1,6 +1,8 @@
 #ifndef _COMMON_H_
 #define _COMMON_H_
 
+#include "omp.h"
+
 #include <string>
 #include <cstdint>
 #include <iostream>
@@ -14,7 +16,7 @@
 #include <bit>
 
 #if 1
-    #define DEBUG_PRINT(value) std::cerr << value << std::endl;
+    #define DEBUG_PRINT(value) std::cerr << value << std::endl
 #else
     #define DEBUG_PRINT(value)
 #endif
@@ -30,12 +32,33 @@ class HuffmanRLECompression
 {
 public:
     HuffmanRLECompression() = default;
+    HuffmanRLECompression(bool model, bool adaptive) : _model{model}, _adaptive{adaptive} { };
+    HuffmanRLECompression(bool model, bool adaptive, uint64_t width) : _model{model}, _adaptive{adaptive}, _width{width} { };
     ~HuffmanRLECompression() = default;
 
 protected:
     static constexpr uint16_t NUMBER_OF_SYMBOLS{256};
     static constexpr uint16_t MAX_LONG_CODE_LENGTH{32};
     static constexpr uint16_t MAX_SHORT_CODE_LENGTH{16};
+    static constexpr uint16_t BLOCK_SIZE{8};
+    static constexpr uint16_t MAX_NUM_THREADS{8};
+    static constexpr uint16_t CACHE_LINE_SIZE{128};
+
+    bool _model;
+    bool _adaptive;
+    uint64_t _width;
+    uint64_t _height;
+    uint64_t _size;
+
+    uint32_t _blockCount;
+    uint32_t _blocksPerRow;
+    uint32_t _blocksPerColumn;
+
+    enum AdaptiveTraversals
+    {
+        HORIZONTAL = 0,
+        VERTICAL = 1,
+    };
 
     static constexpr struct
     {
@@ -110,6 +133,25 @@ protected:
 
     uint32_t _usedDepths;
     uint64v4_t _symbolsAtDepths[MAX_LONG_CODE_LENGTH] __attribute__((aligned(64)));
+
+    inline constexpr void transposeBlock(uint8_t *memory, uint32_t blockIdx)
+    {
+        uint32_t blockRow = blockIdx / _blocksPerRow;
+        uint32_t blockColumn = blockIdx % _blocksPerRow;
+
+        uint32_t startingRow = blockRow * BLOCK_SIZE;
+        uint32_t startingColumn = blockColumn * BLOCK_SIZE;
+        for (uint32_t i = 0; i < BLOCK_SIZE; i++)
+        {   
+            uint32_t rowIdx = startingRow + i * _width;
+            uint32_t columnIdx = startingColumn + i;
+            for (uint32_t j = 0; j < i; j++)
+            {
+                std::swap(memory[rowIdx + j], memory[columnIdx]);
+                columnIdx += _width;
+            }
+        }
+    }
 };
 
 #endif // _COMMON_H_
