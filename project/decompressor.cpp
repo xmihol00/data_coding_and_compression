@@ -64,7 +64,6 @@ void Decompressor::parseHeader()
             #endif
 
                 uint8_t depthIdx = 0;
-                //uint8_t depthsIndicesIdx = 0;
                 for (uint8_t i = 0; i < MAX_LONG_CODE_LENGTH; i++)
                 {
                     if (_usedDepths & (1UL << i))
@@ -200,7 +199,6 @@ void Decompressor::parseHeader()
                     bitset<16> mask(_codeMasksSmall[i]);
                     cerr << i << ": " << prefix << " " << mask << " " << (int)_prefixShifts[i] << " " << (int)_suffixShifts[i] << " " << (int)_prefixIndices[i] << endl;
                 }
-                exit(0);
             }
             break;
         
