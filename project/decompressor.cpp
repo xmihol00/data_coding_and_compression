@@ -64,7 +64,7 @@ void Decompressor::parseHeader()
             #endif
 
                 uint8_t depthIdx = 0;
-                uint8_t depthsIndicesIdx = 0;
+                //uint8_t depthsIndicesIdx = 0;
                 for (uint8_t i = 0; i < MAX_LONG_CODE_LENGTH; i++)
                 {
                     if (_usedDepths & (1UL << i))
@@ -75,29 +75,58 @@ void Decompressor::parseHeader()
                         uint16_t sum2 = bits[2] + bits[3];
                         uint16_t symbolCount = sum1 + sum2;
 
-                        DepthIndices current;
-                        current.depth = i;
-                        current.prefixLength = i - 16 + countl_zero(static_cast<uint16_t>(symbolCount - 1));
-                        current.symbolsAtDepthIndex = depthIdx;
-                        current.masksIndex = depthsIndicesIdx;
+                        _depthsIndices[depthIdx].depth = i;
+                        _depthsIndices[depthIdx].prefixLength = i - 16 + countl_zero(static_cast<uint16_t>(symbolCount - 1));
+                        _depthsIndices[depthIdx].symbolsAtDepthIndex = depthIdx;
 
-                        // insert the current at the correct position
-                        int8_t j = depthsIndicesIdx - 1;
-                        for (; j >= 0 && _depthsIndices[j].prefixLength < current.prefixLength; j--)
+                        // get the correct masks index (longest prefix length must have the smallest index)
+                        int8_t j = depthIdx - 1;
+                        uint8_t currentMasksIdx = depthIdx;
+                        for (; j >= 0 && _depthsIndices[j].prefixLength < _depthsIndices[depthIdx].prefixLength; j--)
                         {
-                            _depthsIndices[j + 1] = _depthsIndices[j];
+                            uint8_t masksIdx = _depthsIndices[j].masksIndex;
+                            _depthsIndices[j].masksIndex = currentMasksIdx;
+                            currentMasksIdx = masksIdx;
                         }
-                        _depthsIndices[j + 1] = current;
+                        _depthsIndices[depthIdx].masksIndex = currentMasksIdx;
 
                         depthIdx++;    
                     }
                 }
 
+                uint8_t lastDepth = 0;
+                uint16_t lastCode = -1;
+                uint16_t symbolIdx = 0;
                 for (uint8_t i = 0; i < depthIdx; i++)
                 {
                     cerr << "Depth: " << (int)_depthsIndices[i].depth << " PrefixLength: " << (int)_depthsIndices[i].prefixLength << " SymbolsAtDepthIndex: " << (int)_depthsIndices[i].symbolsAtDepthIndex << " MasksIndex: " << (int)_depthsIndices[i].masksIndex << endl;
+
+                    uint8_t delta = _depthsIndices[i].depth - lastDepth;
+                    cerr << "Delta: " << (int)delta << endl;
+                    lastCode = (lastCode + 1) << delta;
+                    cerr << "LastCode: " << (int)lastCode << endl;
+                    _codePrefixesSmall[15 - _depthsIndices[i].masksIndex] = lastCode << (16 - _depthsIndices[i].prefixLength);
+                    _codeMasksSmall[15 - _depthsIndices[i].masksIndex] = (~0U) << (16 - _depthsIndices[i].prefixLength);
+                    _prefixIndices[_depthsIndices[i].masksIndex] = symbolIdx;
+                    _prefixShifts[_depthsIndices[i].masksIndex] = _depthsIndices[i].prefixLength;
+                    _suffixShifts[_depthsIndices[i].masksIndex] = 16 - _depthsIndices[i].depth + _depthsIndices[i].prefixLength;
+                    symbolIdx += lastCode & (static_cast<uint16_t>(~0) >> (16 - _depthsIndices[i].depth + _depthsIndices[i].prefixLength));
+
+                    uint16_t lastSymbolIdx = symbolIdx;
+                    uint64_t *bits = reinterpret_cast<uint64_t *>(_symbolsAtDepths + _depthsIndices[i].symbolsAtDepthIndex);
+                    for (uint8_t j = 0; j < 4; j++)
+                    {
+                        uint8_t symbol = j << 6;
+                        uint8_t leadingZeros;
+                        while ((leadingZeros = countl_zero(bits[j])) < 64)
+                        {
+                            uint8_t adjustedSymbol = symbol + leadingZeros;
+                            bits[j] ^= 1UL << (63 - leadingZeros);
+                            _symbolsTable[symbolIdx++] = adjustedSymbol;
+                        }
+                    }
+                    lastCode += symbolIdx - lastSymbolIdx;
                 }
-                exit(0);
 
                 /*CodeLengthsHeader &header = reinterpret_cast<CodeLengthsHeader &>(_header);
                 for (uint16_t i = 0, j = 0; i < NUMBER_OF_SYMBOLS / 2; i++, j += 2)
@@ -170,6 +199,7 @@ void Decompressor::parseHeader()
                     bitset<16> mask(_codeMasksSmall[i]);
                     cerr << i << ": " << prefix << " " << mask << " " << (int)_prefixShifts[i] << " " << (int)_suffixShifts[i] << " " << (int)_prefixIndices[i] << endl;
                 }
+                exit(0);
             }
             break;
         
