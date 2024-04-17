@@ -351,43 +351,34 @@ void Compressor::createHeader()
 {
     DEBUG_PRINT("Creating header");
 
-    if (_longestCode >= 16)
+    uint16_t maxBitsCompressedSizes = 0;
+    for (uint8_t i = 0; i < _numThreads; i++)
     {
-        _headerSize = sizeof(CodeLengthsHeader);
-        CodeLengthsHeader &header = reinterpret_cast<CodeLengthsHeader &>(_header);
-        header.width = static_cast<uint32_t>(_width);
-        header.blockSize = static_cast<uint32_t>(_size);
-        header.headerType = HEADERS.STATIC | HEADERS.DIRECT | HEADERS.ALL_SYMBOLS | HEADERS.CODE_LENGTHS_32;
-        header.version = 0;
-        for (uint16_t i = 0; i < NUMBER_OF_SYMBOLS; i++)
-        {
-            // TODO: fill in the header
-        }
+        uint16_t bits = 31 - countl_zero(_compressedSizes[i]);
+        maxBitsCompressedSizes = max(maxBitsCompressedSizes, bits);
     }
-    else
+
+    /*CodeLengthsHeader &header = reinterpret_cast<CodeLengthsHeader &>(_header);
+    header.width = static_cast<uint32_t>(_width);
+    header.blockSize = static_cast<uint32_t>(_size);
+    header.headerType = HEADERS.STATIC | HEADERS.DIRECT | HEADERS.ALL_SYMBOLS | HEADERS.CODE_LENGTHS_16;
+    header.version = 0;
+
+    _headerSize = sizeof(BaseHeader) + ADDITIONAL_HEADER_SIZES[header.headerType];
+
+    for (uint16_t i = 0, j = 0; i < NUMBER_OF_SYMBOLS; i += 2, j++)
     {
-        /*CodeLengthsHeader &header = reinterpret_cast<CodeLengthsHeader &>(_header);
-        header.width = static_cast<uint32_t>(_width);
-        header.blockSize = static_cast<uint32_t>(_size);
-        header.headerType = HEADERS.STATIC | HEADERS.DIRECT | HEADERS.ALL_SYMBOLS | HEADERS.CODE_LENGTHS_16;
-        header.version = 0;
+        header.codeLengths[j] = (31 - countl_zero(_codeTable[i])) << 4;
+        header.codeLengths[j] |= 31 - countl_zero(_codeTable[i + 1]);
+    }*/
 
-        _headerSize = sizeof(BaseHeader) + ADDITIONAL_HEADER_SIZES[header.headerType];
-
-        for (uint16_t i = 0, j = 0; i < NUMBER_OF_SYMBOLS; i += 2, j++)
-        {
-            header.codeLengths[j] = (31 - countl_zero(_codeTable[i])) << 4;
-            header.codeLengths[j] |= 31 - countl_zero(_codeTable[i + 1]);
-        }*/
-
-        DepthBitmapsHeader &header = reinterpret_cast<DepthBitmapsHeader &>(_header);
-        header.width = static_cast<uint32_t>(_width);
-        header.blockSize = static_cast<uint32_t>(_size);
-        header.headerType = HEADERS.STATIC | HEADERS.DIRECT | HEADERS.ALL_SYMBOLS | HEADERS.CODE_LENGTHS_16;
-        header.version = 0;
-        header.codeDepths = _usedDepths;
-        _headerSize = sizeof(DepthBitmapsHeader);
-    }
+    DepthBitmapsHeader &header = reinterpret_cast<DepthBitmapsHeader &>(_header);
+    header.width = static_cast<uint32_t>(_width);
+    header.blockSize = static_cast<uint32_t>(_size);
+    header.headerType = HEADERS.STATIC | HEADERS.DIRECT | HEADERS.ALL_SYMBOLS | HEADERS.CODE_LENGTHS_16;
+    header.version = 0;
+    header.codeDepths = _usedDepths;
+    _headerSize = sizeof(DepthBitmapsHeader);
 
     DEBUG_PRINT("Header created");
 }
@@ -500,16 +491,15 @@ void Compressor::compressStatic()
     #pragma omp single
     {
         // exclusive scan of compressed sizes
-        uint32_t compressedSize = 0;
+        _compressedSizesExScan[0] = 0;
         for (uint32_t i = 0; i < _numThreads; i++)
         {
-            uint32_t tmp = _compressedSizes[i];
-            _compressedSizes[i] = compressedSize;
-            compressedSize += tmp;
+            _compressedSizesExScan[i + 1] = _compressedSizesExScan[i] + _compressedSizes[i];
         }
     }
-
-    // TODO: pack the compressed data
+    _compressedData = reinterpret_cast<uint16_t *>(_serializedData); // reuse now consumed buffer
+    // pack the compressed data
+    copy(_fileData + startingIdx, _fileData + startingIdx + _compressedSizes[_threadId], _compressedData + _compressedSizesExScan[_threadId]);
 
     #pragma omp single
     {

@@ -71,6 +71,7 @@ private:
 
     uint8_t _longestCode;
     uint32_t _compressedSizes[MAX_NUM_THREADS];
+    uint32_t _compressedSizesExScan[MAX_NUM_THREADS + 1];
 
     FullHeader _header;
     uint16_t _headerSize;

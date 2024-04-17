@@ -108,6 +108,15 @@ protected:
         .CODE_LENGTHS_32  = 1 << HEADER_OPTIONS.CODE_LENGTHS,
     };
 
+    struct FirstByteHeader
+    {
+        inline constexpr bool compressed() const { return compressedAndVersion & 0x80; }
+        inline constexpr uint8_t version() const { return compressedAndVersion & 0x7F; }
+
+    private:
+        uint8_t compressedAndVersion;
+    } __attribute__((packed));
+
     struct BaseHeader
     {
         uint32_t width;
