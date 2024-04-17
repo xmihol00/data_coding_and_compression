@@ -698,7 +698,7 @@ void Compressor::compressAdaptive()
                     #pragma omp task firstprivate(j, i)
                     {
                         cerr << "Transposing block " << j << " " << i << " at " << (void *)_fileData << " in thread " << omp_get_thread_num() << endl;
-                        transposeBlock(_fileData, _serializedData, j, i);
+                        transposeSerializeBlock(_fileData, _serializedData, j, i);
                     }
                     break;
                 }

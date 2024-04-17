@@ -23,6 +23,10 @@
 
 using symbol_t = uint8_t;
 using uint16v16_t = __m256i;
+using uint8v8_t = uint64_t;
+using uint8v16_t = __m128i;
+using uint8v32_t = __m256i;
+using uint8v64_t = __m512i;
 using uint32v8_t = __m256i;
 using uint32v16_t = __m512i;
 using uint64v4_t = __m256i;
@@ -134,7 +138,7 @@ protected:
     uint32_t _usedDepths;
     uint64v4_t _symbolsAtDepths[MAX_LONG_CODE_LENGTH] __attribute__((aligned(64)));
 
-    inline constexpr void transposeBlock(symbol_t *source, symbol_t *destination, uint32_t blockRow, uint32_t blockColumn)
+    inline constexpr void transposeSerializeBlock(symbol_t *source, symbol_t *destination, uint32_t blockRow, uint32_t blockColumn)
     {
         uint32_t sourceStartingIdx = blockRow * _width * BLOCK_SIZE + blockColumn * BLOCK_SIZE;
         uint32_t destinationIdx = blockRow * BLOCK_SIZE * _width + blockColumn * BLOCK_SIZE * BLOCK_SIZE;
@@ -143,6 +147,33 @@ protected:
             for (uint32_t j = 0; j < BLOCK_SIZE; j++)
             {
                 destination[destinationIdx++] = source[sourceStartingIdx + j * _width + i];
+            }
+        }
+    }
+
+    inline constexpr void serializeBlock(symbol_t *source, symbol_t *destination, uint32_t blockRow, uint32_t blockColumn)
+    {
+        uint32_t sourceStartingIdx = blockRow * _width * BLOCK_SIZE + blockColumn * BLOCK_SIZE;
+        uint32_t destinationIdx = blockRow * BLOCK_SIZE * _blocksPerRow + blockColumn * BLOCK_SIZE;
+        #pragma GCC unroll BLOCK_SIZE
+        for (uint32_t i = 0; i < BLOCK_SIZE; i++)
+        {   
+            // copy whole line at once
+            if constexpr (BLOCK_SIZE == 8)
+            {
+                reinterpret_cast<uint8v8_t *>(destination)[destinationIdx++] = reinterpret_cast<uint8v8_t *>(source)[sourceStartingIdx + i * _blocksPerColumn];
+            }
+            else if constexpr (BLOCK_SIZE == 16)
+            {
+                reinterpret_cast<uint8v16_t *>(destination)[destinationIdx++] = _mm_load_si128(reinterpret_cast<uint8v16_t*>(source + sourceStartingIdx + i * _width));
+            }
+            else if constexpr (BLOCK_SIZE == 32)
+            {
+                reinterpret_cast<uint8v32_t *>(destination)[destinationIdx++] = _mm256_load_si256(reinterpret_cast<uint8v32_t*>(source + sourceStartingIdx + i * _width));
+            }
+            else if constexpr (BLOCK_SIZE == 64)
+            {
+                reinterpret_cast<uint8v64_t *>(destination)[destinationIdx++] = _mm512_load_si512(reinterpret_cast<uint8v64_t*>(source + sourceStartingIdx + i * _width));
             }
         }
     }
