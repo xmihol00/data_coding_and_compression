@@ -2,11 +2,12 @@
 
 using namespace std;
 
-Compressor::Compressor(bool model, bool adaptive, uint64_t width) 
-    : HuffmanRLECompression(model, adaptive, width) { }
+Compressor::Compressor(bool model, bool adaptive, uint64_t width, int32_t numThreads)
+    : HuffmanRLECompression(model, adaptive, width, numThreads) { }
 
 Compressor::~Compressor()
 { 
+    cerr << (void *) _fileData << " " << (void *) _serializedData << endl;
     if (_fileData != nullptr)
     {
         free(_fileData);
@@ -254,11 +255,12 @@ void Compressor::populateCodeTable()
     }
     cerr << endl;
 
-    for (uint8_t i = 0; i < popcount(_usedDepths); i++)
+    /*for (uint8_t i = 0; i < popcount(_usedDepths); i++)
     {
         uint64v4_t bitsVector = _mm256_load_si256(_symbolsAtDepths + i);
         uint64_t *bits = reinterpret_cast<uint64_t *>(&bitsVector);
-    }
+        cerr << "Depth: " << (int)i << " Vect: " << bitset<64>(bits[0]) << " " << bitset<64>(bits[1]) << " " << bitset<64>(bits[2]) << " " << bitset<64>(bits[3]) << endl;
+    }*/
 
     for (uint16_t i = 0; i < NUMBER_OF_SYMBOLS; i++)
     {
@@ -334,7 +336,7 @@ void Compressor::transformRLE(symbol_t firstSymbol, symbol_t *sourceData, uint16
             }
 
             sameSymbolCount = 1;
-            current = _fileData[sourceDataIdx];
+            current = sourceData[sourceDataIdx];
         }
         sourceDataIdx++;
     }
@@ -343,6 +345,8 @@ void Compressor::transformRLE(symbol_t firstSymbol, symbol_t *sourceData, uint16
     // remove up to 2 last bytes based on the chunk index
     compressedSize -= chunkIdx == 0; 
     compressedSize -= chunkIdx < 8;
+
+    cerr << "Thread " << omp_get_thread_num() << " compressed size: " << compressedSize << endl;
 
     DEBUG_PRINT("RLE transformed");
 }
@@ -358,13 +362,42 @@ void Compressor::createHeader()
         maxBitsCompressedSizes = max(maxBitsCompressedSizes, bits);
     }
 
-    /*CodeLengthsHeader &header = reinterpret_cast<CodeLengthsHeader &>(_header);
+    uint8_t *packedCompressedSizes = reinterpret_cast<uint8_t *>(_compressedSizes);
+    uint16_t idx = 0;
+    uint8_t chunkIdx = 0;
+    for (uint8_t i = 0; i < _numThreads; i++)
+    {
+        uint32_t compressedSize = _compressedSizes[i];
+        uint8_t bits = maxBitsCompressedSizes;
+        cerr << "Packing: " << compressedSize << " " << bits << endl;
+        compressedSize <<= 32 - maxBitsCompressedSizes;
+        packedCompressedSizes[idx] = i == 0 ? 0 : packedCompressedSizes[idx];
+
+        do
+        {
+            uint8_t removeBits = bits < chunkIdx ? bits : chunkIdx;
+            uint8_t removedBits = compressedSize >> (32 - removeBits);
+            packedCompressedSizes[idx] |= removedBits; // TODO: FIX
+            compressedSize <<= removeBits;
+            bits -= removeBits;
+            chunkIdx += removeBits;
+            if (chunkIdx >= 8)
+            {
+                chunkIdx &= 0x7;
+                idx++;
+                packedCompressedSizes[idx] = 0;
+            }
+        } 
+        while (bits);
+    }
+
+    /*CodeLengthsSingleThreadedHeader &header = reinterpret_cast<CodeLengthsSingleThreadedHeader &>(_header);
     header.width = static_cast<uint32_t>(_width);
     header.blockSize = static_cast<uint32_t>(_size);
     header.headerType = HEADERS.STATIC | HEADERS.DIRECT | HEADERS.ALL_SYMBOLS | HEADERS.CODE_LENGTHS_16;
     header.version = 0;
 
-    _headerSize = sizeof(BaseHeader) + ADDITIONAL_HEADER_SIZES[header.headerType];
+    _headerSize = sizeof(StaticSingleThreadedHeader) + ADDITIONAL_HEADER_SIZES[header.headerType];
 
     for (uint16_t i = 0, j = 0; i < NUMBER_OF_SYMBOLS; i += 2, j++)
     {
@@ -372,13 +405,20 @@ void Compressor::createHeader()
         header.codeLengths[j] |= 31 - countl_zero(_codeTable[i + 1]);
     }*/
 
-    DepthBitmapsHeader &header = reinterpret_cast<DepthBitmapsHeader &>(_header);
-    header.width = static_cast<uint32_t>(_width);
-    header.blockSize = static_cast<uint32_t>(_size);
-    header.headerType = HEADERS.STATIC | HEADERS.DIRECT | HEADERS.ALL_SYMBOLS | HEADERS.CODE_LENGTHS_16;
-    header.version = 0;
+    DepthBitmapsMultiThreadedHeader &header = reinterpret_cast<DepthBitmapsMultiThreadedHeader &>(_header);
+    header.setSize(_size);
+    header.insertHeaderType(STATIC | DIRECT | MULTI_THREADED);
+    header.setVersion(0);
+    header.setNumThreads(_numThreads);
+    header.setBitsPerBlock(maxBitsCompressedSizes);
     header.codeDepths = _usedDepths;
-    _headerSize = sizeof(DepthBitmapsHeader);
+    _headerSize = sizeof(DepthBitmapsMultiThreadedHeader);
+    _threadBlocksSize = (_numThreads * maxBitsCompressedSizes + 7) / 8;
+    for (uint32_t i = 0; i < _threadBlocksSize; i++)
+    {
+        cerr << bitset<8>(packedCompressedSizes[0]) << " ";
+    }
+    cerr << endl;
 
     DEBUG_PRINT("Header created");
 }
@@ -394,10 +434,11 @@ void Compressor::writeOutputFile(std::string outputFileName)
         exit(1);
     }
     
-    outputFile.write(reinterpret_cast<char *>(_serializedData), _size); // TODO
-    /*outputFile.write(reinterpret_cast<char *>(&_header), _headerSize);
+    //outputFile.write(reinterpret_cast<char *>(_serializedData), _size); // TODO
+    outputFile.write(reinterpret_cast<char *>(&_header), _headerSize);
+    outputFile.write(reinterpret_cast<char *>(_compressedSizes), _threadBlocksSize);
     outputFile.write(reinterpret_cast<char *>(_symbolsAtDepths), sizeof(uint64v4_t) * popcount(_usedDepths));
-    outputFile.write(reinterpret_cast<char *>(_compressedData), _compressedSize * sizeof(uint32_t)); // TODO remove last up to 3 bytes */
+    outputFile.write(reinterpret_cast<char *>(_compressedData), _compressedSizesExScan[_numThreads]); // TODO remove last up to 3 bytes */
     outputFile.close();
 
     DEBUG_PRINT("Output file written");
@@ -458,7 +499,7 @@ void Compressor::readInputFile(std::string inputFileName)
         cerr << "Error: Unable to allocate memory for the input file." << endl;
         exit(1);
     }
-    // alias the allocated memory with offset to save memory when compressing (already consumed file data can be overwritten by the compressed data)
+    cerr << (void *) _fileData << " " << (void *) _serializedData << endl;
 
     inputFile.read(reinterpret_cast<char *>(_fileData), _size);
     inputFile.close();
@@ -482,24 +523,26 @@ void Compressor::compressStatic()
     uint32_t bytesPerThread;
     uint32_t startingIdx;
     symbol_t firstSymbol;
-    swap(_fileData, _serializedData);
-    decomposeDataBetweenThreads(bytesPerThread, startingIdx, firstSymbol);
+    decomposeDataBetweenThreads(_fileData, bytesPerThread, startingIdx, firstSymbol);
 
-    transformRLE(firstSymbol, _serializedData + startingIdx, reinterpret_cast<uint16_t *>(_fileData + startingIdx), bytesPerThread, _compressedSizes[_threadId]);
+    transformRLE(firstSymbol, _fileData + startingIdx, reinterpret_cast<uint16_t *>(_serializedData + startingIdx), bytesPerThread, _compressedSizes[omp_get_thread_num()]);
     #pragma omp barrier
 
     #pragma omp single
     {
         // exclusive scan of compressed sizes
         _compressedSizesExScan[0] = 0;
-        for (uint32_t i = 0; i < _numThreads; i++)
+        for (int32_t i = 0; i < _numThreads; i++)
         {
             _compressedSizesExScan[i + 1] = _compressedSizesExScan[i] + _compressedSizes[i];
         }
+
+        cerr << "Total compressed size: " << _compressedSizesExScan[_numThreads] << endl;
     }
-    _compressedData = reinterpret_cast<uint16_t *>(_serializedData); // reuse now consumed buffer
-    // pack the compressed data
-    copy(_fileData + startingIdx, _fileData + startingIdx + _compressedSizes[_threadId], _compressedData + _compressedSizesExScan[_threadId]);
+
+    // pack the compressed data back into the initial buffer
+    copy(_serializedData + startingIdx, _serializedData + startingIdx + _compressedSizes[omp_get_thread_num()], _fileData + _compressedSizesExScan[omp_get_thread_num()]);
+    _compressedData = reinterpret_cast<uint16_t *>(_fileData);
 
     #pragma omp single
     {
@@ -665,34 +708,33 @@ void Compressor::compressAdaptive()
     uint32_t bytesPerThread;
     uint32_t startingIdx;
     symbol_t firstSymbol;
-    decomposeDataBetweenThreads(bytesPerThread, startingIdx, firstSymbol);
+    decomposeDataBetweenThreads(_serializedData, bytesPerThread, startingIdx, firstSymbol);
 
     // TODO: RLE transform
 }
 
-void Compressor::decomposeDataBetweenThreads(uint32_t &bytesPerThread, uint32_t &startingIdx, symbol_t &firstSymbol)
+void Compressor::decomposeDataBetweenThreads(symbol_t *data, uint32_t &bytesPerThread, uint32_t &startingIdx, symbol_t &firstSymbol)
 {
     bytesPerThread = (_size + _numThreads - 1) / _numThreads;
     bytesPerThread += bytesPerThread & 0x1; // ensure even number of bytes per thread
-    startingIdx = bytesPerThread * _threadId;
-    firstSymbol = _serializedData[startingIdx];
-    if (_threadId == _numThreads - 1) // last thread
+    startingIdx = bytesPerThread * omp_get_thread_num();
+    firstSymbol = data[startingIdx];
+    if (omp_get_thread_num() == _numThreads - 1) // last thread
     {
         // ensure last symbol in a block is different from the first in next block
-        _serializedData[startingIdx] = ~_serializedData[startingIdx - 1];
-        _serializedData[_size] = ~_serializedData[_size - 1];
+        data[startingIdx] = ~data[startingIdx - 1];
+        data[_size] = ~data[_size - 1];
 
         bytesPerThread -= bytesPerThread * _numThreads - _size; // ensure last thread does not run out of bounds
     }
-    else if (_threadId != 0) // remaining threads apart from the first one
+    else if (omp_get_thread_num() != 0) // remaining threads apart from the first one
     {
-        _serializedData[startingIdx] = ~_serializedData[startingIdx - 1];
+        data[startingIdx] = ~data[startingIdx - 1];
     }
 }
 
 void Compressor::compress(string inputFileName, string outputFileName)
 {
-    _numThreads = omp_get_num_threads();
     readInputFile(inputFileName);
     
     if (_adaptive)
@@ -705,8 +747,6 @@ void Compressor::compress(string inputFileName, string outputFileName)
     
     #pragma omp parallel
     {
-        _threadId = omp_get_thread_num();
-
         if (_model)
         {
             if (_adaptive)

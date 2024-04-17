@@ -35,7 +35,8 @@ using uint64v8_t = __m512i;
 class HuffmanRLECompression
 {
 public:
-    HuffmanRLECompression(bool model = false, bool adaptive = false, uint64_t width = 0) : _model{model}, _adaptive{adaptive}, _width{width} { };
+    HuffmanRLECompression(bool model = false, bool adaptive = false, uint64_t width = 0, int32_t numThreads = 1) 
+        : _model{model}, _adaptive{adaptive}, _width{width}, _numThreads{numThreads} { };
     ~HuffmanRLECompression() = default;
 
 protected:
@@ -45,9 +46,6 @@ protected:
     static constexpr uint16_t BLOCK_SIZE{16};
     static constexpr uint16_t MAX_NUM_THREADS{32};
     static constexpr uint16_t CACHE_LINE_SIZE{128};
-
-    uint32_t _numThreads{1};
-    uint32_t _threadId{0};
 
     bool _model;
     bool _adaptive;
@@ -59,84 +57,95 @@ protected:
     uint32_t _blocksPerRow;
     uint32_t _blocksPerColumn;
 
+    int32_t _numThreads;
+    
     enum AdaptiveTraversals
     {
         HORIZONTAL = 0,
         VERTICAL = 1,
     };
 
-    static constexpr struct
+    enum HeaderOptions
     {
-        uint8_t SERIALIZATION   = 0;
-        uint8_t TRANSFORMATION  = 1;
-        uint8_t CODE_TABLE_TYPE = 2;
-        uint8_t CODE_LENGTHS    = 3;
-
-    } HEADER_OPTIONS
-    {
-        .SERIALIZATION   = 0,
-        .TRANSFORMATION  = 1,
-        .CODE_TABLE_TYPE = 2,
-        .CODE_LENGTHS    = 3,
+        SERIALIZATION = 0,
+        TRANSFORMATION,
+        THREADS,
     };
 
-    static constexpr struct 
+    enum HeaderValues
     {
-        uint8_t STATIC           = 0 << HEADER_OPTIONS.SERIALIZATION;
-        uint8_t ADAPTIVE         = 1 << HEADER_OPTIONS.SERIALIZATION;
-
-        uint8_t DIRECT           = 0 << HEADER_OPTIONS.TRANSFORMATION;
-        uint8_t MODEL            = 1 << HEADER_OPTIONS.TRANSFORMATION;
-
-        uint8_t ALL_SYMBOLS      = 0 << HEADER_OPTIONS.CODE_TABLE_TYPE;
-        uint8_t SELECTED_SYMBOLS = 1 << HEADER_OPTIONS.CODE_TABLE_TYPE;
-
-        uint8_t CODE_LENGTHS_16  = 0 << HEADER_OPTIONS.CODE_LENGTHS;
-        uint8_t CODE_LENGTHS_32  = 1 << HEADER_OPTIONS.CODE_LENGTHS;
-    } HEADERS
-    {
-        .STATIC           = 0 << HEADER_OPTIONS.SERIALIZATION,
-        .ADAPTIVE         = 1 << HEADER_OPTIONS.SERIALIZATION,
-
-        .DIRECT           = 0 << HEADER_OPTIONS.TRANSFORMATION,
-        .MODEL            = 1 << HEADER_OPTIONS.TRANSFORMATION,
-
-        .ALL_SYMBOLS      = 0 << HEADER_OPTIONS.CODE_TABLE_TYPE,
-        .SELECTED_SYMBOLS = 1 << HEADER_OPTIONS.CODE_TABLE_TYPE,
-
-        .CODE_LENGTHS_16  = 0 << HEADER_OPTIONS.CODE_LENGTHS,
-        .CODE_LENGTHS_32  = 1 << HEADER_OPTIONS.CODE_LENGTHS,
+        STATIC          = 0 << SERIALIZATION,
+        ADAPTIVE        = 1 << SERIALIZATION,
+        DIRECT          = 0 << TRANSFORMATION,
+        MODEL           = 1 << TRANSFORMATION,
+        SINGLE_THREADED = 0 << THREADS,
+        MULTI_THREADED  = 1 << THREADS
     };
 
     struct FirstByteHeader
     {
-        inline constexpr bool compressed() const { return compressedAndVersion & 0x80; }
-        inline constexpr uint8_t version() const { return compressedAndVersion & 0x7F; }
+    public:
+        inline constexpr bool getCompressed() const { return data & 0b1000'0000; }
+        inline constexpr uint8_t getVersion() const { return (data & 0b0110'0000) >> 5; }
+        inline constexpr uint8_t getHeaderType() const { return data & 0b0000'1111; }
 
+        inline constexpr void clear() { data = 0; }
+        inline constexpr void setNotCompressed() { data |= 1 << 7; }
+        inline constexpr void setVersion(uint8_t version) { data = (data & 0b1001'1111) | (version << 6) >> 1; }
+        inline constexpr void insertHeaderType(uint8_t headerType) { data |= headerType; }
     private:
-        uint8_t compressedAndVersion;
+        uint8_t data;
     } __attribute__((packed));
 
-    struct BaseHeader
+    struct SingleThreadedHeader : public FirstByteHeader
     {
-        uint32_t width;
-        uint32_t blockSize;
-        uint8_t headerType;
-        uint8_t version;
+    public:
+        inline constexpr void setSize(uint64_t size) { extraSize = size >> 32; baseSize = size; }
+        inline constexpr uint64_t getSize() { return (static_cast<uint64_t>(extraSize) << 32) | baseSize; }
+    private:
+        uint8_t extraSize;
+        uint32_t baseSize;
+    } __attribute__((packed));
+
+    struct MultiThreadedHeader : public FirstByteHeader
+    {
+    public:
+        inline constexpr uint8_t getNumThreads() const { return data & 0b0001'1111; }
+        inline constexpr void setNumThreads(uint8_t numThreads) { data = (data & 0b1110'0000) | numThreads; }
+
+        inline constexpr void setSize(uint64_t size) { extraSize = size >> 32; baseSize = size; }
+        inline constexpr uint64_t getSize() { return (static_cast<uint64_t>(extraSize & 0b0001'1111) << 32) | baseSize; }
+
+        inline constexpr void setBitsPerBlock(uint8_t bitsPerBlock) 
+        { 
+            extraSize = (extraSize & 0b0001'1111) | (bitsPerBlock << 5);
+            data = (data & 0b0001'1111) | ((bitsPerBlock & 0b0011'100) << 2);
+        }
+        inline constexpr uint8_t getBitsPerBlock() { return ((extraSize & 0b1110'0000) >> 5) | ((data & 0b1110'0000) >> 2); }
+    
+    private:
+        uint8_t extraSize;
+        uint32_t baseSize;
+        uint8_t data;
     } __attribute__((packed));
 
     static constexpr uint16_t CODE_LENGTHS_HEADER_SIZE{NUMBER_OF_SYMBOLS / 2};
-    struct CodeLengthsHeader : public BaseHeader
+    struct CodeLengthsSingleThreadedHeader : public SingleThreadedHeader
     {
         uint8_t codeLengths[];
     } __attribute__((packed));
 
-    struct DepthBitmapsHeader : public BaseHeader
+    struct DepthBitmapsSingleThreadedHeader : public SingleThreadedHeader
     {
         uint16_t codeDepths;
     } __attribute__((packed));
 
-    struct FullHeader : public BaseHeader
+    struct DepthBitmapsMultiThreadedHeader : public MultiThreadedHeader
+    {
+        uint16_t codeDepths;
+    } __attribute__((packed));
+
+    struct FullHeader : public SingleThreadedHeader
     {
         uint8_t buffer[256];
     } __attribute__((packed));

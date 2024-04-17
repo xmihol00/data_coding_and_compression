@@ -6,7 +6,7 @@
 class Compressor : public HuffmanRLECompression
 {
 public:
-    Compressor(bool model, bool adaptive, uint64_t width);
+    Compressor(bool model, bool adaptive, uint64_t width, int32_t numThreads);
     ~Compressor();
     void compress(std::string inputFileName, std::string outputFileName);
 
@@ -17,7 +17,7 @@ private:
     void computeHistogram();
     void buildHuffmanTree();
     void populateCodeTable();
-    void decomposeDataBetweenThreads(uint32_t &bytesPerThread, uint32_t &startingIdx, symbol_t &firstSymbol);
+    void decomposeDataBetweenThreads(symbol_t *data, uint32_t &bytesPerThread, uint32_t &startingIdx, symbol_t &firstSymbol);
     void transformRLE(symbol_t firstSymbol, symbol_t *sourceData, uint16_t *compressedData, uint32_t bytesToCompress, uint32_t &compressedSize);
     void createHeader();
     void writeOutputFile(std::string outputFileName);
@@ -75,6 +75,7 @@ private:
 
     FullHeader _header;
     uint16_t _headerSize;
+    uint16_t _threadBlocksSize{0};
 
     AdaptiveTraversals *_bestBlockTraversals{nullptr};
     int32_t *_rlePerBlockCounts[MAX_NUM_THREADS] = {nullptr, };

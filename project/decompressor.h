@@ -13,7 +13,7 @@
 class Decompressor : public HuffmanRLECompression
 {
 public:
-    Decompressor() = default;
+    Decompressor(int32_t numThreads);
     ~Decompressor();
     void decompress(std::string inputFileName, std::string outputFileName);
 

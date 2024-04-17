@@ -5,19 +5,19 @@ using namespace std;
 
 int main(int argc, char* argv[])
 {
-    //int numberOfProcessors = omp_get_num_procs();
-    omp_set_num_threads(omp_get_num_procs());
+    int numberOfThreads = omp_get_num_procs();
+    omp_set_num_threads(numberOfThreads);
     cerr << omp_get_thread_num() << " number of threads: " << omp_get_num_threads() << " max processes: " << omp_get_num_procs() << " max threads: " << omp_get_max_threads() << endl;
     
     Arguments args = parseArguments(argc, argv);
     if (args.compress)
     {
-        Compressor compressor(args.model, args.adaptive, args.width);
+        Compressor compressor(args.model, args.adaptive, args.width, numberOfThreads);
         compressor.compress(args.inputFileName, args.outputFileName);
     }
     else
     {
-        Decompressor decompressor;
+        Decompressor decompressor(numberOfThreads);
         decompressor.decompress(args.inputFileName, args.outputFileName);
     }
     

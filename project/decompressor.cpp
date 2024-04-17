@@ -2,6 +2,9 @@
 
 using namespace std;
 
+Decompressor::Decompressor(int32_t numThreads)
+    : HuffmanRLECompression(false, false, 0, numThreads) { }
+
 Decompressor::~Decompressor()
 {
     if (_decompressedData != nullptr)
@@ -23,16 +26,16 @@ void Decompressor::readInputFile(string inputFileName)
     uint64_t fileSize = inputFile.tellg();
     inputFile.seekg(0, ios::beg);
 
-    /*inputFile.read(reinterpret_cast<char *>(&_header), sizeof(BaseHeader));
+    /*inputFile.read(reinterpret_cast<char *>(&_header), sizeof(StaticSingleThreadedHeader));
     // TODO check headers
 
-    fileSize -= sizeof(BaseHeader) + ADDITIONAL_HEADER_SIZES[_header.headerType];
+    fileSize -= sizeof(StaticSingleThreadedHeader) + ADDITIONAL_HEADER_SIZES[_header.headerType];
     inputFile.read(reinterpret_cast<char *>(_header.buffer), ADDITIONAL_HEADER_SIZES[_header.headerType]);*/
 
-    inputFile.read(reinterpret_cast<char *>(&_header), sizeof(DepthBitmapsHeader));
-    _usedDepths = reinterpret_cast<DepthBitmapsHeader &>(_header).codeDepths;
+    inputFile.read(reinterpret_cast<char *>(&_header), sizeof(DepthBitmapsSingleThreadedHeader));
+    _usedDepths = reinterpret_cast<DepthBitmapsSingleThreadedHeader &>(_header).codeDepths;
     uint16_t additionalHeaderSize = sizeof(uint64v4_t) * popcount(_usedDepths);
-    fileSize -= sizeof(DepthBitmapsHeader) + additionalHeaderSize;
+    fileSize -= sizeof(DepthBitmapsSingleThreadedHeader) + additionalHeaderSize;
     inputFile.read(reinterpret_cast<char *>(_symbolsAtDepths), additionalHeaderSize);
 
     for (uint8_t i = 0; i < popcount(_usedDepths); i++)
@@ -42,7 +45,7 @@ void Decompressor::readInputFile(string inputFileName)
     }
 
     _compressedData = reinterpret_cast<uint16_t *>(aligned_alloc(64, fileSize + 64));
-    _decompressedData = reinterpret_cast<uint8_t *>(aligned_alloc(64, _header.blockSize + 64));
+    _decompressedData = reinterpret_cast<uint8_t *>(aligned_alloc(64, _header.getSize() + 64));
     if (_compressedData == nullptr || _decompressedData == nullptr)
     {
         cout << "Error: Could not allocate memory for data decompression" << endl;
@@ -54,9 +57,9 @@ void Decompressor::readInputFile(string inputFileName)
 
 void Decompressor::parseHeader()
 {
-    switch (_header.headerType)
+    switch (_header.getHeaderType())
     {
-        case HEADERS.STATIC | HEADERS.DIRECT | HEADERS.ALL_SYMBOLS | HEADERS.CODE_LENGTHS_16:
+        case STATIC | DIRECT | MULTI_THREADED:
             {
                 uint8_t depthIdx = 0;
                 for (uint8_t i = 0; i < MAX_LONG_CODE_LENGTH; i++)
@@ -129,7 +132,7 @@ void Decompressor::parseHeader()
                     reinterpret_cast<uint32v16_t *>(_indexPrefixLengthCodeCount)[0] = _mm512_setzero_si512();
                     reinterpret_cast<uint32v16_t *>(_indexPrefixLengthCodeCount)[1] = _mm512_setzero_si512();
                 #endif
-                CodeLengthsHeader &header = reinterpret_cast<CodeLengthsHeader &>(_header);
+                CodeLengthsSingleThreadedHeader &header = reinterpret_cast<CodeLengthsSingleThreadedHeader &>(_header);
                 for (uint16_t i = 0, j = 0; i < NUMBER_OF_SYMBOLS / 2; i++, j += 2)
                 {
                     _codeLengthsSymbols[j].codeLength = header.codeLengths[i] >> 4;
@@ -328,7 +331,7 @@ void Decompressor::writeOutputFile(std::string outputFileName)
         exit(1);
     }
 
-    outputFile.write(reinterpret_cast<char *>(_decompressedData), _header.blockSize);
+    outputFile.write(reinterpret_cast<char *>(_decompressedData), _header.getSize());
     outputFile.close();
 }
 
