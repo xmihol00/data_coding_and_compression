@@ -463,7 +463,7 @@ void Compressor::writeOutputFile(std::string outputFileName)
         exit(1);
     }
     
-    outputFile.write(reinterpret_cast<char *>(_fileData), _size); // TODO
+    outputFile.write(reinterpret_cast<char *>(_serializedData), _size); // TODO
     /*outputFile.write(reinterpret_cast<char *>(&_header), _headerSize);
     outputFile.write(reinterpret_cast<char *>(_symbolsAtDepths), sizeof(uint64v4_t) * popcount(_usedDepths));
     outputFile.write(reinterpret_cast<char *>(_compressedData), _compressedSize * sizeof(uint32_t)); // TODO remove last up to 3 bytes */
@@ -684,21 +684,24 @@ void Compressor::compressAdaptive()
             populateCodeTable();
         }
 
-        for (uint32_t i = 0; i < _blockCount; i++)
+        for (uint32_t i = 0; i < _blocksPerColumn; i++)
         {
-            switch (_bestBlockTraversals[i])
+            for (uint32_t j = 0; j < _blocksPerRow; j++)
             {
-            case HORIZONTAL:
-                // nothing to do here, already serialized
-                break;
-            
-            case VERTICAL:
-                #pragma omp task firstprivate(i)
+                switch (_bestBlockTraversals[i])
                 {
-                    cerr << "Transposing block " << i << " at " << (void *)_fileData << " in thread " << omp_get_thread_num() << endl;
-                    transposeBlock(_fileData, i);
+                case HORIZONTAL:
+                    // nothing to do here, already serialized
+                    break;
+                
+                case VERTICAL:
+                    #pragma omp task firstprivate(j, i)
+                    {
+                        cerr << "Transposing block " << j << " " << i << " at " << (void *)_fileData << " in thread " << omp_get_thread_num() << endl;
+                        transposeBlock(_fileData, _serializedData, j, i);
+                    }
+                    break;
                 }
-                break;
             }
         }
     }
