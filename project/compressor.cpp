@@ -688,16 +688,18 @@ void Compressor::compressAdaptive()
         {
             for (uint32_t j = 0; j < _blocksPerRow; j++)
             {
-                switch (_bestBlockTraversals[i])
+                switch (_bestBlockTraversals[i * _blocksPerRow + j])
                 {
                 case HORIZONTAL:
-                    // nothing to do here, already serialized
+                    #pragma omp task firstprivate(j, i)
+                    {
+                        serializeBlock(_fileData, _serializedData, j, i);
+                    }
                     break;
                 
                 case VERTICAL:
                     #pragma omp task firstprivate(j, i)
                     {
-                        cerr << "Transposing block " << j << " " << i << " at " << (void *)_fileData << " in thread " << omp_get_thread_num() << endl;
                         transposeSerializeBlock(_fileData, _serializedData, j, i);
                     }
                     break;
@@ -706,8 +708,6 @@ void Compressor::compressAdaptive()
         }
     }
     #pragma omp taskwait
-
-    cerr << "Adaptive compression not implemented. " << omp_get_thread_num() << endl;
 }
 
 void Compressor::compress(string inputFileName, string outputFileName)
