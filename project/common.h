@@ -43,7 +43,7 @@ protected:
     static constexpr uint16_t MAX_LONG_CODE_LENGTH{32};
     static constexpr uint16_t MAX_SHORT_CODE_LENGTH{16};
     static constexpr uint16_t BLOCK_SIZE{16};
-    static constexpr uint16_t MAX_NUM_THREADS{8};
+    static constexpr uint16_t MAX_NUM_THREADS{32};
     static constexpr uint16_t CACHE_LINE_SIZE{128};
 
     uint32_t _numThreads{1};

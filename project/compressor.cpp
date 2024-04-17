@@ -7,9 +7,9 @@ Compressor::Compressor(bool model, bool adaptive, uint64_t width)
 
 Compressor::~Compressor()
 { 
-    if (_dataPool != nullptr)
+    if (_fileData != nullptr)
     {
-        free(_dataPool);
+        free(_fileData);
     }
 
     if (_bestBlockTraversals != nullptr)
@@ -271,22 +271,21 @@ void Compressor::populateCodeTable()
     DEBUG_PRINT("Code table populated");
 }
 
-void Compressor::transformRLE()
+void Compressor::transformRLE(symbol_t firstSymbol, symbol_t *sourceData, uint16_t *compressedData, uint32_t bytesToCompress, uint32_t &compressedSize)
 {
     DEBUG_PRINT("Transforming RLE");
 
-    _compressedData[0] = 0;
-    uint32_t currentCompressedIndex = 0;
-    uint32_t nextCompressedIndex = 1;
-    uint32_t fileIndex = 1;
+    compressedData[0] = 0;
+    uint32_t currentCompressedIdx = 0;
+    uint32_t nextCompressedIdx = 1;
+    uint32_t sourceDataIdx = 1;
     uint32_t sameSymbolCount = 1;
-    symbol_t current = _fileData[0];
-    uint8_t chunkIndex = 0;
+    symbol_t current = firstSymbol;
+    uint8_t chunkIdx = 0;
 
-    uint16_t *compressedData = _compressedData;
-    while (fileIndex <= _size)
+    while (sourceDataIdx <= bytesToCompress)
     {
-        if (_fileData[fileIndex] == current)
+        if (sourceData[sourceDataIdx] == current)
         {
             sameSymbolCount++;
         }
@@ -301,16 +300,16 @@ void Compressor::transformRLE()
 
             for (uint32_t i = 0; i < sameSymbolCount && i < 3; i++)
             {
-                uint16_t downShiftedCode = maskedCode >> chunkIndex;
-                uint16_t upShiftedCode = maskedCode << (16 - chunkIndex);
-                compressedData[currentCompressedIndex] |= downShiftedCode;
-                compressedData[nextCompressedIndex] = 0;
-                compressedData[nextCompressedIndex] |= upShiftedCode;
-                chunkIndex += codeLength;
-                bool moveChunk = chunkIndex >= 16;
-                chunkIndex &= 15;
-                currentCompressedIndex += moveChunk;
-                nextCompressedIndex += moveChunk;
+                uint16_t downShiftedCode = maskedCode >> chunkIdx;
+                uint16_t upShiftedCode = maskedCode << (16 - chunkIdx);
+                compressedData[currentCompressedIdx] |= downShiftedCode;
+                compressedData[nextCompressedIdx] = 0;
+                compressedData[nextCompressedIdx] |= upShiftedCode;
+                chunkIdx += codeLength;
+                bool moveChunk = chunkIdx >= 16;
+                chunkIdx &= 15;
+                currentCompressedIdx += moveChunk;
+                nextCompressedIdx += moveChunk;
             }
 
             bool repeating = sameSymbolCount >= 3;
@@ -322,24 +321,28 @@ void Compressor::transformRLE()
                 repeating = sameSymbolCount > 0;
                 count |= repeating << 7;
                 count <<= 8;
-                uint16_t downShiftedCount = count >> chunkIndex;
-                uint16_t upShiftedCount = count << (16 - chunkIndex);
-                compressedData[currentCompressedIndex] |= downShiftedCount;
-                compressedData[nextCompressedIndex] = 0;
-                compressedData[nextCompressedIndex] |= upShiftedCount;
-                chunkIndex += 8;
-                bool moveChunk = chunkIndex >= 16;
-                chunkIndex &= 15;
-                currentCompressedIndex += moveChunk;
-                nextCompressedIndex += moveChunk;
+                uint16_t downShiftedCount = count >> chunkIdx;
+                uint16_t upShiftedCount = count << (16 - chunkIdx);
+                compressedData[currentCompressedIdx] |= downShiftedCount;
+                compressedData[nextCompressedIdx] = 0;
+                compressedData[nextCompressedIdx] |= upShiftedCount;
+                chunkIdx += 8;
+                bool moveChunk = chunkIdx >= 16;
+                chunkIdx &= 15;
+                currentCompressedIdx += moveChunk;
+                nextCompressedIdx += moveChunk;
             }
 
             sameSymbolCount = 1;
-            current = _fileData[fileIndex];
+            current = _fileData[sourceDataIdx];
         }
-        fileIndex++;
+        sourceDataIdx++;
     }
-    _compressedSize = nextCompressedIndex;
+    
+    compressedSize = nextCompressedIdx * 2;
+    // remove up to 2 last bytes based on the chunk index
+    compressedSize -= chunkIdx == 0; 
+    compressedSize -= chunkIdx < 8;
 
     DEBUG_PRINT("RLE transformed");
 }
@@ -456,46 +459,69 @@ void Compressor::readInputFile(std::string inputFileName)
         exit(1);
     }
 
-    _dataPool = static_cast<symbol_t *>(aligned_alloc(64, _width * _height * sizeof(symbol_t) + COMPRESSED_ORIGINAL_OFFSET + 1));
-    if (_dataPool == nullptr)
+    uint64_t roundedSize = ((_size + _numThreads - 1) / _numThreads) * _numThreads + 1;
+    _fileData = static_cast<symbol_t *>(aligned_alloc(64, roundedSize * sizeof(symbol_t)));
+    _serializedData = static_cast<symbol_t *>(aligned_alloc(64, roundedSize * sizeof(symbol_t)));
+    if (_fileData == nullptr || _serializedData == nullptr)
     {
-        cerr << "Error: Unable to allocate memory for the image." << endl;
+        cerr << "Error: Unable to allocate memory for the input file." << endl;
         exit(1);
     }
     // alias the allocated memory with offset to save memory when compressing (already consumed file data can be overwritten by the compressed data)
-    _compressedData = reinterpret_cast<uint16_t *>(_dataPool);
-    _fileData = _dataPool + COMPRESSED_ORIGINAL_OFFSET;
 
     inputFile.read(reinterpret_cast<char *>(_fileData), _size);
     inputFile.close();
-    _fileData[_size] = ~_fileData[_size - 1]; // add a dummy symbol to ensure correct RLE encoding
 }
 
 void Compressor::compressStatic()
 {
-    computeHistogram();
-
-    // sort the histogram by frequency of symbols in ascending order
-    sort(_histogram, _histogram + NUMBER_OF_SYMBOLS, 
-         [](const Leaf &a, const Leaf &b) { return a.count < b.count; });
-    
-    buildHuffmanTree();
-
-    populateCodeTable();
-    
-    printTree(_treeIndex);
-
-    transformRLE();
-
-    createHeader();
-
-    /*uint16_t *compressedData = reinterpret_cast<uint16_t *>(_compressedData);
-    for (uint32_t i = 0; i < _compressedSize && i < 100; i++)
+    #pragma omp single
     {
-        bitset<16> codeBitset(compressedData[i]);
-        cerr << codeBitset << " ";
+        computeHistogram(); // TODO: parallelize
+
+        // sort the histogram by frequency of symbols in ascending order
+        sort(_histogram, _histogram + NUMBER_OF_SYMBOLS, 
+            [](const Leaf &a, const Leaf &b) { return a.count < b.count; });
+        
+        buildHuffmanTree();
+
+        populateCodeTable();
     }
-    cerr << endl;*/
+
+    uint32_t bytesPerThread;
+    uint32_t startingIdx;
+    symbol_t firstSymbol;
+    swap(_fileData, _serializedData);
+    decomposeDataBetweenThreads(bytesPerThread, startingIdx, firstSymbol);
+
+    transformRLE(firstSymbol, _serializedData + startingIdx, reinterpret_cast<uint16_t *>(_fileData + startingIdx), bytesPerThread, _compressedSizes[_threadId]);
+    #pragma omp barrier
+
+    #pragma omp single
+    {
+        // exclusive scan of compressed sizes
+        uint32_t compressedSize = 0;
+        for (uint32_t i = 0; i < _numThreads; i++)
+        {
+            uint32_t tmp = _compressedSizes[i];
+            _compressedSizes[i] = compressedSize;
+            compressedSize += tmp;
+        }
+    }
+
+    // TODO: pack the compressed data
+
+    #pragma omp single
+    {
+        createHeader();
+        /*uint16_t *compressedData = reinterpret_cast<uint16_t *>(_compressedData);
+        for (uint32_t i = 0; i < _compressedSize && i < 100; i++)
+        {
+            bitset<16> codeBitset(compressedData[i]);
+            cerr << codeBitset << " ";
+        }
+        cerr << endl;*/
+    }
 }
 
 void Compressor::analyzeImageAdaptive()
@@ -590,9 +616,6 @@ void Compressor::analyzeImageAdaptive()
 
 void Compressor::compressAdaptive()
 {   
-    _numThreads = omp_get_num_threads();
-    _threadId = omp_get_thread_num();
-
     #pragma omp master
     {
         DEBUG_PRINT("Adaptive compression started");
@@ -646,66 +669,75 @@ void Compressor::compressAdaptive()
                 }
             }
         }
-
-        _fileData = _serializedData; // update pointer to the serialized data
     }
     #pragma omp taskwait
 
-    uint32_t bytesPerThread = (_size + _numThreads - 1) / _numThreads;
-    uint32_t startingIdx = bytesPerThread * _threadId;
-    symbol_t firstSymbol = _fileData[startingIdx];
+    uint32_t bytesPerThread;
+    uint32_t startingIdx;
+    symbol_t firstSymbol;
+    decomposeDataBetweenThreads(bytesPerThread, startingIdx, firstSymbol);
+
+    // TODO: RLE transform
+}
+
+void Compressor::decomposeDataBetweenThreads(uint32_t &bytesPerThread, uint32_t &startingIdx, symbol_t &firstSymbol)
+{
+    bytesPerThread = (_size + _numThreads - 1) / _numThreads;
+    bytesPerThread += bytesPerThread & 0x1; // ensure even number of bytes per thread
+    startingIdx = bytesPerThread * _threadId;
+    firstSymbol = _serializedData[startingIdx];
     if (_threadId == _numThreads - 1) // last thread
     {
         // ensure last symbol in a block is different from the first in next block
-        _fileData[startingIdx] = ~_fileData[startingIdx - 1];
-        _fileData[_size] = ~_fileData[_size - 1];
+        _serializedData[startingIdx] = ~_serializedData[startingIdx - 1];
+        _serializedData[_size] = ~_serializedData[_size - 1];
 
         bytesPerThread -= bytesPerThread * _numThreads - _size; // ensure last thread does not run out of bounds
     }
     else if (_threadId != 0) // remaining threads apart from the first one
     {
-        _fileData[startingIdx] = ~_fileData[startingIdx - 1];
+        _serializedData[startingIdx] = ~_serializedData[startingIdx - 1];
     }
-
-    // TODO: RLE transform
 }
 
 void Compressor::compress(string inputFileName, string outputFileName)
 {
+    _numThreads = omp_get_num_threads();
     readInputFile(inputFileName);
     
-    if (_model)
+    if (_adaptive)
     {
-        if (_adaptive)
-        {
-            //compressAdaptiveModel();
-        }
-        else
-        {
-            //compressStaticModel();
-        }
+        _blocksPerRow = (_width + BLOCK_SIZE - 1) / BLOCK_SIZE;
+        _blocksPerColumn = (_height + BLOCK_SIZE - 1) / BLOCK_SIZE;
+        _blockCount = _blocksPerRow * _blocksPerColumn;
+        _bestBlockTraversals = new AdaptiveTraversals[_blockCount];
     }
-    else
+    
+    #pragma omp parallel
     {
-        if (_adaptive)
-        {
-            _blocksPerRow = (_width + BLOCK_SIZE - 1) / BLOCK_SIZE;
-            _blocksPerColumn = (_height + BLOCK_SIZE - 1) / BLOCK_SIZE;
-            _blockCount = _blocksPerRow * _blocksPerColumn;
-            _bestBlockTraversals = new AdaptiveTraversals[_blockCount];
-            _serializedData = reinterpret_cast<symbol_t *>(aligned_alloc(64, _width * _height * sizeof(symbol_t) + 1));
-            if (_serializedData == nullptr)
-            {
-                cerr << "Error: Unable to allocate memory for the image data." << endl;
-                exit(1);
-            }
+        _threadId = omp_get_thread_num();
 
-            #pragma omp parallel
-            compressAdaptive();
+        if (_model)
+        {
+            if (_adaptive)
+            {
+                //compressAdaptiveModel();
+            }
+            else
+            {
+                //compressStaticModel();
+            }
         }
         else
         {
-            compressStatic();
+            if (_adaptive)
+            {
+                compressAdaptive();
+            }
+            else
+            {
+                compressStatic();
+            }
         }
     }
 

@@ -17,7 +17,8 @@ private:
     void computeHistogram();
     void buildHuffmanTree();
     void populateCodeTable();
-    void transformRLE();
+    void decomposeDataBetweenThreads(uint32_t &bytesPerThread, uint32_t &startingIdx, symbol_t &firstSymbol);
+    void transformRLE(symbol_t firstSymbol, symbol_t *sourceData, uint16_t *compressedData, uint32_t bytesToCompress, uint32_t &compressedSize);
     void createHeader();
     void writeOutputFile(std::string outputFileName);
 
@@ -64,13 +65,12 @@ private:
     uint16_t _sortedNodesHead;
     uint16_t _sortedNodesTail;
 
-    uint8_t *_dataPool{nullptr};
-    symbol_t *_fileData{nullptr};       // alias to _dataPool
-    uint16_t *_compressedData{nullptr}; // alias to _dataPool
-    symbol_t *_serializedData{nullptr}; // separate buffer for adaptive compression
+    symbol_t *_fileData{nullptr};
+    uint16_t *_compressedData{nullptr};
+    symbol_t *_serializedData{nullptr};
 
     uint8_t _longestCode;
-    uint32_t _compressedSize;
+    uint32_t _compressedSizes[MAX_NUM_THREADS];
 
     FullHeader _header;
     uint16_t _headerSize;
