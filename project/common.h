@@ -134,20 +134,20 @@ protected:
     uint32_t _usedDepths;
     uint64v4_t _symbolsAtDepths[MAX_LONG_CODE_LENGTH] __attribute__((aligned(64)));
 
-    inline constexpr void transposeBlock(uint8_t *memory, uint32_t blockIdx)
+    inline constexpr void transposeBlock(symbol_t *source, uint32_t blockIdx)
     {
         uint32_t blockRow = blockIdx / _blocksPerRow;
         uint32_t blockColumn = blockIdx % _blocksPerRow;
 
-        uint32_t startingRow = blockRow * BLOCK_SIZE;
-        uint32_t startingColumn = blockColumn * BLOCK_SIZE;
+        uint32_t startingIdx = blockRow * _width * BLOCK_SIZE + blockColumn * BLOCK_SIZE;
         for (uint32_t i = 0; i < BLOCK_SIZE; i++)
         {   
-            uint32_t rowIdx = startingRow + i * _width;
-            uint32_t columnIdx = startingColumn + i;
+            uint32_t rowIdx = startingIdx + i * _width;
+            uint32_t columnIdx = startingIdx + i;
             for (uint32_t j = 0; j < i; j++)
             {
-                std::swap(memory[rowIdx + j], memory[columnIdx]);
+                std::swap(source[rowIdx], source[columnIdx]);
+                rowIdx++;
                 columnIdx += _width;
             }
         }

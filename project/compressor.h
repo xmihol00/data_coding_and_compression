@@ -11,7 +11,7 @@ public:
     void compress(std::string inputFileName, std::string outputFileName);
 
 private:
-    static constexpr uint16_t DATA_POOL_PADDING{64};
+    static constexpr uint16_t COMPRESSED_ORIGINAL_OFFSET{256};
     
     void readInputFile(std::string inputFileName);
     void computeHistogram();
@@ -65,8 +65,9 @@ private:
     uint16_t _sortedNodesTail;
 
     uint8_t *_dataPool{nullptr};
-    symbol_t *_fileData{nullptr};
-    uint32_t *_compressedData{nullptr};
+    symbol_t *_fileData{nullptr};       // alias to _dataPool
+    uint32_t *_compressedData{nullptr}; // alias to _dataPool
+    symbol_t *_serializedData{nullptr}; // separate buffer for adaptive compression
 
     uint8_t _longestCode;
     uint32_t _compressedSize;

@@ -24,6 +24,11 @@ Compressor::~Compressor()
             delete[] _rlePerBlockCounts[i];
         }
     }
+
+    if (_serializedData != nullptr)
+    {
+        free(_serializedData);
+    }
 }
 
 void Compressor::computeHistogram()
@@ -272,7 +277,6 @@ void Compressor::transformRLE()
 {
     DEBUG_PRINT("Transforming RLE");
 
-    _compressedData = reinterpret_cast<uint32_t *>(_dataPool);
     _compressedData[0] = 0;
     uint32_t currentCompressedIndex = 0;
     uint32_t nextCompressedIndex = 1;
@@ -515,13 +519,15 @@ void Compressor::readInputFile(std::string inputFileName)
         exit(1);
     }
 
-    _dataPool = static_cast<symbol_t *>(aligned_alloc(64, _width * _height * sizeof(symbol_t) + DATA_POOL_PADDING + 1));
+    _dataPool = static_cast<symbol_t *>(aligned_alloc(64, _width * _height * sizeof(symbol_t) + COMPRESSED_ORIGINAL_OFFSET + 1));
     if (_dataPool == nullptr)
     {
         cerr << "Error: Unable to allocate memory for the image." << endl;
         exit(1);
     }
-    _fileData = _dataPool + DATA_POOL_PADDING;
+    // alias the allocated memory with offset to save memory when compressing (already consumed file data can be overwritten by the compressed data)
+    _compressedData = reinterpret_cast<uint32_t *>(_dataPool);
+    _fileData = _dataPool + COMPRESSED_ORIGINAL_OFFSET;
 
     inputFile.read(reinterpret_cast<char *>(_fileData), _size);
     inputFile.close();
@@ -655,7 +661,7 @@ void Compressor::compressAdaptive()
     analyzeImageAdaptive();
     #pragma omp barrier
     
-    #pragma omp master
+    #pragma omp single
     {
         for (uint32_t i = 0; i < _blockCount; i++)
         {
@@ -671,40 +677,32 @@ void Compressor::compressAdaptive()
                 _bestBlockTraversals[i] = bestTraversal;
             }
         }
-    }
 
-    #pragma omp sections
-    {
-        #pragma omp section // with one thread but parallel to the for loop lower
+        #pragma omp task
         {
             buildHuffmanTree();
             populateCodeTable();
         }
 
-        #pragma omp section // with remaining threads serialize the blocks
+        for (uint32_t i = 0; i < _blockCount; i++)
         {
-            uint32_t dynamicFactor = _blocksPerRow >> 2;
-            dynamicFactor += !dynamicFactor; // ensure at least 1
-
-            #pragma omp parallel for num_threads(omp_get_num_threads() - 1) schedule(dynamic, dynamicFactor)
-            for (uint32_t i = 0; i < _blockCount; i++)
+            switch (_bestBlockTraversals[i])
             {
-                switch (_bestBlockTraversals[i])
+            case HORIZONTAL:
+                // nothing to do here, already serialized
+                break;
+            
+            case VERTICAL:
+                #pragma omp task firstprivate(i)
                 {
-                case HORIZONTAL:
-                    // nothing to do here, already serialized
-                    break;
-                
-                case VERTICAL:
-                    cerr << "transposing block " << i << " with thread: " << omp_get_thread_num() << endl;
+                    cerr << "Transposing block " << i << " at " << (void *)_fileData << " in thread " << omp_get_thread_num() << endl;
                     transposeBlock(_fileData, i);
-                    break;
                 }
+                break;
             }
         }
     }
-    #pragma omp barrier
-
+    #pragma omp taskwait
 
     cerr << "Adaptive compression not implemented. " << omp_get_thread_num() << endl;
 }
@@ -732,6 +730,12 @@ void Compressor::compress(string inputFileName, string outputFileName)
             _blocksPerColumn = (_height + BLOCK_SIZE - 1) / BLOCK_SIZE;
             _blockCount = _blocksPerRow * _blocksPerColumn;
             _bestBlockTraversals = new AdaptiveTraversals[_blockCount];
+            _serializedData = reinterpret_cast<symbol_t *>(aligned_alloc(64, _width * _height * sizeof(symbol_t) + 1));
+            if (_serializedData == nullptr)
+            {
+                cerr << "Error: Unable to allocate memory for the image data." << endl;
+                exit(1);
+            }
 
             #pragma omp parallel
             compressAdaptive();
