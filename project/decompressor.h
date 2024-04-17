@@ -29,7 +29,7 @@ private:
     uint8_t _headerType;
 
     uint8_t *_decompressedData{nullptr};
-    uint32_t *_compressedData{nullptr};
+    uint16_t *_compressedData{nullptr};
 
     struct CodeLengthSymbol
     {

@@ -41,7 +41,7 @@ void Decompressor::readInputFile(string inputFileName)
         cerr << "Bits: " << bitset<64>(bits[0]) << " " << bitset<64>(bits[1]) << " " << bitset<64>(bits[2]) << " " << bitset<64>(bits[3]) << endl;
     }
 
-    _compressedData = reinterpret_cast<uint32_t *>(aligned_alloc(64, fileSize + 64));
+    _compressedData = reinterpret_cast<uint16_t *>(aligned_alloc(64, fileSize + 64));
     _decompressedData = reinterpret_cast<uint8_t *>(aligned_alloc(64, _header.blockSize + 64));
     if (_compressedData == nullptr || _decompressedData == nullptr)
     {
@@ -214,7 +214,7 @@ void Decompressor::decompressStatic()
 {
     parseHeader();
 #if __AVX512BW__ && __AVX512VL__
-    uint16_t *compressedData = reinterpret_cast<uint16_t *>(_compressedData);
+    uint16_t *compressedData = _compressedData;
     bool overflow;
     uint32_t decompressedIdx = 0;
     uint32_t currentIdx = 0;

@@ -247,7 +247,6 @@ void Compressor::populateCodeTable()
                     _codeTable[adjustedSymbol] = lastCode;
                 }
             }
-            cerr << "Depth: " << (int)i << " Bits: " << bitset<64>(bits[0]) << " " << bitset<64>(bits[1]) << " " << bitset<64>(bits[2]) << " " << bitset<64>(bits[3]) << endl;
             bits = reinterpret_cast<uint64_t *>(_symbolsAtDepths + i);
             cerr << "Depth: " << (int)i << " Vect: " << bitset<64>(bits[0]) << " " << bitset<64>(bits[1]) << " " << bitset<64>(bits[2]) << " " << bitset<64>(bits[3]) << endl;
         }
@@ -259,7 +258,6 @@ void Compressor::populateCodeTable()
     {
         uint64v4_t bitsVector = _mm256_load_si256(_symbolsAtDepths + i);
         uint64_t *bits = reinterpret_cast<uint64_t *>(&bitsVector);
-        cerr << "Depth: " << (int)i << " Bits: " << bitset<64>(bits[0]) << " " << bitset<64>(bits[1]) << " " << bitset<64>(bits[2]) << " " << bitset<64>(bits[3]) << endl;
     }
 
     for (uint16_t i = 0; i < NUMBER_OF_SYMBOLS; i++)
@@ -280,127 +278,66 @@ void Compressor::transformRLE()
     _compressedData[0] = 0;
     uint32_t currentCompressedIndex = 0;
     uint32_t nextCompressedIndex = 1;
-    uint32_t imageIndex = 1;
+    uint32_t fileIndex = 1;
     uint32_t sameSymbolCount = 1;
     symbol_t current = _fileData[0];
     uint8_t chunkIndex = 0;
 
-    if (_longestCode >= 16)
+    uint16_t *compressedData = _compressedData;
+    while (fileIndex <= _size)
     {
-        while (imageIndex <= _size)
+        if (_fileData[fileIndex] == current)
         {
-            if (_fileData[imageIndex] == current)
-            {
-                sameSymbolCount++;
-            }
-            else
-            {
-                uint32_t code = _codeTable[current];
-                uint32_t leadingZeros = countl_zero(code);
-                uint32_t codeLength = 31 - leadingZeros;
-                uint32_t mask = ~(1 << codeLength);
-                uint32_t maskedCode = code & mask;
-                bitset<32> maskedCodeBits(maskedCode);
-                cerr << (int)current << ": " << maskedCodeBits << ", times:" << sameSymbolCount << endl;
-
-                for (uint32_t i = 0; i < sameSymbolCount && i < 3; i++)
-                {
-                    chunkIndex += codeLength;
-                    uint32_t upShiftedCode = maskedCode << (32 - chunkIndex);
-                    uint32_t downShiftedCode = maskedCode >> chunkIndex;
-                    _compressedData[currentCompressedIndex] |= upShiftedCode;
-                    _compressedData[nextCompressedIndex] = 0;
-                    _compressedData[nextCompressedIndex] |= downShiftedCode;
-                    bool moveChunk = chunkIndex >= 32;
-                    chunkIndex &= 31;
-                    currentCompressedIndex += moveChunk;
-                    nextCompressedIndex += moveChunk;
-                }
-
-                bool repeating = sameSymbolCount >= 3;
-                sameSymbolCount -= 3;
-                while (repeating)
-                {
-                    uint32_t count = sameSymbolCount & 0x7F;
-                    sameSymbolCount >>= 7;
-                    repeating = sameSymbolCount > 0;
-                    count |= repeating << 7;
-                    chunkIndex += 8;
-                    uint32_t upShiftedCount = count << chunkIndex;
-                    uint32_t downShiftedCount = count >> (32 - chunkIndex);
-                    _compressedData[currentCompressedIndex] |= upShiftedCount;
-                    _compressedData[nextCompressedIndex] = 0;
-                    _compressedData[nextCompressedIndex] |= downShiftedCount;
-                    bool moveChunk = chunkIndex >= 32;
-                    chunkIndex &= 31;
-                    currentCompressedIndex += moveChunk;
-                    nextCompressedIndex += moveChunk;
-                }
-
-                sameSymbolCount = 1;
-                current = _fileData[imageIndex];
-            }
-            imageIndex++;
+            sameSymbolCount++;
         }
-    }
-    else
-    {
-        uint16_t *compressedData = reinterpret_cast<uint16_t *>(_compressedData);
-        while (imageIndex <= _size)
+        else
         {
-            if (_fileData[imageIndex] == current)
+            uint16_t code = _codeTable[current];
+            uint16_t leadingZeros = countl_zero(code);
+            uint16_t codeLength = 15 - leadingZeros;
+            uint16_t maskedCode = code << (16 - codeLength);
+            //bitset<16> maskedCodeBits(maskedCode);
+            //cerr << (int)current << ": " << maskedCodeBits << ", times:" << sameSymbolCount << endl;
+
+            for (uint32_t i = 0; i < sameSymbolCount && i < 3; i++)
             {
-                sameSymbolCount++;
+                uint16_t downShiftedCode = maskedCode >> chunkIndex;
+                uint16_t upShiftedCode = maskedCode << (16 - chunkIndex);
+                compressedData[currentCompressedIndex] |= downShiftedCode;
+                compressedData[nextCompressedIndex] = 0;
+                compressedData[nextCompressedIndex] |= upShiftedCode;
+                chunkIndex += codeLength;
+                bool moveChunk = chunkIndex >= 16;
+                chunkIndex &= 15;
+                currentCompressedIndex += moveChunk;
+                nextCompressedIndex += moveChunk;
             }
-            else
+
+            bool repeating = sameSymbolCount >= 3;
+            sameSymbolCount -= 3;
+            while (repeating)
             {
-                uint16_t code = _codeTable[current];
-                uint16_t leadingZeros = countl_zero(code);
-                uint16_t codeLength = 15 - leadingZeros;
-                uint16_t maskedCode = code << (16 - codeLength);
-                //bitset<16> maskedCodeBits(maskedCode);
-                //cerr << (int)current << ": " << maskedCodeBits << ", times:" << sameSymbolCount << endl;
-
-                for (uint32_t i = 0; i < sameSymbolCount && i < 3; i++)
-                {
-                    uint16_t downShiftedCode = maskedCode >> chunkIndex;
-                    uint16_t upShiftedCode = maskedCode << (16 - chunkIndex);
-                    compressedData[currentCompressedIndex] |= downShiftedCode;
-                    compressedData[nextCompressedIndex] = 0;
-                    compressedData[nextCompressedIndex] |= upShiftedCode;
-                    chunkIndex += codeLength;
-                    bool moveChunk = chunkIndex >= 16;
-                    chunkIndex &= 15;
-                    currentCompressedIndex += moveChunk;
-                    nextCompressedIndex += moveChunk;
-                }
-
-                bool repeating = sameSymbolCount >= 3;
-                sameSymbolCount -= 3;
-                while (repeating)
-                {
-                    uint16_t count = sameSymbolCount & 0x7F;
-                    sameSymbolCount >>= 7;
-                    repeating = sameSymbolCount > 0;
-                    count |= repeating << 7;
-                    count <<= 8;
-                    uint16_t downShiftedCount = count >> chunkIndex;
-                    uint16_t upShiftedCount = count << (16 - chunkIndex);
-                    compressedData[currentCompressedIndex] |= downShiftedCount;
-                    compressedData[nextCompressedIndex] = 0;
-                    compressedData[nextCompressedIndex] |= upShiftedCount;
-                    chunkIndex += 8;
-                    bool moveChunk = chunkIndex >= 16;
-                    chunkIndex &= 15;
-                    currentCompressedIndex += moveChunk;
-                    nextCompressedIndex += moveChunk;
-                }
-
-                sameSymbolCount = 1;
-                current = _fileData[imageIndex];
+                uint16_t count = sameSymbolCount & 0x7F;
+                sameSymbolCount >>= 7;
+                repeating = sameSymbolCount > 0;
+                count |= repeating << 7;
+                count <<= 8;
+                uint16_t downShiftedCount = count >> chunkIndex;
+                uint16_t upShiftedCount = count << (16 - chunkIndex);
+                compressedData[currentCompressedIndex] |= downShiftedCount;
+                compressedData[nextCompressedIndex] = 0;
+                compressedData[nextCompressedIndex] |= upShiftedCount;
+                chunkIndex += 8;
+                bool moveChunk = chunkIndex >= 16;
+                chunkIndex &= 15;
+                currentCompressedIndex += moveChunk;
+                nextCompressedIndex += moveChunk;
             }
-            imageIndex++;
+
+            sameSymbolCount = 1;
+            current = _fileData[fileIndex];
         }
+        fileIndex++;
     }
     _compressedSize = nextCompressedIndex;
 
@@ -526,7 +463,7 @@ void Compressor::readInputFile(std::string inputFileName)
         exit(1);
     }
     // alias the allocated memory with offset to save memory when compressing (already consumed file data can be overwritten by the compressed data)
-    _compressedData = reinterpret_cast<uint32_t *>(_dataPool);
+    _compressedData = reinterpret_cast<uint16_t *>(_dataPool);
     _fileData = _dataPool + COMPRESSED_ORIGINAL_OFFSET;
 
     inputFile.read(reinterpret_cast<char *>(_fileData), _size);
@@ -652,7 +589,10 @@ void Compressor::analyzeImageAdaptive()
 }
 
 void Compressor::compressAdaptive()
-{
+{   
+    _numThreads = omp_get_num_threads();
+    _threadId = omp_get_thread_num();
+
     #pragma omp master
     {
         DEBUG_PRINT("Adaptive compression started");
@@ -706,8 +646,28 @@ void Compressor::compressAdaptive()
                 }
             }
         }
+
+        _fileData = _serializedData; // update pointer to the serialized data
     }
     #pragma omp taskwait
+
+    uint32_t bytesPerThread = (_size + _numThreads - 1) / _numThreads;
+    uint32_t startingIdx = bytesPerThread * _threadId;
+    symbol_t firstSymbol = _fileData[startingIdx];
+    if (_threadId == _numThreads - 1) // last thread
+    {
+        // ensure last symbol in a block is different from the first in next block
+        _fileData[startingIdx] = ~_fileData[startingIdx - 1];
+        _fileData[_size] = ~_fileData[_size - 1];
+
+        bytesPerThread -= bytesPerThread * _numThreads - _size; // ensure last thread does not run out of bounds
+    }
+    else if (_threadId != 0) // remaining threads apart from the first one
+    {
+        _fileData[startingIdx] = ~_fileData[startingIdx - 1];
+    }
+
+    // TODO: RLE transform
 }
 
 void Compressor::compress(string inputFileName, string outputFileName)

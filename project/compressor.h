@@ -66,7 +66,7 @@ private:
 
     uint8_t *_dataPool{nullptr};
     symbol_t *_fileData{nullptr};       // alias to _dataPool
-    uint32_t *_compressedData{nullptr}; // alias to _dataPool
+    uint16_t *_compressedData{nullptr}; // alias to _dataPool
     symbol_t *_serializedData{nullptr}; // separate buffer for adaptive compression
 
     uint8_t _longestCode;

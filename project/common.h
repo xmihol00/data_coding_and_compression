@@ -35,9 +35,7 @@ using uint64v8_t = __m512i;
 class HuffmanRLECompression
 {
 public:
-    HuffmanRLECompression() = default;
-    HuffmanRLECompression(bool model, bool adaptive) : _model{model}, _adaptive{adaptive} { };
-    HuffmanRLECompression(bool model, bool adaptive, uint64_t width) : _model{model}, _adaptive{adaptive}, _width{width} { };
+    HuffmanRLECompression(bool model = false, bool adaptive = false, uint64_t width = 0) : _model{model}, _adaptive{adaptive}, _width{width} { };
     ~HuffmanRLECompression() = default;
 
 protected:
@@ -47,6 +45,9 @@ protected:
     static constexpr uint16_t BLOCK_SIZE{16};
     static constexpr uint16_t MAX_NUM_THREADS{8};
     static constexpr uint16_t CACHE_LINE_SIZE{128};
+
+    uint32_t _numThreads{1};
+    uint32_t _threadId{0};
 
     bool _model;
     bool _adaptive;
