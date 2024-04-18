@@ -27,18 +27,16 @@ private:
     void transformRLE(uint16_t *compressedData, symbol_t *decompressedData, uint64_t bytesToDecompress);
 
     void decompressStatic();
-
-    uint32_t _width;
-    uint32_t _size;
+    void decompressAdaptive();
 
     uint8_t _numberOfCompressedBlocks;
     uint8_t _bitsPerCompressedBlockSize;
     uint32_t _numberOfBytesCompressedBlocks;
     uint8_t *_rawBlockSizes{reinterpret_cast<uint8_t *>(_compressedSizesExScan)}; // reuse already allocated memory
 
-    uint64_t _decompressedSize;
-    uint8_t *_decompressedData{nullptr};
+    uint8_t *_decompressionBuffer{nullptr};
     uint16_t *_compressedData{nullptr};
+    symbol_t *_decompressedData{nullptr};
 
     FirstByteHeader &_header = reinterpret_cast<FirstByteHeader &>(_headerBuffer);
 

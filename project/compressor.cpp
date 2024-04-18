@@ -316,6 +316,7 @@ void Compressor::transformRLE(symbol_t firstSymbol, symbol_t *sourceData, uint16
             while (repeating)
             {
                 uint16_t count = sameSymbolCount & 0x7F;
+                DEBUG_PRINT("Count: " << count);
                 sameSymbolCount >>= (BITS_PER_REPETITION_NUMBER - 1);
                 repeating = sameSymbolCount > 0;
                 count |= repeating << (BITS_PER_REPETITION_NUMBER - 1);
@@ -331,6 +332,7 @@ void Compressor::transformRLE(symbol_t firstSymbol, symbol_t *sourceData, uint16
                 currentCompressedIdx += moveChunk;
                 nextCompressedIdx += moveChunk;
             }
+            DEBUG_PRINT("");
 
             sameSymbolCount = 1;
             current = sourceData[sourceDataIdx];
@@ -386,12 +388,11 @@ void Compressor::createHeader()
         reinterpret_cast<uint16v16_t *>(_headerBuffer)[0] = _mm256_setzero_si256(); // clear the buffer
         DepthBitmapsMultiThreadedHeader &header = reinterpret_cast<DepthBitmapsMultiThreadedHeader &>(_headerBuffer);
         header.clearFirstByte();
-        header.setSize(_size);
         header.insertHeaderType(MULTI_THREADED);
         header.setVersion(0);
         header.setNumberOfThreads(_numberOfThreads);
-        header.setBitsPerBlock(maxBitsCompressedSizes);
-        header.codeDepths = _usedDepths;
+        header.setBitsPerBlockSize(maxBitsCompressedSizes);
+        header.setCodeDepths(_usedDepths);
         _headerSize = sizeof(DepthBitmapsMultiThreadedHeader);
         _threadBlocksSizesSize = (_numberOfThreads * maxBitsCompressedSizes + 7) / 8;
     }
@@ -399,20 +400,22 @@ void Compressor::createHeader()
     {
         DEBUG_PRINT("Single-threaded header");
         reinterpret_cast<uint16v16_t *>(_headerBuffer)[0] = _mm256_setzero_si256(); // clear the buffer
-        DepthBitmapsSingleThreadedHeader &header = reinterpret_cast<DepthBitmapsSingleThreadedHeader &>(_headerBuffer);
+        DepthBitmapsHeader &header = reinterpret_cast<DepthBitmapsHeader &>(_headerBuffer);
         header.clearFirstByte();
-        header.setSize(_size);
         header.insertHeaderType(SINGLE_THREADED);
         header.setVersion(0);
-        header.codeDepths = _usedDepths;
-        _headerSize = sizeof(DepthBitmapsSingleThreadedHeader);
+        header.setCodeDepths(_usedDepths);
+        _headerSize = sizeof(DepthBitmapsHeader);
         _threadBlocksSizesSize = 0;
     }
 
-    FirstByteHeader &header = reinterpret_cast<FirstByteHeader &>(_headerBuffer);
+    BasicHeader &header = reinterpret_cast<BasicHeader &>(_headerBuffer);
     if (_adaptive)
     {
         header.insertHeaderType(ADAPTIVE);
+        header.setWidth(_width);
+        header.setHeight(_height);
+
         _blockTypesByteSize = (_blockCount * BITS_PER_BLOCK_TYPE + 7) / 8;
         DEBUG_PRINT("Block types byte size: " << _blockTypesByteSize);
         _blockTypes = new uint8_t[_blockTypesByteSize];
@@ -429,6 +432,7 @@ void Compressor::createHeader()
     else
     {
         header.insertHeaderType(STATIC);
+        header.setSize(_size);
     }
     
     if (_model)

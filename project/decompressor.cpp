@@ -7,9 +7,9 @@ Decompressor::Decompressor(int32_t numberOfThreads)
 
 Decompressor::~Decompressor()
 {
-    if (_decompressedData != nullptr)
+    if (_decompressionBuffer != nullptr)
     {
-        free(_decompressedData);
+        free(_decompressionBuffer);
     }
 }
 
@@ -49,37 +49,88 @@ bool Decompressor::readInputFile(string inputFileName, string outputFileName)
     }
 
     inputFile.seekg(0, ios::beg);
-
-    switch (firstByte.getHeaderType())
+    switch (firstByte.getHeaderType() & MULTI_THREADED)
     {
-        case STATIC | DIRECT | SINGLE_THREADED:
+        case SINGLE_THREADED:
             {
-                DepthBitmapsSingleThreadedHeader &header = reinterpret_cast<DepthBitmapsSingleThreadedHeader &>(_headerBuffer);
-                inputFile.read(reinterpret_cast<char *>(&header), sizeof(DepthBitmapsSingleThreadedHeader));
-                _usedDepths = header.codeDepths;
-                _decompressedSize = header.getSize();
+                DepthBitmapsHeader &header = reinterpret_cast<DepthBitmapsHeader &>(_headerBuffer);
+                inputFile.read(reinterpret_cast<char *>(&header), sizeof(DepthBitmapsHeader));
+            #ifdef _DEBUG_PRINT_ACTIVE_
+                cerr << "Header: ";
+                for (uint16_t i = 0; i < sizeof(DepthBitmapsHeader); i++)
+                {
+                    cerr << bitset<8>(_headerBuffer[i]) << " ";
+                }
+                cerr << endl;
+            #endif
+                _usedDepths = header.getCodeDepths();
                 uint16_t bitmapsSize = sizeof(uint64v4_t) * popcount(_usedDepths);
-                fileSize -= sizeof(DepthBitmapsSingleThreadedHeader) + bitmapsSize;
                 inputFile.read(reinterpret_cast<char *>(_symbolsAtDepths), bitmapsSize);
+                fileSize -= sizeof(DepthBitmapsHeader) + bitmapsSize;
             }
             break;
 
-        case STATIC | DIRECT | MULTI_THREADED:
+        case MULTI_THREADED:
             {
                 DepthBitmapsMultiThreadedHeader &header = reinterpret_cast<DepthBitmapsMultiThreadedHeader &>(_headerBuffer);
                 inputFile.read(reinterpret_cast<char *>(&header), sizeof(DepthBitmapsMultiThreadedHeader));
+            #ifdef _DEBUG_PRINT_ACTIVE_
+                cerr << "Header: ";
+                for (uint16_t i = 0; i < sizeof(DepthBitmapsMultiThreadedHeader); i++)
+                {
+                    cerr << bitset<8>(_headerBuffer[i]) << " ";
+                }
+                cerr << endl;
+            #endif
                 _numberOfCompressedBlocks = header.getNumberOfThreads();
-                _bitsPerCompressedBlockSize = header.getBitsPerBlock();
+                _bitsPerCompressedBlockSize = header.getBitsPerBlockSize();
                 _numberOfBytesCompressedBlocks = (_numberOfCompressedBlocks * _bitsPerCompressedBlockSize + 7) / 8;
-                _decompressedSize = header.getSize();
-                DEBUG_PRINT("Size: " << _decompressedSize);
-                DEBUG_PRINT("Number of compressed blocks: " << (int)_numberOfCompressedBlocks << " Number of bytes compressed blocks: " << _numberOfBytesCompressedBlocks);
                 inputFile.read(reinterpret_cast<char *>(_rawBlockSizes), _numberOfBytesCompressedBlocks);
-                _usedDepths = header.codeDepths;
+            #ifdef _DEBUG_PRINT_ACTIVE_
+                cerr << "Compressed sizes: ";
+                for (uint16_t i = 0; i < _numberOfBytesCompressedBlocks; i++)
+                {
+                    cerr << bitset<8>(reinterpret_cast<char *>(_rawBlockSizes)[i]) << " ";
+                }
+                cerr << endl;
+            #endif
+                _usedDepths = header.getCodeDepths();
                 uint16_t bitmapsSize = sizeof(uint64v4_t) * popcount(_usedDepths);
                 inputFile.read(reinterpret_cast<char *>(_symbolsAtDepths), bitmapsSize);
                 fileSize -= sizeof(DepthBitmapsMultiThreadedHeader) + bitmapsSize + _numberOfBytesCompressedBlocks;
             }
+            break;
+        
+        default:
+            cerr << "Error: Unsupported header type" << endl;
+            exit(1);
+    }
+
+#ifdef _DEBUG_PRINT_ACTIVE_
+    cerr << "Symbols at depths: ";
+    for (uint16_t i = 0; i < popcount(_usedDepths); i++)
+    {
+        cerr << "\n";
+        uint64_t *bits = reinterpret_cast<uint64_t *>(_symbolsAtDepths + i);
+        cerr << bitset<64>(bits[0]) << " ";
+        cerr << bitset<64>(bits[1]) << " ";
+        cerr << bitset<64>(bits[2]) << " ";
+        cerr << bitset<64>(bits[3]) << " ";
+    }
+    cerr << endl;
+#endif
+    
+    BasicHeader &header = reinterpret_cast<BasicHeader &>(_headerBuffer);
+    switch (header.getHeaderType() & ADAPTIVE)
+    {
+        case ADAPTIVE:
+            _width = header.getWidth();
+            _height = header.getHeight();
+            _size = _width * _height;
+            break;
+        
+        case STATIC:
+            _size = header.getSize();
             break;
 
         default:
@@ -87,22 +138,56 @@ bool Decompressor::readInputFile(string inputFileName, string outputFileName)
             exit(1);
     }
 
-    for (uint8_t i = 0; i < popcount(_usedDepths); i++)
+    _compressedData = reinterpret_cast<uint16_t *>(aligned_alloc(64, _size + 64));
+    if (_compressedData == nullptr)
     {
-        uint64_t *bits = reinterpret_cast<uint64_t *>(_symbolsAtDepths + i);
-        DEBUG_PRINT("Bits: " << bitset<64>(bits[0]) << " " << bitset<64>(bits[1]) << " " << bitset<64>(bits[2]) << " " << bitset<64>(bits[3]));
+        cerr << "Error: Could not allocate memory for compressed file" << endl;
+        exit(1);
     }
 
-    _compressedData = reinterpret_cast<uint16_t *>(aligned_alloc(64, fileSize + 64));
-    _decompressedData = reinterpret_cast<uint8_t *>(aligned_alloc(64, _decompressedSize + 64));
-    if (_compressedData == nullptr || _decompressedData == nullptr)
+    _decompressionBuffer = reinterpret_cast<uint8_t *>(aligned_alloc(64, _size + 64));
+    if (_decompressionBuffer == nullptr)
     {
-        cerr << "Error: Could not allocate memory for data decompression" << endl;
+        cerr << "Error: Could not allocate memory for decompression" << endl;
         exit(1);
+    }
+
+    if (header.getHeaderType() & ADAPTIVE)
+    {
+        initializeBlockTypes();
+        uint32_t packedBlockCount = (_blockCount * BITS_PER_BLOCK_TYPE + 7) / 8;
+        inputFile.read(reinterpret_cast<char *>(_decompressionBuffer), packedBlockCount);
+        fileSize -= packedBlockCount;
+    #ifdef _DEBUG_PRINT_ACTIVE_
+        cerr << "Block types: ";
+        for (uint16_t i = 0; i < packedBlockCount; i++)
+        {
+            cerr << bitset<8>(_decompressionBuffer[i]) << " ";
+        }
+        cerr << endl;
+    #endif
+
+        for (uint32_t i = 0, j = 0; i < packedBlockCount; i++, j += 4)
+        {
+            uint8_t blockTypes = _decompressionBuffer[i];
+            _bestBlockTraversals[j] = static_cast<AdaptiveTraversals>(blockTypes >> 6);
+            _bestBlockTraversals[j + 1] = static_cast<AdaptiveTraversals>((blockTypes >> 4) & 0b11);
+            _bestBlockTraversals[j + 2] = static_cast<AdaptiveTraversals>((blockTypes >> 2) & 0b11);
+            _bestBlockTraversals[j + 3] = static_cast<AdaptiveTraversals>(blockTypes & 0b11);
+        }
     }
 
     inputFile.read(reinterpret_cast<char *>(_compressedData), fileSize);
     inputFile.close();
+
+#ifdef _DEBUG_PRINT_ACTIVE_
+    cerr << "Compressed data: ";
+    for (uint16_t i = 0; i < 20; i++)
+    {
+        cerr << bitset<8>(_compressedData[i]) << " ";
+    }
+    cerr << endl;
+#endif
     
     return true;
 }
@@ -325,13 +410,13 @@ void Decompressor::parseThreadingInfo()
 
 void Decompressor::parseHeader()
 {
-    switch (_header.getHeaderType())
+    switch (_header.getHeaderType() & MULTI_THREADED)
     {
-        case STATIC | DIRECT | MULTI_THREADED:
+        case MULTI_THREADED:
             parseThreadingInfo();
             [[fallthrough]];
 
-        case STATIC | DIRECT | SINGLE_THREADED:
+        case SINGLE_THREADED:
             parseBitmapHuffmanTree();
             break;
         
@@ -421,7 +506,7 @@ void Decompressor::transformRLE(uint16_t *compressedData, symbol_t *decompressed
                 repeat = current & 0x8000;
                 uint32_t repetitions = ((current & 0x7FFF) >> BITS_PER_REPETITION_NUMBER);
                 repetitions <<= multiplier;
-                //DEBUG_PRINT("Thread: " << omp_get_thread_num() << " repetitions: " << repetitions);
+                DEBUG_PRINT("Thread: " << omp_get_thread_num() << " repetitions: " << repetitions);
 
                 for (uint32_t i = 0; i < repetitions; i++)
                 {
@@ -437,7 +522,7 @@ void Decompressor::transformRLE(uint16_t *compressedData, symbol_t *decompressed
                 multiplier += (BITS_PER_REPETITION_NUMBER - 1);
             }
             while (repeat);
-            cerr << endl;
+            DEBUG_PRINT("");
         }
 
         /*if (nextIdx >= 25)
@@ -452,30 +537,68 @@ void Decompressor::transformRLE(uint16_t *compressedData, symbol_t *decompressed
 
 void Decompressor::decompressStatic()
 {
-    #pragma omp single
-    {
-        parseHeader();
-    } // implicit barrier
-
     #pragma omp master
     {
-        uint64_t bytesPerBlock = (_decompressedSize + _numberOfCompressedBlocks - 1) / _numberOfCompressedBlocks;
-        uint64_t bytesPerLastBlock = _decompressedSize - bytesPerBlock * (_numberOfCompressedBlocks - 1);
+        uint64_t bytesPerBlock = (_size + _numberOfCompressedBlocks - 1) / _numberOfCompressedBlocks;
+        uint64_t bytesPerLastBlock = _size - bytesPerBlock * (_numberOfCompressedBlocks - 1);
 
         // schedule the decompression of each block as a task
         for (uint8_t i = 0; i < _numberOfCompressedBlocks - 1; i++)
         {
             #pragma omp task firstprivate(i)
             {
-                transformRLE(_compressedData + (_compressedSizesExScan[i] >> 1), _decompressedData + i * bytesPerBlock, bytesPerBlock);
+                transformRLE(_compressedData + (_compressedSizesExScan[i] >> 1), _decompressionBuffer + i * bytesPerBlock, bytesPerBlock);
             }
         }
 
         #pragma omp task // last block may be smaller
         {
             transformRLE(_compressedData + (_compressedSizesExScan[_numberOfCompressedBlocks - 1] >> 1), 
-                         _decompressedData + (_numberOfCompressedBlocks - 1) * bytesPerBlock, bytesPerLastBlock);
+                         _decompressionBuffer + (_numberOfCompressedBlocks - 1) * bytesPerBlock, bytesPerLastBlock);
         }
+
+        _decompressedData = reinterpret_cast<symbol_t *>(_decompressionBuffer);
+    }
+    #pragma omp taskwait // implicit barrier
+}
+
+void Decompressor::decompressAdaptive()
+{
+    decompressStatic();
+
+    #pragma omp master
+    {
+        DEBUG_PRINT("Adaptive decompression");
+
+        symbol_t *destination = reinterpret_cast<symbol_t *>(_compressedData);
+        for (uint32_t i = 0; i < _blocksPerColumn; i++)
+        {
+            for (uint32_t j = 0; j < _blocksPerRow; j++)
+            {
+                switch (_bestBlockTraversals[i * _blocksPerRow + j])
+                {
+                case HORIZONTAL:
+                    #pragma omp task firstprivate(j, i)
+                    {
+                        deserializeBlock(_decompressionBuffer, destination, j, i);
+                    }
+                    break;
+                
+                case VERTICAL:
+                    #pragma omp task firstprivate(j, i)
+                    {
+                        transposeDeserializeBlock(_decompressionBuffer, destination, j, i);
+                    }
+                    break;
+
+                default:
+                    cerr << "Error: Unsupported traversal type" << endl;
+                    break;
+                }
+            }
+        }
+        _decompressedData = destination;
+        DEBUG_PRINT("Adaptive decompression done");
     }
     #pragma omp taskwait // implicit barrier
 }
@@ -489,7 +612,7 @@ void Decompressor::writeOutputFile(std::string outputFileName)
         exit(1);
     }
 
-    outputFile.write(reinterpret_cast<char *>(_decompressedData), _decompressedSize);
+    outputFile.write(reinterpret_cast<char *>(_decompressedData), _size);
     outputFile.close();
 }
 
@@ -497,10 +620,27 @@ void Decompressor::decompress(string inputFileName, string outputFileName)
 {
     if (readInputFile(inputFileName, outputFileName))
     {
+        parseHeader();
+
         #pragma omp parallel
         {
-            decompressStatic();
+            if (_header.getHeaderType() & MODEL)
+            {
+                // TODO
+            }
+            else
+            {
+                if (_header.getHeaderType() & ADAPTIVE)
+                {
+                    decompressAdaptive();
+                }
+                else
+                {
+                    decompressStatic();
+                }
+            }
         }
+        
         writeOutputFile(outputFileName);
     }
 }

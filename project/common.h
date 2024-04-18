@@ -40,8 +40,6 @@ public:
         : _model{model}, _adaptive{adaptive}, _width{width}, _numberOfThreads{numberOfThreads} { };
     ~HuffmanRLECompression()
     {
-        DEBUG_PRINT("Base destructor called");
-
         if (_blockTypes != nullptr)
         {
             delete[] _blockTypes;
@@ -112,58 +110,95 @@ protected:
     struct FirstByteHeader
     {
     public:
-        inline constexpr bool getCompressed() const { return data & 0b1000'0000; }
-        inline constexpr uint8_t getVersion() const { return (data & 0b0110'0000) >> 5; }
-        inline constexpr uint8_t getHeaderType() const { return data & 0b0000'1111; }
+        inline constexpr bool getCompressed() const { return _data & 0b1000'0000; }
+        inline constexpr uint8_t getVersion() const { return (_data & 0b0110'0000) >> 5; }
+        inline constexpr uint8_t getHeaderType() const { return _data & 0b0000'1111; }
 
-        inline constexpr void clearFirstByte() { data = 0; }
-        inline constexpr void setNotCompressed() { data |= 1 << 7; }
-        inline constexpr void setVersion(uint8_t version) { data = (data & 0b1001'1111) | (version << 6) >> 1; }
-        inline constexpr void insertHeaderType(uint8_t headerType) { data |= headerType; }
+        inline constexpr void clearFirstByte() { _data = 0; }
+        inline constexpr void setNotCompressed() { _data |= 1 << 7; }
+        inline constexpr void setVersion(uint8_t version) { _data = (_data & 0b1001'1111) | (version << 6) >> 1; }
+        inline constexpr void insertHeaderType(uint8_t headerType) { _data |= headerType; }
     private:
-        uint8_t data;
+        uint8_t _data;
     } __attribute__((packed));
 
-    struct SingleThreadedHeader : public FirstByteHeader
+    struct BasicHeader : public FirstByteHeader
     {
     public:
-        inline constexpr void setSize(uint64_t size) { extraSize = size >> 32; baseSize = size; }
-        inline constexpr uint64_t getSize() { return (static_cast<uint64_t>(extraSize) << 32) | baseSize; }
-    private:
-        uint8_t extraSize;
-        uint32_t baseSize;
-    } __attribute__((packed));
-
-    struct MultiThreadedHeader : public FirstByteHeader
-    {
-    public:
-        inline constexpr uint8_t getNumberOfThreads() const { return threadsData & 0b0001'1111; }
-        inline constexpr void setNumberOfThreads(uint8_t numberOfThreads) { threadsData = (threadsData & 0b1110'0000) | numberOfThreads; }
-
-        inline constexpr void setSize(uint64_t size) { extraSize = size >> 32; baseSize = size; }
-        inline constexpr uint64_t getSize() { return (static_cast<uint64_t>(extraSize & 0b0001'1111) << 32) | baseSize; }
-
-        inline constexpr void setBitsPerBlock(uint8_t bitsPerBlock) 
+        inline constexpr void setSize(uint64_t size) 
         { 
-            extraSize = (extraSize & 0b0001'1111) | (bitsPerBlock << 5);
-            threadsData = (threadsData & 0b0001'1111) | ((bitsPerBlock & 0b0011'1000) << 2);
+            _baseWidth = size;
+            _baseHeight = size >> 16;
+            _extraWidth = size >> 32;
+            _extraHeight = size >> 40;
         }
-        inline constexpr uint8_t getBitsPerBlock() { return ((extraSize & 0b1110'0000) >> 5) | ((threadsData & 0b1110'0000) >> 2); }
+        inline constexpr uint64_t getSize() 
+        { 
+            return (static_cast<uint64_t>(_extraHeight) << 40) |
+                   (static_cast<uint64_t>(_extraWidth) << 32) |
+                   (static_cast<uint64_t>(_baseHeight) << 16) | 
+                   _baseWidth; 
+        }
+
+        inline constexpr void setWidth(uint32_t width) 
+        { 
+            _baseWidth = width; 
+            _extraWidth = width >> 16;
+        }
+        inline constexpr uint32_t getWidth() 
+        { 
+            return (static_cast<uint64_t>(_extraWidth) << 16) | _baseWidth; 
+        }
+
+        inline constexpr void setHeight(uint32_t height) 
+        { 
+            _baseHeight = height; 
+            _extraHeight = height >> 16;
+        }
+        inline constexpr uint32_t getHeight() 
+        { 
+            return (static_cast<uint64_t>(_extraHeight) << 16) | _baseHeight; 
+        }
+
+    private:
+        uint8_t _extraWidth;
+        uint8_t _extraHeight;
+        uint16_t _baseWidth;
+        uint16_t _baseHeight;
+    } __attribute__((packed));
+
+    struct MultiThreadedHeader : public BasicHeader
+    {
+    public:
+        inline constexpr uint8_t getNumberOfThreads() const { return _numberOfThreads; }
+        inline constexpr void setNumberOfThreads(uint8_t numberOfThreads) { _numberOfThreads = numberOfThreads; }
+
+        inline constexpr void setBitsPerBlockSize(uint8_t bitsPerBlockSize) { _bitsPerBlockSize = bitsPerBlockSize;}
+        inline constexpr uint8_t getBitsPerBlockSize() { return _bitsPerBlockSize; }
     
     private:
-        uint8_t extraSize;
-        uint32_t baseSize;
-        uint8_t threadsData;
+        uint8_t _numberOfThreads;
+        uint8_t _bitsPerBlockSize;
     } __attribute__((packed));
 
-    struct DepthBitmapsSingleThreadedHeader : public SingleThreadedHeader
+    struct DepthBitmapsHeader : public BasicHeader
     {
-        uint16_t codeDepths;
+    public:
+        inline constexpr uint16_t getCodeDepths() const { return _codeDepths; }
+        inline constexpr void setCodeDepths(uint16_t codeDepths) { _codeDepths = codeDepths; }
+
+    private:
+        uint16_t _codeDepths;
     } __attribute__((packed));
 
     struct DepthBitmapsMultiThreadedHeader : public MultiThreadedHeader
     {
-        uint16_t codeDepths;
+    public:
+        inline constexpr uint16_t getCodeDepths() const { return _codeDepths; }
+        inline constexpr void setCodeDepths(uint16_t codeDepths) { _codeDepths = codeDepths; }
+
+    private:
+        uint16_t _codeDepths;
     } __attribute__((packed));
 
     inline constexpr void initializeBlockTypes()
@@ -177,7 +212,7 @@ protected:
 
     inline constexpr void transposeSerializeBlock(symbol_t *source, symbol_t *destination, uint32_t blockRow, uint32_t blockColumn)
     {
-        uint32_t sourceStartingIdx = blockRow * _width * BLOCK_SIZE + blockColumn * BLOCK_SIZE;
+        uint32_t sourceStartingIdx = blockRow * BLOCK_SIZE * _width + blockColumn * BLOCK_SIZE;
         uint32_t destinationIdx = blockRow * BLOCK_SIZE * _width + blockColumn * BLOCK_SIZE * BLOCK_SIZE;
         for (uint32_t i = 0; i < BLOCK_SIZE; i++)
         {   
@@ -188,14 +223,27 @@ protected:
         }
     }
 
+    inline constexpr void transposeDeserializeBlock(symbol_t *source, symbol_t *destination, uint32_t blockRow, uint32_t blockColumn)
+    {
+        uint32_t sourceStartingIdx = blockRow * BLOCK_SIZE * _width + blockColumn * BLOCK_SIZE * BLOCK_SIZE;
+        uint32_t destinationIdx = blockRow * BLOCK_SIZE * _width + blockColumn * BLOCK_SIZE;
+        for (uint32_t i = 0; i < BLOCK_SIZE; i++)
+        {   
+            for (uint32_t j = 0; j < BLOCK_SIZE; j++)
+            {
+                destination[destinationIdx + j * _width + i] = source[sourceStartingIdx++];
+            }
+        }
+    }
+
     inline constexpr void serializeBlock(symbol_t *source, symbol_t *destination, uint32_t blockRow, uint32_t blockColumn)
     {
-        uint32_t sourceStartingIdx = blockRow * _width * BLOCK_SIZE + blockColumn * BLOCK_SIZE;
+        uint32_t sourceStartingIdx = blockRow * BLOCK_SIZE * _width + blockColumn * BLOCK_SIZE;
         uint32_t destinationIdx = blockRow * BLOCK_SIZE * _width + blockColumn * BLOCK_SIZE * BLOCK_SIZE;
         #pragma GCC unroll BLOCK_SIZE
         for (uint32_t i = 0; i < BLOCK_SIZE; i++)
         {   
-            // copy whole line at once
+            // copy whole row at once
             if constexpr (BLOCK_SIZE == 8)
             {
                 reinterpret_cast<uint8v8_t *>(destination + destinationIdx)[0] = reinterpret_cast<uint8v8_t *>(source + sourceStartingIdx + i * _width)[0];
@@ -213,6 +261,34 @@ protected:
                 reinterpret_cast<uint8v64_t *>(destination + destinationIdx)[0] = _mm512_load_si512(reinterpret_cast<uint8v64_t*>(source + sourceStartingIdx + i * _width));
             }
             destinationIdx += BLOCK_SIZE;
+        }
+    }
+
+    inline constexpr void deserializeBlock(symbol_t *source, symbol_t *destination, uint32_t blockRow, uint32_t blockColumn)
+    {
+        uint32_t sourceStartingIdx = blockRow * BLOCK_SIZE * _width + blockColumn * BLOCK_SIZE * BLOCK_SIZE;
+        uint32_t destinationIdx = blockRow * BLOCK_SIZE * _width + blockColumn * BLOCK_SIZE;
+        #pragma GCC unroll BLOCK_SIZE
+        for (uint32_t i = 0; i < BLOCK_SIZE; i++)
+        {   
+            // copy whole row at once
+            if constexpr (BLOCK_SIZE == 8)
+            {
+                reinterpret_cast<uint8v8_t *>(destination + destinationIdx + i * _width)[0] = reinterpret_cast<uint8v8_t *>(source + sourceStartingIdx)[0];
+            }
+            else if constexpr (BLOCK_SIZE == 16)
+            {
+                _mm_store_si128(reinterpret_cast<uint8v16_t*>(destination + destinationIdx + i * _width), reinterpret_cast<uint8v16_t *>(source + sourceStartingIdx)[0]);
+            }
+            else if constexpr (BLOCK_SIZE == 32)
+            {
+                _mm256_store_si256(reinterpret_cast<uint8v32_t*>(destination + destinationIdx + i * _width), reinterpret_cast<uint8v32_t *>(source + sourceStartingIdx)[0]);
+            }
+            else if constexpr (BLOCK_SIZE == 64)
+            {
+                _mm512_store_si512(reinterpret_cast<uint8v64_t*>(destination + destinationIdx + i * _width), reinterpret_cast<uint8v64_t *>(source + sourceStartingIdx)[0]);
+            }
+            sourceStartingIdx += BLOCK_SIZE;
         }
     }
 };
