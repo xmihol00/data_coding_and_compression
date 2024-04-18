@@ -35,8 +35,8 @@ using uint64v8_t = __m512i;
 class HuffmanRLECompression
 {
 public:
-    HuffmanRLECompression(bool model = false, bool adaptive = false, uint64_t width = 0, int32_t numThreads = 1) 
-        : _model{model}, _adaptive{adaptive}, _width{width}, _numThreads{numThreads} { };
+    HuffmanRLECompression(bool model = false, bool adaptive = false, uint64_t width = 0, int32_t numberOfThreads = 1) 
+        : _model{model}, _adaptive{adaptive}, _width{width}, _numberOfThreads{numberOfThreads} { };
     ~HuffmanRLECompression() = default;
 
 protected:
@@ -45,7 +45,6 @@ protected:
     static constexpr uint16_t MAX_SHORT_CODE_LENGTH{16};
     static constexpr uint16_t BLOCK_SIZE{16};
     static constexpr uint16_t MAX_NUM_THREADS{32};
-    static constexpr uint16_t CACHE_LINE_SIZE{128};
 
     bool _model;
     bool _adaptive;
@@ -57,7 +56,15 @@ protected:
     uint32_t _blocksPerRow;
     uint32_t _blocksPerColumn;
 
-    int32_t _numThreads;
+    int32_t _numberOfThreads;
+
+    uint32_t _compressedSizes[MAX_NUM_THREADS];
+    uint32_t _compressedSizesExScan[MAX_NUM_THREADS + 1];
+
+    uint32_t _usedDepths;
+    uint64v4_t _symbolsAtDepths[MAX_LONG_CODE_LENGTH] __attribute__((aligned(64)));
+
+    uint8_t _headerBuffer[32];
     
     enum AdaptiveTraversals
     {
@@ -89,7 +96,7 @@ protected:
         inline constexpr uint8_t getVersion() const { return (data & 0b0110'0000) >> 5; }
         inline constexpr uint8_t getHeaderType() const { return data & 0b0000'1111; }
 
-        inline constexpr void clear() { data = 0; }
+        inline constexpr void clearFirstByte() { data = 0; }
         inline constexpr void setNotCompressed() { data |= 1 << 7; }
         inline constexpr void setVersion(uint8_t version) { data = (data & 0b1001'1111) | (version << 6) >> 1; }
         inline constexpr void insertHeaderType(uint8_t headerType) { data |= headerType; }
@@ -110,8 +117,8 @@ protected:
     struct MultiThreadedHeader : public FirstByteHeader
     {
     public:
-        inline constexpr uint8_t getNumThreads() const { return data & 0b0001'1111; }
-        inline constexpr void setNumThreads(uint8_t numThreads) { data = (data & 0b1110'0000) | numThreads; }
+        inline constexpr uint8_t getNumberOfThreads() const { return data & 0b0001'1111; }
+        inline constexpr void setNumberOfThreads(uint8_t numberOfThreads) { data = (data & 0b1110'0000) | numberOfThreads; }
 
         inline constexpr void setSize(uint64_t size) { extraSize = size >> 32; baseSize = size; }
         inline constexpr uint64_t getSize() { return (static_cast<uint64_t>(extraSize & 0b0001'1111) << 32) | baseSize; }
@@ -119,7 +126,7 @@ protected:
         inline constexpr void setBitsPerBlock(uint8_t bitsPerBlock) 
         { 
             extraSize = (extraSize & 0b0001'1111) | (bitsPerBlock << 5);
-            data = (data & 0b0001'1111) | ((bitsPerBlock & 0b0011'100) << 2);
+            data = (data & 0b0001'1111) | ((bitsPerBlock & 0b0011'1000) << 2);
         }
         inline constexpr uint8_t getBitsPerBlock() { return ((extraSize & 0b1110'0000) >> 5) | ((data & 0b1110'0000) >> 2); }
     
@@ -127,12 +134,6 @@ protected:
         uint8_t extraSize;
         uint32_t baseSize;
         uint8_t data;
-    } __attribute__((packed));
-
-    static constexpr uint16_t CODE_LENGTHS_HEADER_SIZE{NUMBER_OF_SYMBOLS / 2};
-    struct CodeLengthsSingleThreadedHeader : public SingleThreadedHeader
-    {
-        uint8_t codeLengths[];
     } __attribute__((packed));
 
     struct DepthBitmapsSingleThreadedHeader : public SingleThreadedHeader
@@ -144,18 +145,6 @@ protected:
     {
         uint16_t codeDepths;
     } __attribute__((packed));
-
-    struct FullHeader : public SingleThreadedHeader
-    {
-        uint8_t buffer[256];
-    } __attribute__((packed));
-
-    static constexpr uint16_t ADDITIONAL_HEADER_SIZES[16] = {
-        CODE_LENGTHS_HEADER_SIZE,
-    };
-
-    uint32_t _usedDepths;
-    uint64v4_t _symbolsAtDepths[MAX_LONG_CODE_LENGTH] __attribute__((aligned(64)));
 
     inline constexpr void transposeSerializeBlock(symbol_t *source, symbol_t *destination, uint32_t blockRow, uint32_t blockColumn)
     {

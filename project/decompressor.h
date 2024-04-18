@@ -13,23 +13,34 @@
 class Decompressor : public HuffmanRLECompression
 {
 public:
-    Decompressor(int32_t numThreads);
+    Decompressor(int32_t numberOfThreads);
     ~Decompressor();
     void decompress(std::string inputFileName, std::string outputFileName);
 
 private:
-    void readInputFile(std::string inputFileName);
-    void parseHeader();
+    bool readInputFile(std::string inputFileName, std::string outputFileName);
     void writeOutputFile(std::string outputFileName);
+    void parseBitmapHuffmanTree();
+    void parseThreadingInfo();
+    void parseHeader();
+    void decomposeDataBetweenThreads(uint64_t &bytesPerThread, uint32_t &startingIdx);
+    void transformRLE(uint16_t *compressedData, symbol_t *decompressedData, uint64_t bytesToDecompress);
 
     void decompressStatic();
 
     uint32_t _width;
     uint32_t _size;
-    uint8_t _headerType;
 
+    uint8_t _numberOfCompressedBlocks;
+    uint8_t _bitsPerCompressedBlockSize;
+    uint32_t _numberOfBytesCompressedBlocks;
+    uint8_t *_rawBlockSizes{reinterpret_cast<uint8_t *>(_compressedSizesExScan)}; // reuse already allocated memory
+
+    uint64_t _decompressedSize;
     uint8_t *_decompressedData{nullptr};
     uint16_t *_compressedData{nullptr};
+
+    FirstByteHeader &_header = reinterpret_cast<FirstByteHeader &>(_headerBuffer);
 
     struct CodeLengthSymbol
     {
@@ -62,8 +73,6 @@ private:
     uint32_t _codeTableLarge[NUMBER_OF_SYMBOLS] __attribute__((aligned(64)));
     uint16_t *_codeTableSmall{reinterpret_cast<uint16_t *>(_codeTableLarge)};
     uint8_t _symbolsTable[NUMBER_OF_SYMBOLS * 2] __attribute__((aligned(64)));
-
-    FullHeader _header;
 
     uint16_t _prefixIndices[MAX_LONG_CODE_LENGTH];
     uint16_t _prefixShifts[1 << (sizeof(uint8_t) * 8)];

@@ -4,6 +4,7 @@ if [ ! -d $data_dir ]; then
     data_dir="../$data_dir"
 fi 
 
+rm -f compressed_files/*
 all_tests_passed=true
 for file in $data_dir/*; do
     echo "Testing $file"

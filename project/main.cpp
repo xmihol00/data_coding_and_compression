@@ -5,9 +5,8 @@ using namespace std;
 
 int main(int argc, char* argv[])
 {
-    int numberOfThreads = omp_get_num_procs();
+    int numberOfThreads = 2; // omp_get_num_procs();
     omp_set_num_threads(numberOfThreads);
-    cerr << omp_get_thread_num() << " number of threads: " << omp_get_num_threads() << " max processes: " << omp_get_num_procs() << " max threads: " << omp_get_max_threads() << endl;
     
     Arguments args = parseArguments(argc, argv);
     if (args.compress)

@@ -2,8 +2,8 @@
 
 using namespace std;
 
-Compressor::Compressor(bool model, bool adaptive, uint64_t width, int32_t numThreads)
-    : HuffmanRLECompression(model, adaptive, width, numThreads) { }
+Compressor::Compressor(bool model, bool adaptive, uint64_t width, int32_t numberOfThreads)
+    : HuffmanRLECompression(model, adaptive, width, numberOfThreads) { }
 
 Compressor::~Compressor()
 { 
@@ -298,7 +298,7 @@ void Compressor::transformRLE(symbol_t firstSymbol, symbol_t *sourceData, uint16
             uint16_t codeLength = 15 - leadingZeros;
             uint16_t maskedCode = code << (16 - codeLength);
             //bitset<16> maskedCodeBits(maskedCode);
-            //cerr << (int)current << ": " << maskedCodeBits << ", times:" << sameSymbolCount << endl;
+            //DEBUG_PRINT((char)current << ": " << maskedCodeBits << ", times:" << sameSymbolCount);
 
             for (uint32_t i = 0; i < sameSymbolCount && i < 3; i++)
             {
@@ -342,9 +342,7 @@ void Compressor::transformRLE(symbol_t firstSymbol, symbol_t *sourceData, uint16
     }
     
     compressedSize = nextCompressedIdx * 2;
-    // remove up to 2 last bytes based on the chunk index
-    compressedSize -= chunkIdx == 0; 
-    compressedSize -= chunkIdx < 8;
+    // TODO: remove all trailing zero bytes
 
     cerr << "Thread " << omp_get_thread_num() << " compressed size: " << compressedSize << endl;
 
@@ -356,7 +354,7 @@ void Compressor::createHeader()
     DEBUG_PRINT("Creating header");
 
     uint16_t maxBitsCompressedSizes = 0;
-    for (uint8_t i = 0; i < _numThreads; i++)
+    for (uint8_t i = 0; i < _numberOfThreads; i++)
     {
         uint16_t bits = 32 - countl_zero(_compressedSizes[i]);
         maxBitsCompressedSizes = max(maxBitsCompressedSizes, bits);
@@ -366,7 +364,7 @@ void Compressor::createHeader()
     uint8_t *packedCompressedSizes = reinterpret_cast<uint8_t *>(_compressedSizes);
     uint16_t idx = 0;
     uint8_t chunkIdx = 0;
-    for (uint8_t i = 0; i < _numThreads; i++)
+    for (uint8_t i = 0; i < _numberOfThreads; i++)
     {
         uint32_t compressedSize = _compressedSizes[i];
         uint8_t bits = maxBitsCompressedSizes;
@@ -407,16 +405,20 @@ void Compressor::createHeader()
         header.codeLengths[j] |= 31 - countl_zero(_codeTable[i + 1]);
     }*/
 
-    DepthBitmapsMultiThreadedHeader &header = reinterpret_cast<DepthBitmapsMultiThreadedHeader &>(_header);
+    reinterpret_cast<uint16v16_t *>(_headerBuffer)[0] = _mm256_setzero_si256();
+    DepthBitmapsMultiThreadedHeader &header = reinterpret_cast<DepthBitmapsMultiThreadedHeader &>(_headerBuffer);
+    header.clearFirstByte();
     header.setSize(_size);
     header.insertHeaderType(STATIC | DIRECT | MULTI_THREADED);
+    DEBUG_PRINT("Header type: " << (int)header.getHeaderType() << " " << (int)(STATIC | DIRECT | MULTI_THREADED));
     header.setVersion(0);
-    header.setNumThreads(_numThreads);
+    header.setNumberOfThreads(_numberOfThreads);
     header.setBitsPerBlock(maxBitsCompressedSizes);
+    DEBUG_PRINT("Header version: " << (int)header.getVersion() << " " << (int)header.getNumberOfThreads() << " " << (int)header.getBitsPerBlock());
     header.codeDepths = _usedDepths;
     _headerSize = sizeof(DepthBitmapsMultiThreadedHeader);
-    _threadBlocksSize = (_numThreads * maxBitsCompressedSizes + 7) / 8;
-    for (uint32_t i = 0; i < _threadBlocksSize; i++)
+    _threadBlocksSizesSize = (_numberOfThreads * maxBitsCompressedSizes + 7) / 8;
+    for (uint32_t i = 0; i < _threadBlocksSizesSize; i++)
     {
         cerr << bitset<8>(packedCompressedSizes[i]) << " ";
     }
@@ -425,7 +427,7 @@ void Compressor::createHeader()
     DEBUG_PRINT("Header created");
 }
 
-void Compressor::writeOutputFile(std::string outputFileName)
+void Compressor::writeOutputFile(string outputFileName, string inputFileName)
 {
     DEBUG_PRINT("Writing output file");
 
@@ -436,11 +438,38 @@ void Compressor::writeOutputFile(std::string outputFileName)
         exit(1);
     }
     
-    //outputFile.write(reinterpret_cast<char *>(_serializedData), _size); // TODO
-    outputFile.write(reinterpret_cast<char *>(&_header), _headerSize);
-    outputFile.write(reinterpret_cast<char *>(_compressedSizes), _threadBlocksSize);
-    outputFile.write(reinterpret_cast<char *>(_symbolsAtDepths), sizeof(uint64v4_t) * popcount(_usedDepths));
-    outputFile.write(reinterpret_cast<char *>(_compressedData), _compressedSizesExScan[_numThreads]); 
+    if (_size < _headerSize + _threadBlocksSizesSize + sizeof(uint64v4_t) * popcount(_usedDepths) + _compressedSizesExScan[_numberOfThreads])
+    {
+        DEBUG_PRINT("Compressed data is larger than the input file");
+        FirstByteHeader &header = reinterpret_cast<FirstByteHeader &>(_headerBuffer);
+        header.clearFirstByte();
+        header.setNotCompressed();
+        outputFile.write(reinterpret_cast<char *>(&_headerBuffer), sizeof(FirstByteHeader));
+
+        ifstream inputFile(inputFileName, ios::binary);
+        if (!inputFile.is_open())
+        {
+            cerr << "Error: Unable to open input file '" << inputFileName << "'." << endl;
+            exit(1);
+        }
+        inputFile.read(reinterpret_cast<char *>(_fileData), _size);   
+        inputFile.close();
+
+        outputFile.write(reinterpret_cast<char *>(_fileData), _size);
+    }
+    else
+    {
+        outputFile.write(reinterpret_cast<char *>(&_headerBuffer), _headerSize);
+        outputFile.write(reinterpret_cast<char *>(_compressedSizes), _threadBlocksSizesSize);
+        outputFile.write(reinterpret_cast<char *>(_symbolsAtDepths), sizeof(uint64v4_t) * popcount(_usedDepths));
+        outputFile.write(reinterpret_cast<char *>(_compressedData), _compressedSizesExScan[_numberOfThreads]); 
+
+        for (uint32_t i = 0; i < 10; i++)
+        {
+            cerr << bitset<16>(_compressedData[i]) << " ";
+        }
+        cerr << endl;
+    }
     outputFile.close();
 
     DEBUG_PRINT("Output file written");
@@ -461,7 +490,7 @@ void Compressor::printTree(uint16_t nodeIdx, uint16_t indent = 0)
     }
 }
 
-void Compressor::readInputFile(std::string inputFileName)
+void Compressor::readInputFile(string inputFileName)
 {
     ifstream inputFile(inputFileName, ios::binary);
     if (!inputFile.is_open())
@@ -493,7 +522,7 @@ void Compressor::readInputFile(std::string inputFileName)
         exit(1);
     }
 
-    uint64_t roundedSize = ((_size + _numThreads - 1) / _numThreads) * _numThreads + 1;
+    uint64_t roundedSize = ((_size + _numberOfThreads - 1) / _numberOfThreads) * _numberOfThreads + 1;
     _fileData = static_cast<symbol_t *>(aligned_alloc(64, roundedSize * sizeof(symbol_t)));
     _serializedData = static_cast<symbol_t *>(aligned_alloc(64, roundedSize * sizeof(symbol_t)));
     if (_fileData == nullptr || _serializedData == nullptr)
@@ -522,43 +551,42 @@ void Compressor::compressStatic()
         buildHuffmanTree();
 
         populateCodeTable();
-    }
+    } // implicit barrier
 
     uint32_t bytesPerThread;
     uint32_t startingIdx;
     symbol_t firstSymbol;
-    decomposeDataBetweenThreads(_fileData, bytesPerThread, startingIdx, firstSymbol);
-
-    transformRLE(firstSymbol, _fileData + startingIdx, reinterpret_cast<uint16_t *>(_serializedData + startingIdx), bytesPerThread, _compressedSizes[omp_get_thread_num()]);
+    // all threads compress their part of the data, data is decomposed between threads based on their number/ID
+    {
+        decomposeDataBetweenThreads(_fileData, bytesPerThread, startingIdx, firstSymbol);
+        DEBUG_PRINT("Thread " << omp_get_thread_num() << " starting index: " << startingIdx << " bytes to compress: " << bytesPerThread);
+        transformRLE(firstSymbol, _fileData + startingIdx, reinterpret_cast<uint16_t *>(_serializedData + startingIdx), bytesPerThread, _compressedSizes[omp_get_thread_num()]);
+    }
     #pragma omp barrier
 
     #pragma omp single
     {
         // exclusive scan of compressed sizes
         _compressedSizesExScan[0] = 0;
-        for (int32_t i = 0; i < _numThreads; i++)
+        for (int32_t i = 0; i < _numberOfThreads; i++)
         {
             _compressedSizesExScan[i + 1] = _compressedSizesExScan[i] + _compressedSizes[i];
         }
 
-        cerr << "Total compressed size: " << _compressedSizesExScan[_numThreads] << endl;
-    }
+        DEBUG_PRINT("Total compressed size: " << _compressedSizesExScan[_numberOfThreads]);
+    } // implicit barrier
 
-    // pack the compressed data back into the initial buffer
-    copy(_serializedData + startingIdx, _serializedData + startingIdx + _compressedSizes[omp_get_thread_num()], _fileData + _compressedSizesExScan[omp_get_thread_num()]);
+    // all threads pack the compressed data back into the initial buffer
+    {
+        copy(_serializedData + startingIdx, _serializedData + startingIdx + _compressedSizes[omp_get_thread_num()], _fileData + _compressedSizesExScan[omp_get_thread_num()]);
+    }
     #pragma omp barrier
 
-    #pragma omp single
+    #pragma omp master 
     {
         _compressedData = reinterpret_cast<uint16_t *>(_fileData);
         createHeader();
-        /*uint16_t *compressedData = reinterpret_cast<uint16_t *>(_compressedData);
-        for (uint32_t i = 0; i < _compressedSize && i < 100; i++)
-        {
-            bitset<16> codeBitset(compressedData[i]);
-            cerr << codeBitset << " ";
-        }
-        cerr << endl;*/
+        
         DEBUG_PRINT("Static compression finished");
     }
 }
@@ -663,7 +691,7 @@ void Compressor::compressAdaptive()
     analyzeImageAdaptive();
     #pragma omp barrier
     
-    #pragma omp single
+    #pragma omp master
     {
         for (uint32_t i = 0; i < _blockCount; i++)
         {
@@ -709,7 +737,7 @@ void Compressor::compressAdaptive()
             }
         }
     }
-    #pragma omp taskwait
+    #pragma omp taskwait // implicit barrier
 
     uint32_t bytesPerThread;
     uint32_t startingIdx;
@@ -721,21 +749,26 @@ void Compressor::compressAdaptive()
 
 void Compressor::decomposeDataBetweenThreads(symbol_t *data, uint32_t &bytesPerThread, uint32_t &startingIdx, symbol_t &firstSymbol)
 {
-    bytesPerThread = (_size + _numThreads - 1) / _numThreads;
-    bytesPerThread += bytesPerThread & 0x1; // ensure even number of bytes per thread
-    startingIdx = bytesPerThread * omp_get_thread_num();
+    int threadNumber = omp_get_thread_num();
+    bytesPerThread = (_size + _numberOfThreads - 1) / _numberOfThreads;
+    bytesPerThread += bytesPerThread & 0x1; // ensure even number of bytes per thread, TODO solve single thread case
+    startingIdx = bytesPerThread * threadNumber;
     firstSymbol = data[startingIdx];
-    if (omp_get_thread_num() == _numThreads - 1) // last thread
+    if (threadNumber == _numberOfThreads - 1 && _numberOfThreads > 1) // last thread
     {
         // ensure last symbol in a block is different from the first in next block
         data[startingIdx] = ~data[startingIdx - 1];
         data[_size] = ~data[_size - 1];
 
-        bytesPerThread -= bytesPerThread * _numThreads - _size; // ensure last thread does not run out of bounds
+        bytesPerThread -= bytesPerThread * _numberOfThreads - _size; // ensure last thread does not run out of bounds
     }
-    else if (omp_get_thread_num() != 0) // remaining threads apart from the first one
+    else if (threadNumber != 0) // remaining threads apart from the first one
     {
         data[startingIdx] = ~data[startingIdx - 1];
+    }
+    else // single threaded execution
+    {
+        data[_size] = ~data[_size - 1];
     }
 }
 
@@ -779,5 +812,5 @@ void Compressor::compress(string inputFileName, string outputFileName)
         DEBUG_PRINT("Thread " << omp_get_thread_num() << " finished");
     }
 
-    writeOutputFile(outputFileName);
+    writeOutputFile(outputFileName, inputFileName);
 }

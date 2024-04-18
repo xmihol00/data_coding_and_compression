@@ -4,8 +4,8 @@ import os
 
 WIDTH = 512
 HEIGHT = 512
-SRC_DIR = "../data"
-DST_DIR = "../data_pgm"
+SRC_DIR = "."
+DST_DIR = "."
 os.makedirs(DST_DIR, exist_ok=True)
 
 for filename in glob.glob(os.path.join(SRC_DIR, "*.raw")):
