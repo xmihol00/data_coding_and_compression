@@ -113,7 +113,7 @@ void Decompressor::parseBitmapHuffmanTree()
     uint8_t lastDepth = 0;
     uint16_t lastCode = -1;
     uint8_t masksIdx = 0;
-    for (uint8_t i = 0; i < MAX_LONG_CODE_LENGTH; i++)
+    for (uint8_t i = 0; i < MAX_CODE_LENGTH; i++)
     {
         if (_usedDepths & (1UL << i))
         {
@@ -226,14 +226,14 @@ void Decompressor::parseBitmapHuffmanTree()
     }
 
     uint8_t lastCodeCount = 0;
-    for (uint8_t i = 0; i < MAX_SHORT_CODE_LENGTH; i++)
+    for (uint8_t i = 0; i < MAX_CODE_LENGTH; i++)
     {
         _indexPrefixLengthCodeCount[i].cumulativeCodeCount = lastCodeCount;
         lastCodeCount += _indexPrefixLengthCodeCount[i].codeCount; 
         _indexPrefixLengths[i].index = i;
         _indexPrefixLengths[i].prefixLength = (i - 16 + countl_zero(static_cast<uint16_t>(_indexPrefixLengthCodeCount[i].codeCount - 1)));
     }
-    sort(_indexPrefixLengths, _indexPrefixLengths + MAX_SHORT_CODE_LENGTH, 
+    sort(_indexPrefixLengths, _indexPrefixLengths + MAX_CODE_LENGTH, 
             [](const IndexPrefixLength &a, const IndexPrefixLength &b) { return a.prefixLength < b.prefixLength; });
     
     for (uint8_t i = 0; i < MAX_SHORT_CODE_LENGTH; i++)
@@ -280,7 +280,7 @@ void Decompressor::parseBitmapHuffmanTree()
 #endif
     _codePrefixesSmallVector[0] = _mm256_and_si256(_codeMasksSmallVector[0], _codePrefixesSmallVector[0]);
     
-    for (uint16_t i = 0; i < MAX_SHORT_CODE_LENGTH; i++)
+    for (uint16_t i = 0; i < MAX_CODE_LENGTH; i++)
     {
         bitset<16> prefix(_codePrefixesSmall[i]);
         bitset<16> mask(_codeMasksSmall[i]);
@@ -413,14 +413,13 @@ void Decompressor::transformRLE(uint16_t *compressedData, symbol_t *decompressed
         if (sameSymbolCount == 2)
         {
             sameSymbolCount = 0;
-            constexpr uint8_t repetition_bits = 8; // TODO move to header
             bool repeat;
             uint8_t multiplier = 0;
             do
             {
                 current = (compressedData[currentIdx] << bitLength) | (compressedData[nextIdx] >> inverseBitLength);
                 repeat = current & 0x8000;
-                uint32_t repetitions = ((current & 0x7FFF) >> repetition_bits);
+                uint32_t repetitions = ((current & 0x7FFF) >> BITS_PER_REPETITION_NUMBER);
                 repetitions <<= multiplier;
                 //DEBUG_PRINT("Thread: " << omp_get_thread_num() << " repetitions: " << repetitions);
 
@@ -429,13 +428,13 @@ void Decompressor::transformRLE(uint16_t *compressedData, symbol_t *decompressed
                     decompressedData[decompressedIdx++] = symbol;
                 }
 
-                bitLength += repetition_bits;
+                bitLength += BITS_PER_REPETITION_NUMBER;
                 overflow = bitLength >= 16;
                 bitLength &= 0x0F;
                 nextIdx += overflow;
                 currentIdx += overflow;
                 inverseBitLength = 16 - bitLength;
-                multiplier += (repetition_bits - 1);
+                multiplier += (BITS_PER_REPETITION_NUMBER - 1);
             }
             while (repeat);
             cerr << endl;

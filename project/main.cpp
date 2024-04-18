@@ -5,7 +5,7 @@ using namespace std;
 
 int main(int argc, char* argv[])
 {
-    int numberOfThreads = 2; // omp_get_num_procs();
+    int numberOfThreads = 1; // omp_get_num_procs();
     omp_set_num_threads(numberOfThreads);
     
     Arguments args = parseArguments(argc, argv);
@@ -65,7 +65,7 @@ Arguments parseArguments(int argc, char* argv[])
             }
             catch (const out_of_range& e)
             {
-                std::cerr << e.what() << '\n';
+                std::cerr << e.what() << '\n'; // TODO
             }
         }
         else if (arguments[i] == "-i")

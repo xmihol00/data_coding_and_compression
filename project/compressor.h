@@ -74,7 +74,6 @@ private:
     uint16_t _headerSize;
     uint16_t _threadBlocksSizesSize{0};
 
-    AdaptiveTraversals *_bestBlockTraversals{nullptr};
     int32_t *_rlePerBlockCounts[MAX_NUM_THREADS] = {nullptr, };
 };
 
