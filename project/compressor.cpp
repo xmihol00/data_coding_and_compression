@@ -358,9 +358,10 @@ void Compressor::createHeader()
     uint16_t maxBitsCompressedSizes = 0;
     for (uint8_t i = 0; i < _numThreads; i++)
     {
-        uint16_t bits = 31 - countl_zero(_compressedSizes[i]);
+        uint16_t bits = 32 - countl_zero(_compressedSizes[i]);
         maxBitsCompressedSizes = max(maxBitsCompressedSizes, bits);
     }
+    cerr << "Max bits: " << maxBitsCompressedSizes << endl;
 
     uint8_t *packedCompressedSizes = reinterpret_cast<uint8_t *>(_compressedSizes);
     uint16_t idx = 0;
@@ -372,20 +373,21 @@ void Compressor::createHeader()
         cerr << "Packing: " << compressedSize << " " << bits << endl;
         compressedSize <<= 32 - maxBitsCompressedSizes;
         packedCompressedSizes[idx] = i == 0 ? 0 : packedCompressedSizes[idx];
+        //cerr << bitset<32>(compressedSize) << " ";
 
         do
         {
-            uint8_t removeBits = bits < chunkIdx ? bits : chunkIdx;
-            uint8_t removedBits = compressedSize >> (32 - removeBits);
-            packedCompressedSizes[idx] |= removedBits; // TODO: FIX
-            compressedSize <<= removeBits;
-            bits -= removeBits;
-            chunkIdx += removeBits;
+            //cerr << bitset<8>(compressedSize >> (24 + chunkIdx)) << " ";
+            packedCompressedSizes[idx] |= compressedSize >> (24 + chunkIdx);
+            uint8_t storedBits = bits < 8 - chunkIdx ? bits : 8 - chunkIdx;
+            compressedSize <<= storedBits;
+            bits -= storedBits;
+            chunkIdx += storedBits;
+            cerr << (int)chunkIdx << " " << (int)bits << " " << (int)storedBits << " " << bitset<32>(compressedSize) << endl;
             if (chunkIdx >= 8)
             {
                 chunkIdx &= 0x7;
-                idx++;
-                packedCompressedSizes[idx] = 0;
+                packedCompressedSizes[++idx] = 0;
             }
         } 
         while (bits);
@@ -416,7 +418,7 @@ void Compressor::createHeader()
     _threadBlocksSize = (_numThreads * maxBitsCompressedSizes + 7) / 8;
     for (uint32_t i = 0; i < _threadBlocksSize; i++)
     {
-        cerr << bitset<8>(packedCompressedSizes[0]) << " ";
+        cerr << bitset<8>(packedCompressedSizes[i]) << " ";
     }
     cerr << endl;
 
@@ -438,7 +440,7 @@ void Compressor::writeOutputFile(std::string outputFileName)
     outputFile.write(reinterpret_cast<char *>(&_header), _headerSize);
     outputFile.write(reinterpret_cast<char *>(_compressedSizes), _threadBlocksSize);
     outputFile.write(reinterpret_cast<char *>(_symbolsAtDepths), sizeof(uint64v4_t) * popcount(_usedDepths));
-    outputFile.write(reinterpret_cast<char *>(_compressedData), _compressedSizesExScan[_numThreads]); // TODO remove last up to 3 bytes */
+    outputFile.write(reinterpret_cast<char *>(_compressedData), _compressedSizesExScan[_numThreads]); 
     outputFile.close();
 
     DEBUG_PRINT("Output file written");
@@ -509,6 +511,8 @@ void Compressor::compressStatic()
 {
     #pragma omp single
     {
+        DEBUG_PRINT("Static compression started");
+
         computeHistogram(); // TODO: parallelize
 
         // sort the histogram by frequency of symbols in ascending order
@@ -542,10 +546,11 @@ void Compressor::compressStatic()
 
     // pack the compressed data back into the initial buffer
     copy(_serializedData + startingIdx, _serializedData + startingIdx + _compressedSizes[omp_get_thread_num()], _fileData + _compressedSizesExScan[omp_get_thread_num()]);
-    _compressedData = reinterpret_cast<uint16_t *>(_fileData);
+    #pragma omp barrier
 
     #pragma omp single
     {
+        _compressedData = reinterpret_cast<uint16_t *>(_fileData);
         createHeader();
         /*uint16_t *compressedData = reinterpret_cast<uint16_t *>(_compressedData);
         for (uint32_t i = 0; i < _compressedSize && i < 100; i++)
@@ -554,6 +559,7 @@ void Compressor::compressStatic()
             cerr << codeBitset << " ";
         }
         cerr << endl;*/
+        DEBUG_PRINT("Static compression finished");
     }
 }
 
@@ -747,6 +753,7 @@ void Compressor::compress(string inputFileName, string outputFileName)
     
     #pragma omp parallel
     {
+        DEBUG_PRINT("Thread " << omp_get_thread_num() << " started");
         if (_model)
         {
             if (_adaptive)
@@ -769,6 +776,7 @@ void Compressor::compress(string inputFileName, string outputFileName)
                 compressStatic();
             }
         }
+        DEBUG_PRINT("Thread " << omp_get_thread_num() << " finished");
     }
 
     writeOutputFile(outputFileName);
