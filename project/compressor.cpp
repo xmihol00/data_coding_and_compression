@@ -893,6 +893,23 @@ void Compressor::compressStaticModel()
     compressStatic();
 }
 
+void Compressor::compressAdaptiveModel()
+{
+    {
+        applyDiferenceModel(_fileData, _serializedData);
+    }
+    #pragma omp barrier
+
+    #pragma omp single
+    {
+        swap(_fileData, _serializedData);
+    }
+    // implicit barrier
+
+    compressAdaptive();
+}
+
+
 void Compressor::decomposeDataBetweenThreads(symbol_t *data, uint32_t &bytesPerThread, uint32_t &startingIdx, symbol_t &firstSymbol)
 {
     int threadNumber = omp_get_thread_num();
@@ -934,7 +951,7 @@ void Compressor::compress(string inputFileName, string outputFileName)
         {
             if (_adaptive)
             {
-                //compressAdaptiveModel();
+                compressAdaptiveModel();
             }
             else
             {

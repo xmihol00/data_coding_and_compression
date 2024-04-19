@@ -30,6 +30,7 @@ private:
     void decompressStatic();
     void decompressAdaptive();
     void decompressStaticModel();
+    void decompressAdaptiveModel();
 
     uint8_t _numberOfCompressedBlocks{1};
     uint8_t _bitsPerCompressedBlockSize;

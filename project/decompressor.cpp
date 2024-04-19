@@ -576,11 +576,40 @@ void Decompressor::decompressStaticModel()
     #pragma omp master
     {
         _decompressedData = reinterpret_cast<symbol_t *>(_compressedData);
-        for (uint32_t i = 0; i < 32; i++)
+    }
+}
+
+void Decompressor::decompressAdaptiveModel()
+{
+    decompressAdaptive();
+
+    #pragma omp master
+    {
+        DEBUG_PRINT("Adaptive decompression with model");
+        uint64_t bytesPerBlock = (_size + _numberOfCompressedBlocks - 1) / _numberOfCompressedBlocks;
+        uint64_t bytesPerLastBlock = _size - bytesPerBlock * (_numberOfCompressedBlocks - 1);
+
+        symbol_t *destination = _decompressionBuffer;
+        // schedule the decompression of each block as a task
+        for (uint8_t i = 0; i < _numberOfCompressedBlocks - 1; i++)
         {
-            cerr << (int)_decompressedData[i] << " ";
+            #pragma omp task firstprivate(i)
+            {
+                reverseDifferenceModel(_decompressedData + i * bytesPerBlock, destination + i * bytesPerBlock, bytesPerBlock);
+            }
         }
-        cerr << endl;
+
+        #pragma omp task // last block may be smaller
+        {
+            reverseDifferenceModel(_decompressedData + (_numberOfCompressedBlocks - 1) * bytesPerBlock, destination + (_numberOfCompressedBlocks - 1) * bytesPerBlock, bytesPerLastBlock);
+        }
+    }
+    #pragma omp taskwait
+    #pragma omp barrier
+
+    #pragma omp master
+    {
+        _decompressedData = _decompressionBuffer;
     }
 }
 
@@ -680,7 +709,7 @@ void Decompressor::decompress(string inputFileName, string outputFileName)
             {
                 if (_header.getHeaderType() & ADAPTIVE)
                 {
-                    // TODO
+                    decompressAdaptiveModel();
                 }
                 else
                 {
