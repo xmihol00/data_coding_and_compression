@@ -8,6 +8,7 @@ all_tests_passed=true
 
 for switch in "" "-a"; do
     rm -f compressed_files/*
+    rm -f decompressed_files/*
     for file in $data_dir/*; do
         echo "Testing $file"
         basename=$(basename $file)
@@ -17,7 +18,7 @@ for switch in "" "-a"; do
         ./huff_codec -c -i $file -o compressed_files/$basename -w $width $switch 2>/dev/null
         echo "decompress command: ./huff_codec -d -i compressed_files/$basename -o decompressed_files/$basename"
         ./huff_codec -d -i compressed_files/$basename -o decompressed_files/$basename 2>/dev/null
-        diff $file decompressed_files/$basename
+        diff $file decompressed_files/$basename 2>/dev/null 1>/dev/null
         if [ $? -eq 0 ]; then
             echo -e "\e[0;32mPASSED\e[0m"
         else
@@ -33,3 +34,6 @@ if [ $all_tests_passed = true ]; then
 else
     echo -e "\e[0;31mSome tests failed\e[0m"
 fi
+
+rm -f compressed_files/*
+rm -f decompressed_files/*

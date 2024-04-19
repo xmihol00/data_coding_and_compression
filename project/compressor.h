@@ -64,9 +64,8 @@ private:
     uint16_t _sortedNodesHead;
     uint16_t _sortedNodesTail;
 
-    symbol_t *_fileData{nullptr};
-    uint16_t *_compressedData{nullptr};
-    symbol_t *_serializedData{nullptr};
+    uint8_t *_sourceBuffer{nullptr};
+    uint8_t *_destinationBuffer{nullptr};
 
     uint8_t _longestCode;
 

@@ -7,9 +7,9 @@ Compressor::Compressor(bool model, bool adaptive, uint64_t width, int32_t number
 
 Compressor::~Compressor()
 { 
-    if (_fileData != nullptr)
+    if (_sourceBuffer != nullptr)
     {
-        free(_fileData);
+        free(_sourceBuffer);
     }
 
     for (uint8_t i = 0; i < MAX_NUM_THREADS; i++)
@@ -20,9 +20,9 @@ Compressor::~Compressor()
         }
     }
 
-    if (_serializedData != nullptr)
+    if (_destinationBuffer != nullptr)
     {
-        free(_serializedData);
+        free(_destinationBuffer);
     }
 }
 
@@ -38,7 +38,7 @@ void Compressor::computeHistogram()
 
     for (uint64_t i = 0; i < _size; i++)
     {
-        _histogram[_fileData[i]].count++;
+        _histogram[_sourceBuffer[i]].count++;
     }
 
     DEBUG_PRINT("Histogram computed");
@@ -494,10 +494,10 @@ void Compressor::writeOutputFile(string outputFileName, string inputFileName)
             cerr << "Error: Unable to open input file '" << inputFileName << "'." << endl;
             exit(1);
         }
-        inputFile.read(reinterpret_cast<char *>(_fileData), _size);   
+        inputFile.read(reinterpret_cast<char *>(_sourceBuffer), _size);   
         inputFile.close();
 
-        outputFile.write(reinterpret_cast<char *>(_fileData), _size);
+        outputFile.write(reinterpret_cast<char *>(_sourceBuffer), _size);
     }
     else // data successfully compressed
     {
@@ -505,7 +505,7 @@ void Compressor::writeOutputFile(string outputFileName, string inputFileName)
         outputFile.write(reinterpret_cast<char *>(_compressedSizes), _threadBlocksSizesSize);
         outputFile.write(reinterpret_cast<char *>(_symbolsAtDepths), sizeof(uint64v4_t) * popcount(_usedDepths));
         outputFile.write(reinterpret_cast<char *>(_blockTypes), _blockTypesByteSize);
-        outputFile.write(reinterpret_cast<char *>(_compressedData), _compressedSizesExScan[_numberOfThreads]); 
+        outputFile.write(reinterpret_cast<char *>(_destinationBuffer), _compressedSizesExScan[_numberOfThreads]); 
 
     #ifdef _DEBUG_PRINT_ACTIVE_
         cerr << "Header: ";
@@ -544,7 +544,7 @@ void Compressor::writeOutputFile(string outputFileName, string inputFileName)
         cerr << "Compressed data: ";
         for (uint16_t i = 0; i < 20; i++)
         {
-            cerr << bitset<8>(_compressedData[i]) << " ";
+            cerr << bitset<8>(_destinationBuffer[i]) << " ";
         }
         cerr << endl;
     #endif
@@ -604,16 +604,16 @@ void Compressor::readInputFile(string inputFileName)
     }
 
     uint64_t roundedSize = ((_size + _numberOfThreads - 1) / _numberOfThreads) * _numberOfThreads + 1;
-    _fileData = static_cast<symbol_t *>(aligned_alloc(64, roundedSize * sizeof(symbol_t)));
-    _serializedData = static_cast<symbol_t *>(aligned_alloc(64, roundedSize * sizeof(symbol_t)));
-    if (_fileData == nullptr || _serializedData == nullptr)
+    _sourceBuffer = static_cast<symbol_t *>(aligned_alloc(64, roundedSize * sizeof(symbol_t)));
+    _destinationBuffer = static_cast<symbol_t *>(aligned_alloc(64, roundedSize * sizeof(symbol_t)));
+    if (_sourceBuffer == nullptr || _destinationBuffer == nullptr)
     {
         cerr << "Error: Unable to allocate memory for the input file." << endl;
         exit(1);
     }
-    cerr << (void *) _fileData << " " << (void *) _serializedData << endl;
+    cerr << (void *) _sourceBuffer << " " << (void *) _destinationBuffer << endl;
 
-    inputFile.read(reinterpret_cast<char *>(_fileData), _size);
+    inputFile.read(reinterpret_cast<char *>(_sourceBuffer), _size);
     inputFile.close();
 }
 
@@ -638,7 +638,7 @@ void Compressor::compressStatic()
     // all threads compress their part of the data, data is decomposed between threads based on their number/ID
     uint64_t startingIdx;
     {
-        transformRLE(_fileData, reinterpret_cast<uint16_t *>(_serializedData), _compressedSizes[threadNumber], startingIdx);
+        transformRLE(_sourceBuffer, reinterpret_cast<uint16_t *>(_destinationBuffer), _compressedSizes[threadNumber], startingIdx);
     }
     #pragma omp barrier
 
@@ -656,13 +656,13 @@ void Compressor::compressStatic()
 
     // all threads pack the compressed data back into the initial buffer
     {
-        copy(_serializedData + startingIdx, _serializedData + startingIdx + _compressedSizes[threadNumber], _fileData + _compressedSizesExScan[threadNumber]);
+        copy(_destinationBuffer + startingIdx, _destinationBuffer + startingIdx + _compressedSizes[threadNumber], _sourceBuffer + _compressedSizesExScan[threadNumber]);
     }
     #pragma omp barrier
 
     #pragma omp master 
     {
-        _compressedData = reinterpret_cast<uint16_t *>(_fileData);
+        swap(_sourceBuffer, _destinationBuffer);
         createHeader();
         
         DEBUG_PRINT("Static compression finished");
@@ -700,8 +700,8 @@ void Compressor::analyzeImageAdaptive()
                     {
                         for (uint32_t l = 0; l < BLOCK_SIZE; l++)
                         {
-                            bool sameSymbol = _fileData[firstColumn + l] == lastSymbol;
-                            lastSymbol = _fileData[firstColumn + l];
+                            bool sameSymbol = _sourceBuffer[firstColumn + l] == lastSymbol;
+                            lastSymbol = _sourceBuffer[firstColumn + l];
                         #if 0
                             rleCount += sameSymbolCount * (!sameSymbol && sameSymbolCount >= -1);
                             sameSymbolCount = (sameSymbolCount + sameSymbol) * sameSymbol + (-3 * !sameSymbol);
@@ -739,8 +739,8 @@ void Compressor::analyzeImageAdaptive()
                         uint32_t column = firstColumn + k;
                         for (uint32_t l = 0; l < BLOCK_SIZE; l++)
                         {
-                            bool sameSymbol = _fileData[column] == lastSymbol;
-                            lastSymbol = _fileData[column];
+                            bool sameSymbol = _sourceBuffer[column] == lastSymbol;
+                            lastSymbol = _sourceBuffer[column];
                         #if 0
                             rleCount += sameSymbolCount * (!sameSymbol && sameSymbolCount >= -1);
                             sameSymbolCount = (sameSymbolCount + sameSymbol) * sameSymbol + (-3 * !sameSymbol);
@@ -827,14 +827,14 @@ void Compressor::compressAdaptive()
                 case HORIZONTAL:
                     #pragma omp task firstprivate(j, i)
                     {
-                        serializeBlock(_fileData, _serializedData, j, i);
+                        serializeBlock(_sourceBuffer, _destinationBuffer, j, i);
                     }
                     break;
                 
                 case VERTICAL:
                     #pragma omp task firstprivate(j, i)
                     {
-                        transposeSerializeBlock(_fileData, _serializedData, j, i);
+                        transposeSerializeBlock(_sourceBuffer, _destinationBuffer, j, i);
                     }
                     break;
                 }
@@ -846,7 +846,7 @@ void Compressor::compressAdaptive()
 
     uint64_t startingIdx;
     {
-        transformRLE(_serializedData, reinterpret_cast<uint16_t *>(_fileData), _compressedSizes[threadNumber], startingIdx);
+        transformRLE(_destinationBuffer, reinterpret_cast<uint16_t *>(_sourceBuffer), _compressedSizes[threadNumber], startingIdx);
     }
     #pragma omp barrier
 
@@ -865,13 +865,12 @@ void Compressor::compressAdaptive()
 
     // all threads pack the compressed data back into the initial buffer
     {
-        copy(_fileData + startingIdx, _fileData + startingIdx + _compressedSizes[threadNumber], _serializedData + _compressedSizesExScan[threadNumber]);
+        copy(_sourceBuffer + startingIdx, _sourceBuffer + startingIdx + _compressedSizes[threadNumber], _destinationBuffer + _compressedSizesExScan[threadNumber]);
     }
     #pragma omp barrier
 
     #pragma omp master 
     {
-        _compressedData = reinterpret_cast<uint16_t *>(_serializedData);
         createHeader();
         
         DEBUG_PRINT("Static adaptive compression finished");
@@ -881,14 +880,15 @@ void Compressor::compressAdaptive()
 void Compressor::compressStaticModel()
 {
     {
-        applyDiferenceModel(_fileData, _serializedData);
+        applyDiferenceModel(_sourceBuffer, _destinationBuffer);
     }
     #pragma omp barrier
 
     #pragma omp single
     {
-        swap(_fileData, _serializedData);
+        swap(_sourceBuffer, _destinationBuffer);
     }
+    // implicit barrier
 
     compressStatic();
 }
@@ -896,13 +896,13 @@ void Compressor::compressStaticModel()
 void Compressor::compressAdaptiveModel()
 {
     {
-        applyDiferenceModel(_fileData, _serializedData);
+        applyDiferenceModel(_sourceBuffer, _destinationBuffer);
     }
     #pragma omp barrier
 
     #pragma omp single
     {
-        swap(_fileData, _serializedData);
+        swap(_sourceBuffer, _destinationBuffer);
     }
     // implicit barrier
 

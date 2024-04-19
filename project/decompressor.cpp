@@ -548,35 +548,31 @@ void Decompressor::decompressStaticModel()
     #pragma omp master
     {
         DEBUG_PRINT("Static decompression with model");
-        for (uint32_t i = 0; i < 32; i++)
-        {
-            cerr << (int)_decompressedData[i] << " ";
-        }
-        cerr << endl;
+        
         uint64_t bytesPerBlock = (_size + _numberOfCompressedBlocks - 1) / _numberOfCompressedBlocks;
         uint64_t bytesPerLastBlock = _size - bytesPerBlock * (_numberOfCompressedBlocks - 1);
+
+        symbol_t *source = _decompressedData;
+        symbol_t *destination = reinterpret_cast<symbol_t *>(_compressedData);
 
         // schedule the decompression of each block as a task
         for (uint8_t i = 0; i < _numberOfCompressedBlocks - 1; i++)
         {
             #pragma omp task firstprivate(i)
             {
-                reverseDifferenceModel(_decompressedData + i * bytesPerBlock, reinterpret_cast<symbol_t *>(_compressedData) + i * bytesPerBlock, bytesPerBlock);
+                reverseDifferenceModel(source + i * bytesPerBlock, destination + i * bytesPerBlock, bytesPerBlock);
             }
         }
 
         #pragma omp task // last block may be smaller
         {
-            reverseDifferenceModel(_decompressedData + (_numberOfCompressedBlocks - 1) * bytesPerBlock, reinterpret_cast<symbol_t *>(_compressedData) + (_numberOfCompressedBlocks - 1) * bytesPerBlock, bytesPerLastBlock);
+            reverseDifferenceModel(source + (_numberOfCompressedBlocks - 1) * bytesPerBlock, destination + (_numberOfCompressedBlocks - 1) * bytesPerBlock, bytesPerLastBlock);
         }
+
+        _decompressedData = destination;
     }
     #pragma omp taskwait
     #pragma omp barrier
-
-    #pragma omp master
-    {
-        _decompressedData = reinterpret_cast<symbol_t *>(_compressedData);
-    }
 }
 
 void Decompressor::decompressAdaptiveModel()
@@ -589,28 +585,26 @@ void Decompressor::decompressAdaptiveModel()
         uint64_t bytesPerBlock = (_size + _numberOfCompressedBlocks - 1) / _numberOfCompressedBlocks;
         uint64_t bytesPerLastBlock = _size - bytesPerBlock * (_numberOfCompressedBlocks - 1);
 
+        symbol_t *source = _decompressedData;
         symbol_t *destination = _decompressionBuffer;
         // schedule the decompression of each block as a task
         for (uint8_t i = 0; i < _numberOfCompressedBlocks - 1; i++)
         {
             #pragma omp task firstprivate(i)
             {
-                reverseDifferenceModel(_decompressedData + i * bytesPerBlock, destination + i * bytesPerBlock, bytesPerBlock);
+                reverseDifferenceModel(source + i * bytesPerBlock, destination + i * bytesPerBlock, bytesPerBlock);
             }
         }
 
         #pragma omp task // last block may be smaller
         {
-            reverseDifferenceModel(_decompressedData + (_numberOfCompressedBlocks - 1) * bytesPerBlock, destination + (_numberOfCompressedBlocks - 1) * bytesPerBlock, bytesPerLastBlock);
+            reverseDifferenceModel(source + (_numberOfCompressedBlocks - 1) * bytesPerBlock, destination + (_numberOfCompressedBlocks - 1) * bytesPerBlock, bytesPerLastBlock);
         }
+
+        _decompressedData = destination;
     }
     #pragma omp taskwait
     #pragma omp barrier
-
-    #pragma omp master
-    {
-        _decompressedData = _decompressionBuffer;
-    }
 }
 
 void Decompressor::decompressStatic()
@@ -650,7 +644,9 @@ void Decompressor::decompressAdaptive()
     {
         DEBUG_PRINT("Adaptive decompression");
 
+        symbol_t *source = _decompressionBuffer;
         symbol_t *destination = reinterpret_cast<symbol_t *>(_compressedData);
+
         for (uint32_t i = 0; i < _blocksPerColumn; i++)
         {
             for (uint32_t j = 0; j < _blocksPerRow; j++)
@@ -660,14 +656,14 @@ void Decompressor::decompressAdaptive()
                 case HORIZONTAL:
                     #pragma omp task firstprivate(j, i)
                     {
-                        deserializeBlock(_decompressionBuffer, destination, j, i);
+                        deserializeBlock(source, destination, j, i);
                     }
                     break;
                 
                 case VERTICAL:
                     #pragma omp task firstprivate(j, i)
                     {
-                        transposeDeserializeBlock(_decompressionBuffer, destination, j, i);
+                        transposeDeserializeBlock(source, destination, j, i);
                     }
                     break;
 
