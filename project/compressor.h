@@ -11,8 +11,6 @@ public:
     void compress(std::string inputFileName, std::string outputFileName);
 
 private:
-    static constexpr uint16_t COMPRESSED_ORIGINAL_OFFSET{256};
-    
     void readInputFile(std::string inputFileName);
     void computeHistogram();
     void buildHuffmanTree();
@@ -28,6 +26,7 @@ private:
     void compressAdaptiveModel();
 
     void analyzeImageAdaptive();
+    void applyDiferenceModel(symbol_t firstSymbol, symbol_t *source, symbol_t *destination, uint32_t bytesToProcess);
 
     void printTree(uint16_t nodeIdx, uint16_t indent);
 

@@ -532,6 +532,7 @@ void Compressor::writeOutputFile(string outputFileName, string inputFileName)
 
 void Compressor::printTree(uint16_t nodeIdx, uint16_t indent = 0)
 {
+#ifdef _DEBUG_PRINT_ACTIVE_
     if (_tree[nodeIdx].isLeaf())
     {
         Leaf leaf = reinterpret_cast<Leaf *>(_tree)[nodeIdx];
@@ -543,6 +544,7 @@ void Compressor::printTree(uint16_t nodeIdx, uint16_t indent = 0)
         printTree(_tree[nodeIdx].left, indent + 2);
         printTree(_tree[nodeIdx].right, indent + 2);
     }
+#endif
 }
 
 void Compressor::readInputFile(string inputFileName)
@@ -737,6 +739,71 @@ void Compressor::analyzeImageAdaptive()
     }
 }
 
+void Compressor::applyDiferenceModel(symbol_t firstSymbol, symbol_t *source, symbol_t *destination, uint32_t bytesToProcess)
+{
+    source[0] = firstSymbol;
+    destination[0] = firstSymbol;
+#if __AVX512BW__ && __AVX512VL__ || 1
+    symbol_t last = 0;
+
+    // 16 byts per iteration
+    /*for (uint32_t i = 0; i < bytesToProcess; i += 16)
+    {
+        uint8v16_t current = _mm_loadu_si128(reinterpret_cast<uint8v16_t *>(source + i));
+        uint8v16_t next = _mm_alignr_epi8(current, current, 15);
+        uint8v16_t difference = _mm_sub_epi8(current, next);
+        uint8_t lastDifference = source[i] - last;
+        reinterpret_cast<uint8v16_t *>(destination + i)[0] = difference;
+        destination[i] = lastDifference;
+        last = source[i + 15];
+    }*/
+
+    // 32 bytes per iteration
+    /*for (uint32_t i = 0; i < bytesToProcess; i += 32)
+    {
+        uint8v32_t current = _mm256_load_si256(reinterpret_cast<uint8v32_t *>(source + i));
+        uint8v32_t next = _mm256_alignr_epi8(current, current, 15);
+        uint8v32_t difference = _mm256_sub_epi8(current, next);
+        uint8_t lastDifference = source[i] - last;
+        uint8_t middleDifference = source[i + 16] - source[i + 15];
+        reinterpret_cast<uint8v32_t *>(destination + i)[0] = difference;
+        destination[i] = lastDifference;
+        destination[i + 16] = middleDifference;
+        last = source[i + 32];
+    }*/
+
+    // 64 bytes per iteration
+    for (uint32_t i = 0; i < bytesToProcess; i += 64)
+    {
+        uint8v64_t current = _mm512_load_si512(reinterpret_cast<uint8v64_t *>(source + i));
+        uint8v64_t next = _mm512_alignr_epi8(current, current, 15);
+        uint8v64_t difference = _mm512_sub_epi8(current, next);
+        uint8_t lastDifference = source[i] - last;
+        uint8_t fstQuarterDifference = source[i + 16] - source[i + 15];
+        uint8_t middleDifference = source[i + 32] - source[i + 31];
+        uint8_t frdQuarterDifference = source[i + 48] - source[i + 47];
+        reinterpret_cast<uint8v64_t *>(destination + i)[0] = difference;
+        destination[i] = lastDifference;
+        destination[i + 16] = fstQuarterDifference;
+        destination[i + 32] = middleDifference;
+        destination[i + 48] = frdQuarterDifference;
+        last = source[i + 64];
+    }
+
+#else
+    for (uint32_t i = 1; i < bytesToProcess; i++)
+    {
+        destination[i] = source[i] - source[i - 1];
+    }
+#endif
+
+    for (uint32_t i = 0; i < bytesToProcess; i++)
+    {
+        cerr << (int)destination[i] << " ";
+    }
+    cerr << endl;
+}
+
 void Compressor::compressAdaptive()
 {   
     int threadNumber = omp_get_thread_num();
@@ -838,6 +905,14 @@ void Compressor::compressAdaptive()
     }
 }
 
+void Compressor::compressStaticModel()
+{
+    #pragma omp master
+    {
+        applyDiferenceModel(_fileData[0], _fileData, _serializedData, 128);
+    }
+}
+
 void Compressor::decomposeDataBetweenThreads(symbol_t *data, uint32_t &bytesPerThread, uint32_t &startingIdx, symbol_t &firstSymbol)
 {
     int threadNumber = omp_get_thread_num();
@@ -883,7 +958,7 @@ void Compressor::compress(string inputFileName, string outputFileName)
             }
             else
             {
-                //compressStaticModel();
+                compressStaticModel();
             }
         }
         else
