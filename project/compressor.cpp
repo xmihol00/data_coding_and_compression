@@ -316,7 +316,6 @@ void Compressor::transformRLE(symbol_t firstSymbol, symbol_t *sourceData, uint16
             while (repeating)
             {
                 uint16_t count = sameSymbolCount & 0x7F;
-                DEBUG_PRINT("Count: " << count);
                 sameSymbolCount >>= (BITS_PER_REPETITION_NUMBER - 1);
                 repeating = sameSymbolCount > 0;
                 count |= repeating << (BITS_PER_REPETITION_NUMBER - 1);
@@ -332,7 +331,6 @@ void Compressor::transformRLE(symbol_t firstSymbol, symbol_t *sourceData, uint16
                 currentCompressedIdx += moveChunk;
                 nextCompressedIdx += moveChunk;
             }
-            DEBUG_PRINT("");
 
             sameSymbolCount = 1;
             current = sourceData[sourceDataIdx];
@@ -799,13 +797,15 @@ void Compressor::compressAdaptive()
             }
         }
     }
-    #pragma omp taskwait // implicit barrier
+    #pragma omp taskwait
+    #pragma omp barrier
 
     uint32_t bytesPerThread;
     uint32_t startingIdx;
     symbol_t firstSymbol;
     {
         decomposeDataBetweenThreads(_serializedData, bytesPerThread, startingIdx, firstSymbol);
+        DEBUG_PRINT("Thread " << threadNumber << " starting index: " << startingIdx << " bytes to compress: " << bytesPerThread);
         transformRLE(firstSymbol, _serializedData + startingIdx, reinterpret_cast<uint16_t *>(_fileData + startingIdx), bytesPerThread, _compressedSizes[threadNumber]);
     }
     #pragma omp barrier
@@ -820,7 +820,8 @@ void Compressor::compressAdaptive()
         }
 
         DEBUG_PRINT("Total compressed size: " << _compressedSizesExScan[_numberOfThreads]);
-    } // implicit barrier
+    }
+    // implicit barrier
 
     // all threads pack the compressed data back into the initial buffer
     {

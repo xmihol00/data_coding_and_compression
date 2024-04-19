@@ -67,6 +67,7 @@ bool Decompressor::readInputFile(string inputFileName, string outputFileName)
                 uint16_t bitmapsSize = sizeof(uint64v4_t) * popcount(_usedDepths);
                 inputFile.read(reinterpret_cast<char *>(_symbolsAtDepths), bitmapsSize);
                 fileSize -= sizeof(DepthBitmapsHeader) + bitmapsSize;
+                _compressedSizesExScan[0] = 0;
             }
             break;
 
@@ -74,6 +75,7 @@ bool Decompressor::readInputFile(string inputFileName, string outputFileName)
             {
                 DepthBitmapsMultiThreadedHeader &header = reinterpret_cast<DepthBitmapsMultiThreadedHeader &>(_headerBuffer);
                 inputFile.read(reinterpret_cast<char *>(&header), sizeof(DepthBitmapsMultiThreadedHeader));
+            
             #ifdef _DEBUG_PRINT_ACTIVE_
                 cerr << "Header: ";
                 for (uint16_t i = 0; i < sizeof(DepthBitmapsMultiThreadedHeader); i++)
@@ -82,10 +84,12 @@ bool Decompressor::readInputFile(string inputFileName, string outputFileName)
                 }
                 cerr << endl;
             #endif
+
                 _numberOfCompressedBlocks = header.getNumberOfThreads();
                 _bitsPerCompressedBlockSize = header.getBitsPerBlockSize();
                 _numberOfBytesCompressedBlocks = (_numberOfCompressedBlocks * _bitsPerCompressedBlockSize + 7) / 8;
                 inputFile.read(reinterpret_cast<char *>(_rawBlockSizes), _numberOfBytesCompressedBlocks);
+            
             #ifdef _DEBUG_PRINT_ACTIVE_
                 cerr << "Compressed sizes: ";
                 for (uint16_t i = 0; i < _numberOfBytesCompressedBlocks; i++)
@@ -94,6 +98,7 @@ bool Decompressor::readInputFile(string inputFileName, string outputFileName)
                 }
                 cerr << endl;
             #endif
+
                 _usedDepths = header.getCodeDepths();
                 uint16_t bitmapsSize = sizeof(uint64v4_t) * popcount(_usedDepths);
                 inputFile.read(reinterpret_cast<char *>(_symbolsAtDepths), bitmapsSize);
@@ -222,7 +227,6 @@ void Decompressor::parseBitmapHuffmanTree()
             {
                 _depthsIndices[masksIdx + 1].depth = i;
                 _depthsIndices[masksIdx + 1].prefixLength = _depthsIndices[masksIdx].prefixLength;
-                DEBUG_PRINT("Additional prefix: " << bitset<16>(additionalPrefix) << " " << (int)i << " " << (int)_depthsIndices[masksIdx].prefixLength << " " << (int)lastDepth);
                 _depthsIndices[masksIdx].depth = i;
                 _depthsIndices[masksIdx].prefixLength = lastDepth;
                 _depthsIndices[masksIdx].symbolsAtDepthIndex = depthIdx;
@@ -260,20 +264,16 @@ void Decompressor::parseBitmapHuffmanTree()
         uint8_t delta = _depthsIndices[i].depth - lastDepth;
         lastDepth = _depthsIndices[i].depth;
         lastCode = (lastCode + 1) << delta;
-        DEBUG_PRINT("Depth: " << (int)_depthsIndices[i].depth << " PrefixLength: " << (int)_depthsIndices[i].prefixLength << " SymbolsAtDepthIndex: " << (int)_depthsIndices[i].symbolsAtDepthIndex << " MasksIndex: " << (int)_depthsIndices[i].masksIndex << " Code: " << bitset<16>(lastCode));
         _codePrefixesSmall[15 - _depthsIndices[i].masksIndex] = lastCode << (16 - _depthsIndices[i].depth);
         _codeMasksSmall[15 - _depthsIndices[i].masksIndex] = (~0U) << (16 - _depthsIndices[i].prefixLength);
         _prefixIndices[_depthsIndices[i].masksIndex] = symbolIdx;
         _prefixShifts[_depthsIndices[i].masksIndex] = _depthsIndices[i].prefixLength;
         _suffixShifts[_depthsIndices[i].masksIndex] = 16 - _depthsIndices[i].depth + _depthsIndices[i].prefixLength;
         symbolIdx += lastCode & (static_cast<uint16_t>(~0) >> (16 - _depthsIndices[i].depth + _depthsIndices[i].prefixLength));
-        DEBUG_PRINT("SymbolIdx inc: " << (int)(lastCode & (static_cast<uint16_t>(~0) >> (16 - _depthsIndices[i].depth + _depthsIndices[i].prefixLength))));
 
         int16_t maxSymbols = 1 << (_depthsIndices[i].depth - _depthsIndices[i].prefixLength);
-        DEBUG_PRINT("Max symbols: " << maxSymbols);
         uint16_t lastSymbolIdx = symbolIdx;
         uint64_t *bits = reinterpret_cast<uint64_t *>(_symbolsAtDepths + _depthsIndices[i].symbolsAtDepthIndex);
-        uint16_t dummyLastCode = lastCode;
         for (uint8_t j = 0; j < 4; j++)
         {
             uint8_t symbol = j << 6;
@@ -282,11 +282,6 @@ void Decompressor::parseBitmapHuffmanTree()
             {
                 maxSymbols--;
                 uint8_t adjustedSymbol = symbol + leadingZeros;
-                if (leadingZeros == 27)
-                {
-                    DEBUG_PRINT("symbol: " << (int)symbol << " " << (int)leadingZeros << " " << (int)adjustedSymbol << " " << bitset<64>(bits[j]));
-                }
-                DEBUG_PRINT("Symbol: " << (char)adjustedSymbol << " " << (int)adjustedSymbol << " idx: " << (int)symbolIdx << " last code: " << bitset<5>(dummyLastCode++) << " max symbols: " << maxSymbols << " leading zeros: " << (int)leadingZeros);
                 bits[j] ^= 1UL << (63 - leadingZeros);
                 _symbolsTable[symbolIdx++] = adjustedSymbol;
             }
@@ -405,6 +400,7 @@ void Decompressor::parseThreadingInfo()
     for (uint32_t i = 0; i < _numberOfCompressedBlocks; i++)
     {
         _compressedSizesExScan[i + 1] = _compressedSizesExScan[i] + _compressedSizes[i];
+        DEBUG_PRINT("Block " << i << " size: " << _compressedSizes[i] << " ex scan: " << _compressedSizesExScan[i]);
     }
 }
 
@@ -506,7 +502,7 @@ void Decompressor::transformRLE(uint16_t *compressedData, symbol_t *decompressed
                 repeat = current & 0x8000;
                 uint32_t repetitions = ((current & 0x7FFF) >> BITS_PER_REPETITION_NUMBER);
                 repetitions <<= multiplier;
-                DEBUG_PRINT("Thread: " << omp_get_thread_num() << " repetitions: " << repetitions);
+                //DEBUG_PRINT("Thread: " << omp_get_thread_num() << " repetitions: " << repetitions);
 
                 for (uint32_t i = 0; i < repetitions; i++)
                 {
@@ -522,7 +518,7 @@ void Decompressor::transformRLE(uint16_t *compressedData, symbol_t *decompressed
                 multiplier += (BITS_PER_REPETITION_NUMBER - 1);
             }
             while (repeat);
-            DEBUG_PRINT("");
+            //DEBUG_PRINT("");
         }
 
         /*if (nextIdx >= 25)
@@ -539,6 +535,7 @@ void Decompressor::decompressStatic()
 {
     #pragma omp master
     {
+        DEBUG_PRINT("Static decompression");
         uint64_t bytesPerBlock = (_size + _numberOfCompressedBlocks - 1) / _numberOfCompressedBlocks;
         uint64_t bytesPerLastBlock = _size - bytesPerBlock * (_numberOfCompressedBlocks - 1);
 
@@ -559,7 +556,8 @@ void Decompressor::decompressStatic()
 
         _decompressedData = reinterpret_cast<symbol_t *>(_decompressionBuffer);
     }
-    #pragma omp taskwait // implicit barrier
+    #pragma omp taskwait
+    #pragma omp barrier
 }
 
 void Decompressor::decompressAdaptive()
@@ -600,7 +598,8 @@ void Decompressor::decompressAdaptive()
         _decompressedData = destination;
         DEBUG_PRINT("Adaptive decompression done");
     }
-    #pragma omp taskwait // implicit barrier
+    #pragma omp taskwait
+    #pragma omp barrier
 }
 
 void Decompressor::writeOutputFile(std::string outputFileName)

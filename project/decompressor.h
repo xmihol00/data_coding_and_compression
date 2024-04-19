@@ -29,7 +29,7 @@ private:
     void decompressStatic();
     void decompressAdaptive();
 
-    uint8_t _numberOfCompressedBlocks;
+    uint8_t _numberOfCompressedBlocks{1};
     uint8_t _bitsPerCompressedBlockSize;
     uint32_t _numberOfBytesCompressedBlocks;
     uint8_t *_rawBlockSizes{reinterpret_cast<uint8_t *>(_compressedSizesExScan)}; // reuse already allocated memory
