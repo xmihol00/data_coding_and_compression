@@ -26,7 +26,7 @@ private:
     void compressAdaptiveModel();
 
     void analyzeImageAdaptive();
-    void applyDiferenceModel(symbol_t firstSymbol, symbol_t *source, symbol_t *destination, uint32_t bytesToProcess);
+    void applyDiferenceModel(symbol_t *source, symbol_t *destination);
 
     void printTree(uint16_t nodeIdx, uint16_t indent);
 

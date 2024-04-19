@@ -531,6 +531,61 @@ void Decompressor::transformRLE(uint16_t *compressedData, symbol_t *decompressed
 #endif
 }
 
+void Decompressor::reverseDifferenceModel(symbol_t *source, symbol_t *destination, uint64_t bytesToProcess)
+{
+    int threadNumber = omp_get_thread_num();
+    uint64_t bytesToProcess = (_size + _numberOfThreads - 1) / _numberOfThreads;
+    bytesToProcess += bytesToProcess & 0x1; // ensure even number of bytes per thread, TODO solve single thread case
+    uint64_t startingIdx = bytesToProcess * threadNumber;
+    if (threadNumber == _numberOfThreads - 1 && _numberOfThreads > 1) // last thread
+    {
+        bytesToProcess -= bytesToProcess * _numberOfThreads - _size; // ensure last thread does not run out of bounds
+    }
+    source += startingIdx;
+    destination += startingIdx;
+
+    destination[0] = source[0];
+
+    #pragma omp simd aligned(source, destination: 64) simdlen(64)
+    for (uint32_t i = 1; i < bytesToProcess; i++)
+    {
+        destination[i] = source[i] + source[i - 1];
+    }
+}
+
+void Decompressor::decompressStaticModel()
+{
+    decompressStatic();
+
+    #pragma omp master
+    {
+        DEBUG_PRINT("Static decompression");
+        uint64_t bytesPerBlock = (_size + _numberOfCompressedBlocks - 1) / _numberOfCompressedBlocks;
+        uint64_t bytesPerLastBlock = _size - bytesPerBlock * (_numberOfCompressedBlocks - 1);
+
+        // schedule the decompression of each block as a task
+        for (uint8_t i = 0; i < _numberOfCompressedBlocks - 1; i++)
+        {
+            #pragma omp task firstprivate(i)
+            {
+                reverseDifferenceModel(_decompressedData + i * bytesPerBlock, reinterpret_cast<symbol_t *>(_compressedData) + i * bytesPerBlock, bytesPerBlock);
+            }
+        }
+
+        #pragma omp task // last block may be smaller
+        {
+            reverseDifferenceModel(_decompressedData + (_numberOfCompressedBlocks - 1) * bytesPerBlock, reinterpret_cast<symbol_t *>(_compressedData) + (_numberOfCompressedBlocks - 1) * bytesPerBlock, bytesPerLastBlock);
+        }
+    }
+    #pragma omp taskwait
+    #pragma omp barrier
+
+    #pragma omp master
+    {
+        _decompressedData = reinterpret_cast<symbol_t *>(_compressedData);
+    }
+}
+
 void Decompressor::decompressStatic()
 {
     #pragma omp master
@@ -554,7 +609,7 @@ void Decompressor::decompressStatic()
                          _decompressionBuffer + (_numberOfCompressedBlocks - 1) * bytesPerBlock, bytesPerLastBlock);
         }
 
-        _decompressedData = reinterpret_cast<symbol_t *>(_decompressionBuffer);
+        _decompressedData = _decompressionBuffer;
     }
     #pragma omp taskwait
     #pragma omp barrier

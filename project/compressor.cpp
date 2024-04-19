@@ -759,10 +759,20 @@ void Compressor::analyzeImageAdaptive()
     }
 }
 
-void Compressor::applyDiferenceModel(symbol_t firstSymbol, symbol_t *source, symbol_t *destination, uint32_t bytesToProcess)
+void Compressor::applyDiferenceModel(symbol_t *source, symbol_t *destination)
 {
-    destination[0] = firstSymbol;
-    source[0] = firstSymbol;
+    int threadNumber = omp_get_thread_num();
+    uint64_t bytesToProcess = (_size + _numberOfThreads - 1) / _numberOfThreads;
+    bytesToProcess += bytesToProcess & 0x1; // ensure even number of bytes per thread, TODO solve single thread case
+    uint64_t startingIdx = bytesToProcess * threadNumber;
+    if (threadNumber == _numberOfThreads - 1 && _numberOfThreads > 1) // last thread
+    {
+        bytesToProcess -= bytesToProcess * _numberOfThreads - _size; // ensure last thread does not run out of bounds
+    }
+    source += startingIdx;
+    destination += startingIdx;
+
+    destination[0] = source[0];
 
     #pragma omp simd aligned(source, destination: 64) simdlen(64)
     for (uint32_t i = 1; i < bytesToProcess; i++)
@@ -870,23 +880,17 @@ void Compressor::compressAdaptive()
 
 void Compressor::compressStaticModel()
 {
-    uint32_t bytesPerThread;
-    uint32_t startingIdx;
-    symbol_t firstSymbol;
     {
-        decomposeDataBetweenThreads(_fileData, bytesPerThread, startingIdx, firstSymbol);
-        DEBUG_PRINT("Thread " << omp_get_thread_num() << " starting index: " << startingIdx << " bytes to compress: " << bytesPerThread);
-        applyDiferenceModel(firstSymbol, _fileData + startingIdx, _serializedData + startingIdx, bytesPerThread);
+        applyDiferenceModel(_fileData, _serializedData);
     }
     #pragma omp barrier
 
-    #pragma omp master
+    #pragma omp single
     {
-        for (uint32_t i = 0; i < _size; i++)
-        {
-            cerr << (int)_serializedData[i] << "\n";
-        }
+        swap(_fileData, _serializedData);
     }
+
+    compressStatic();
 }
 
 void Compressor::decomposeDataBetweenThreads(symbol_t *data, uint32_t &bytesPerThread, uint32_t &startingIdx, symbol_t &firstSymbol)

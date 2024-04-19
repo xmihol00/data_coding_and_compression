@@ -25,9 +25,11 @@ private:
     void parseHeader();
     void decomposeDataBetweenThreads(uint64_t &bytesPerThread, uint32_t &startingIdx);
     void transformRLE(uint16_t *compressedData, symbol_t *decompressedData, uint64_t bytesToDecompress);
+    void reverseDifferenceModel(symbol_t *source, symbol_t *destination, uint64_t bytesToProcess);
 
     void decompressStatic();
     void decompressAdaptive();
+    void decompressStaticModel();
 
     uint8_t _numberOfCompressedBlocks{1};
     uint8_t _bitsPerCompressedBlockSize;
