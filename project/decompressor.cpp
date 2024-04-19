@@ -533,23 +533,11 @@ void Decompressor::transformRLE(uint16_t *compressedData, symbol_t *decompressed
 
 void Decompressor::reverseDifferenceModel(symbol_t *source, symbol_t *destination, uint64_t bytesToProcess)
 {
-    int threadNumber = omp_get_thread_num();
-    uint64_t bytesToProcess = (_size + _numberOfThreads - 1) / _numberOfThreads;
-    bytesToProcess += bytesToProcess & 0x1; // ensure even number of bytes per thread, TODO solve single thread case
-    uint64_t startingIdx = bytesToProcess * threadNumber;
-    if (threadNumber == _numberOfThreads - 1 && _numberOfThreads > 1) // last thread
-    {
-        bytesToProcess -= bytesToProcess * _numberOfThreads - _size; // ensure last thread does not run out of bounds
-    }
-    source += startingIdx;
-    destination += startingIdx;
-
     destination[0] = source[0];
-
     #pragma omp simd aligned(source, destination: 64) simdlen(64)
     for (uint32_t i = 1; i < bytesToProcess; i++)
     {
-        destination[i] = source[i] + source[i - 1];
+        destination[i] = source[i] + destination[i - 1];
     }
 }
 
@@ -559,7 +547,12 @@ void Decompressor::decompressStaticModel()
 
     #pragma omp master
     {
-        DEBUG_PRINT("Static decompression");
+        DEBUG_PRINT("Static decompression with model");
+        for (uint32_t i = 0; i < 32; i++)
+        {
+            cerr << (int)_decompressedData[i] << " ";
+        }
+        cerr << endl;
         uint64_t bytesPerBlock = (_size + _numberOfCompressedBlocks - 1) / _numberOfCompressedBlocks;
         uint64_t bytesPerLastBlock = _size - bytesPerBlock * (_numberOfCompressedBlocks - 1);
 
@@ -583,6 +576,11 @@ void Decompressor::decompressStaticModel()
     #pragma omp master
     {
         _decompressedData = reinterpret_cast<symbol_t *>(_compressedData);
+        for (uint32_t i = 0; i < 32; i++)
+        {
+            cerr << (int)_decompressedData[i] << " ";
+        }
+        cerr << endl;
     }
 }
 
@@ -680,7 +678,14 @@ void Decompressor::decompress(string inputFileName, string outputFileName)
         {
             if (_header.getHeaderType() & MODEL)
             {
-                // TODO
+                if (_header.getHeaderType() & ADAPTIVE)
+                {
+                    // TODO
+                }
+                else
+                {
+                    decompressStaticModel();
+                }
             }
             else
             {
