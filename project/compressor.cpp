@@ -270,9 +270,33 @@ void Compressor::populateCodeTable()
     DEBUG_PRINT("Code table populated");
 }
 
-void Compressor::transformRLE(symbol_t firstSymbol, symbol_t *sourceData, uint16_t *compressedData, uint32_t bytesToCompress, uint32_t &compressedSize)
+void Compressor::transformRLE(symbol_t *sourceData, uint16_t *compressedData, uint32_t &compressedSize, uint64_t &startingIdx)
 {
-    DEBUG_PRINT("Transforming RLE");
+    int threadNumber = omp_get_thread_num();
+    DEBUG_PRINT("Transforming RLE with thread " << threadNumber << " started");
+
+    uint32_t bytesToCompress = (_size + _numberOfThreads - 1) / _numberOfThreads;
+    bytesToCompress += bytesToCompress & 0x1; // ensure even number of bytes per thread, TODO solve single thread case
+    startingIdx = bytesToCompress * threadNumber;
+    symbol_t firstSymbol = sourceData[startingIdx];
+    if (threadNumber == _numberOfThreads - 1 && _numberOfThreads > 1) // last thread
+    {
+        // ensure last symbol in a block is different from the first in next block
+        sourceData[startingIdx] = ~sourceData[startingIdx - 1];
+        sourceData[_size] = ~sourceData[_size - 1];
+
+        bytesToCompress -= bytesToCompress * _numberOfThreads - _size; // ensure last thread does not run out of bounds
+    }
+    else if (threadNumber != 0) // remaining threads apart from the first one
+    {
+        sourceData[startingIdx] = ~sourceData[startingIdx - 1];
+    }
+    else // single threaded execution
+    {
+        sourceData[_size] = ~sourceData[_size - 1];
+    }
+    sourceData += startingIdx;
+    compressedData += startingIdx >> 1;
 
     compressedData[0] = 0;
     uint32_t currentCompressedIdx = 0;
@@ -611,14 +635,10 @@ void Compressor::compressStatic()
         populateCodeTable();
     } // implicit barrier
 
-    uint32_t bytesPerThread;
-    uint32_t startingIdx;
-    symbol_t firstSymbol;
     // all threads compress their part of the data, data is decomposed between threads based on their number/ID
+    uint64_t startingIdx;
     {
-        decomposeDataBetweenThreads(_fileData, bytesPerThread, startingIdx, firstSymbol);
-        DEBUG_PRINT("Thread " << threadNumber << " starting index: " << startingIdx << " bytes to compress: " << bytesPerThread);
-        transformRLE(firstSymbol, _fileData + startingIdx, reinterpret_cast<uint16_t *>(_serializedData + startingIdx), bytesPerThread, _compressedSizes[threadNumber]);
+        transformRLE(_fileData, reinterpret_cast<uint16_t *>(_serializedData), _compressedSizes[threadNumber], startingIdx);
     }
     #pragma omp barrier
 
@@ -741,67 +761,14 @@ void Compressor::analyzeImageAdaptive()
 
 void Compressor::applyDiferenceModel(symbol_t firstSymbol, symbol_t *source, symbol_t *destination, uint32_t bytesToProcess)
 {
-    source[0] = firstSymbol;
     destination[0] = firstSymbol;
-#if __AVX512BW__ && __AVX512VL__ || 1
-    symbol_t last = 0;
+    source[0] = firstSymbol;
 
-    // 16 byts per iteration
-    /*for (uint32_t i = 0; i < bytesToProcess; i += 16)
-    {
-        uint8v16_t current = _mm_loadu_si128(reinterpret_cast<uint8v16_t *>(source + i));
-        uint8v16_t next = _mm_alignr_epi8(current, current, 15);
-        uint8v16_t difference = _mm_sub_epi8(current, next);
-        uint8_t lastDifference = source[i] - last;
-        reinterpret_cast<uint8v16_t *>(destination + i)[0] = difference;
-        destination[i] = lastDifference;
-        last = source[i + 15];
-    }*/
-
-    // 32 bytes per iteration
-    /*for (uint32_t i = 0; i < bytesToProcess; i += 32)
-    {
-        uint8v32_t current = _mm256_load_si256(reinterpret_cast<uint8v32_t *>(source + i));
-        uint8v32_t next = _mm256_alignr_epi8(current, current, 15);
-        uint8v32_t difference = _mm256_sub_epi8(current, next);
-        uint8_t lastDifference = source[i] - last;
-        uint8_t middleDifference = source[i + 16] - source[i + 15];
-        reinterpret_cast<uint8v32_t *>(destination + i)[0] = difference;
-        destination[i] = lastDifference;
-        destination[i + 16] = middleDifference;
-        last = source[i + 32];
-    }*/
-
-    // 64 bytes per iteration
-    for (uint32_t i = 0; i < bytesToProcess; i += 64)
-    {
-        uint8v64_t current = _mm512_load_si512(reinterpret_cast<uint8v64_t *>(source + i));
-        uint8v64_t next = _mm512_alignr_epi8(current, current, 15);
-        uint8v64_t difference = _mm512_sub_epi8(current, next);
-        uint8_t lastDifference = source[i] - last;
-        uint8_t fstQuarterDifference = source[i + 16] - source[i + 15];
-        uint8_t middleDifference = source[i + 32] - source[i + 31];
-        uint8_t frdQuarterDifference = source[i + 48] - source[i + 47];
-        reinterpret_cast<uint8v64_t *>(destination + i)[0] = difference;
-        destination[i] = lastDifference;
-        destination[i + 16] = fstQuarterDifference;
-        destination[i + 32] = middleDifference;
-        destination[i + 48] = frdQuarterDifference;
-        last = source[i + 64];
-    }
-
-#else
+    #pragma omp simd aligned(source, destination: 64) simdlen(64)
     for (uint32_t i = 1; i < bytesToProcess; i++)
     {
         destination[i] = source[i] - source[i - 1];
     }
-#endif
-
-    for (uint32_t i = 0; i < bytesToProcess; i++)
-    {
-        cerr << (int)destination[i] << " ";
-    }
-    cerr << endl;
 }
 
 void Compressor::compressAdaptive()
@@ -867,13 +834,9 @@ void Compressor::compressAdaptive()
     #pragma omp taskwait
     #pragma omp barrier
 
-    uint32_t bytesPerThread;
-    uint32_t startingIdx;
-    symbol_t firstSymbol;
+    uint64_t startingIdx;
     {
-        decomposeDataBetweenThreads(_serializedData, bytesPerThread, startingIdx, firstSymbol);
-        DEBUG_PRINT("Thread " << threadNumber << " starting index: " << startingIdx << " bytes to compress: " << bytesPerThread);
-        transformRLE(firstSymbol, _serializedData + startingIdx, reinterpret_cast<uint16_t *>(_fileData + startingIdx), bytesPerThread, _compressedSizes[threadNumber]);
+        transformRLE(_serializedData, reinterpret_cast<uint16_t *>(_fileData), _compressedSizes[threadNumber], startingIdx);
     }
     #pragma omp barrier
 
@@ -907,9 +870,22 @@ void Compressor::compressAdaptive()
 
 void Compressor::compressStaticModel()
 {
+    uint32_t bytesPerThread;
+    uint32_t startingIdx;
+    symbol_t firstSymbol;
+    {
+        decomposeDataBetweenThreads(_fileData, bytesPerThread, startingIdx, firstSymbol);
+        DEBUG_PRINT("Thread " << omp_get_thread_num() << " starting index: " << startingIdx << " bytes to compress: " << bytesPerThread);
+        applyDiferenceModel(firstSymbol, _fileData + startingIdx, _serializedData + startingIdx, bytesPerThread);
+    }
+    #pragma omp barrier
+
     #pragma omp master
     {
-        applyDiferenceModel(_fileData[0], _fileData, _serializedData, 128);
+        for (uint32_t i = 0; i < _size; i++)
+        {
+            cerr << (int)_serializedData[i] << "\n";
+        }
     }
 }
 

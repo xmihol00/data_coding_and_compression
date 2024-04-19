@@ -4,9 +4,10 @@ PROJECT_DIR = $(MAKEFILE_DIR:$(CURRENT_DIR)/%=%)
 
 # -mavx512vpopcntdq
 AVX512 = $(shell grep avx512 /proc/cpuinfo >/dev/null && echo "-mavx512f -mavx512vl -mavx512bw" || echo "")
+INFO_FLAGS = -fopt-info-vec -fopt-info-vec-optimized
 
 CC = g++
-CFLAGS = -Wall -Wextra -std=c++20 -mavx2 -fopenmp -O3 $(AVX512)
+CFLAGS = -Wall -Wextra -std=c++20 -mavx2 -fopenmp -O3 $(AVX512) $(INFO_FLAGS)
 CPP_SRC = $(wildcard $(PROJECT_DIR)/*.cpp)
 
 TARGET = $(PROJECT_DIR)/huff_codec

@@ -16,7 +16,7 @@ private:
     void buildHuffmanTree();
     void populateCodeTable();
     void decomposeDataBetweenThreads(symbol_t *data, uint32_t &bytesPerThread, uint32_t &startingIdx, symbol_t &firstSymbol);
-    void transformRLE(symbol_t firstSymbol, symbol_t *sourceData, uint16_t *compressedData, uint32_t bytesToCompress, uint32_t &compressedSize);
+    void transformRLE(symbol_t *sourceData, uint16_t *compressedData, uint32_t &compressedSize, uint64_t &startingIdx);
     void createHeader();
     void writeOutputFile(std::string outputFileName, std::string inputFileName);
 
