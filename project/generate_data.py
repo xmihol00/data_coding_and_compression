@@ -61,11 +61,11 @@ if False:
 
     print(f'Length: {length}')
 
-if True:
+if False:
     length = 0
     RANGE_LOW = ord('A') - 1
     RANGE_HIGH = ord('Z') + 5
-    with open('../4G-1.bin', 'wb') as f:
+    with open('test_files/4G-1.bin', 'wb') as f:
         for i in range(RANGE_LOW, RANGE_HIGH + 1):
             print(2 ** (i - RANGE_LOW))
             byte_str = i.to_bytes(1, byteorder='big')
@@ -82,3 +82,18 @@ if True:
                 length += len(byte_str)
 
     print(f'Length: {length}')
+
+if True:
+    def fibonaci(n):
+        a, b = 0, 1
+        for _ in range(n):
+            a, b = b, a + b
+            yield a
+    
+    RANGE_LOW = ord('A')
+    RANGE_HIGH = ord('Z') + 1
+    with open('test_files/fibonaci_A-Z.txt', 'wb') as f:
+        for i, char in zip(fibonaci(RANGE_HIGH - RANGE_LOW), range(RANGE_LOW, RANGE_HIGH)):
+            byte_str = char.to_bytes(1, byteorder='big')
+            byte_str = byte_str * i
+            f.write(byte_str)

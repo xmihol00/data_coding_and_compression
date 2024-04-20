@@ -54,12 +54,38 @@ private:
         uint16_t code;
     };
 
-    uint8_t _memoryPool[6 * NUMBER_OF_SYMBOLS * sizeof(Node)] __attribute__((aligned(64)));
-    Node *_tree{reinterpret_cast<Node *>(_memoryPool)};
-    Leaf *_histogram{reinterpret_cast<Leaf *>(_memoryPool + 2 * NUMBER_OF_SYMBOLS * sizeof(Node))};
-    Node *_sortedNodes{reinterpret_cast<Node *>(_memoryPool + 3 * NUMBER_OF_SYMBOLS * sizeof(Node))};
-    uint32_t *_codeTable{reinterpret_cast<uint32_t *>(_memoryPool + 2 * NUMBER_OF_SYMBOLS * sizeof(Node))};
+    struct FrequencySymbolIndex
+    {
+        uint8_t index;
+        uint8_t frequencyLowBits;
+        uint16_t frequencyMidBits;
+        uint32_t frequencyHighBits;
+    } __attribute__((packed));
+
+    struct SymbolParentDepth
+    {
+        uint8_t symbol;
+        uint8_t depth;
+        uint16_t parent;
+    } __attribute__((packed));
+
+    struct HuffmanCode
+    {
+        uint16_t code;
+        uint16_t length;
+    } __attribute__((packed));
+
+    uint8_t _memoryPool[6 * NUMBER_OF_SYMBOLS * sizeof(uint64_t)] __attribute__((aligned(64)));
+    FrequencySymbolIndex *_structHistogram{reinterpret_cast<FrequencySymbolIndex *>(_memoryPool)};
+    uint64v8_t *_vectorHistogram{reinterpret_cast<uint64v8_t *>(_memoryPool)};
+    uint64_t *_intHistogram{reinterpret_cast<uint64_t *>(_memoryPool + NUMBER_OF_SYMBOLS * sizeof(FrequencySymbolIndex))};
+    SymbolParentDepth *_symbolsParentsDepths{reinterpret_cast<SymbolParentDepth *>(_memoryPool + NUMBER_OF_SYMBOLS * sizeof(FrequencySymbolIndex))};
+    uint16_t *_parentsSortedIndices{reinterpret_cast<uint16_t *>(_memoryPool + 3 * NUMBER_OF_SYMBOLS * sizeof(FrequencySymbolIndex))};
+    HuffmanCode *_codeTable{reinterpret_cast<HuffmanCode *>(_memoryPool)};
+    symbol_t *_symbols{reinterpret_cast<symbol_t *>(_memoryPool + NUMBER_OF_SYMBOLS * sizeof(HuffmanCode))};
+    uint8_t  *_depths{reinterpret_cast<uint8_t *>(_memoryPool + NUMBER_OF_SYMBOLS * sizeof(HuffmanCode) + NUMBER_OF_SYMBOLS * sizeof(symbol_t))};
     
+    uint16_t _numberOfSymbols;
     uint16_t _treeIndex;
     uint16_t _sortedNodesHead;
     uint16_t _sortedNodesTail;

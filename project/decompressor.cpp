@@ -112,6 +112,7 @@ bool Decompressor::readInputFile(string inputFileName, string outputFileName)
     }
 
 #ifdef _DEBUG_PRINT_ACTIVE_
+    DEBUG_PRINT("Used depths: " << bitset<16>(_usedDepths));
     cerr << "Symbols at depths: ";
     for (uint16_t i = 0; i < popcount(_usedDepths); i++)
     {
@@ -187,9 +188,9 @@ bool Decompressor::readInputFile(string inputFileName, string outputFileName)
 
 #ifdef _DEBUG_PRINT_ACTIVE_
     cerr << "Compressed data: ";
-    for (uint16_t i = 0; i < 20; i++)
+    for (uint16_t i = 0; i < 10; i++)
     {
-        cerr << bitset<8>(_compressedData[i]) << " ";
+        cerr << bitset<16>(_compressedData[i]) << " ";
     }
     cerr << endl;
 #endif
@@ -199,11 +200,14 @@ bool Decompressor::readInputFile(string inputFileName, string outputFileName)
 
 void Decompressor::parseBitmapHuffmanTree()
 {
+    DEBUG_PRINT("Parsing bitmap Huffman tree");
+
     uint8_t depthIdx = 0;
     uint8_t lastDepth = 0;
     uint16_t lastCode = -1;
     uint8_t masksIdx = 0;
-    for (uint8_t i = 0; i < MAX_CODE_LENGTH; i++)
+    _usedDepths >>= 1;
+    for (uint8_t i = 0; i < MAX_NUMBER_OF_CODES; i++)
     {
         if (_usedDepths & (1UL << i))
         {
@@ -255,6 +259,7 @@ void Decompressor::parseBitmapHuffmanTree()
     {
         _depthsIndices[_indexPrefixLengths[i].index].masksIndex = i;
     }
+    DEBUG_PRINT("MasksIdx: " << (int)masksIdx);
 
     lastDepth = 0;
     lastCode = -1;
@@ -264,12 +269,14 @@ void Decompressor::parseBitmapHuffmanTree()
         uint8_t delta = _depthsIndices[i].depth - lastDepth;
         lastDepth = _depthsIndices[i].depth;
         lastCode = (lastCode + 1) << delta;
-        _codePrefixesSmall[15 - _depthsIndices[i].masksIndex] = lastCode << (16 - _depthsIndices[i].depth);
-        _codeMasksSmall[15 - _depthsIndices[i].masksIndex] = (~0U) << (16 - _depthsIndices[i].prefixLength);
+        _codePrefixes[15 - _depthsIndices[i].masksIndex] = lastCode << (16 - _depthsIndices[i].depth);
+        _codeMasks[15 - _depthsIndices[i].masksIndex] = (~0U) << (16 - _depthsIndices[i].prefixLength);
         _prefixIndices[_depthsIndices[i].masksIndex] = symbolIdx;
         _prefixShifts[_depthsIndices[i].masksIndex] = _depthsIndices[i].prefixLength;
         _suffixShifts[_depthsIndices[i].masksIndex] = 16 - _depthsIndices[i].depth + _depthsIndices[i].prefixLength;
         symbolIdx += lastCode & (static_cast<uint16_t>(~0) >> (16 - _depthsIndices[i].depth + _depthsIndices[i].prefixLength));
+        DEBUG_PRINT("Last code: " << bitset<16>(lastCode) << " " << (int)lastCode);
+        DEBUG_PRINT("symbol idx adjustment: " << (lastCode & (static_cast<uint16_t>(~0) >> (16 - _depthsIndices[i].depth + _depthsIndices[i].prefixLength))));
 
         int16_t maxSymbols = 1 << (_depthsIndices[i].depth - _depthsIndices[i].prefixLength);
         uint16_t lastSymbolIdx = symbolIdx;
@@ -306,14 +313,14 @@ void Decompressor::parseBitmapHuffmanTree()
     }
 
     uint8_t lastCodeCount = 0;
-    for (uint8_t i = 0; i < MAX_CODE_LENGTH; i++)
+    for (uint8_t i = 0; i < MAX_NUMBER_OF_CODES; i++)
     {
         _indexPrefixLengthCodeCount[i].cumulativeCodeCount = lastCodeCount;
         lastCodeCount += _indexPrefixLengthCodeCount[i].codeCount; 
         _indexPrefixLengths[i].index = i;
         _indexPrefixLengths[i].prefixLength = (i - 16 + countl_zero(static_cast<uint16_t>(_indexPrefixLengthCodeCount[i].codeCount - 1)));
     }
-    sort(_indexPrefixLengths, _indexPrefixLengths + MAX_CODE_LENGTH, 
+    sort(_indexPrefixLengths, _indexPrefixLengths + MAX_NUMBER_OF_CODES, 
             [](const IndexPrefixLength &a, const IndexPrefixLength &b) { return a.prefixLength < b.prefixLength; });
     
     for (uint8_t i = 0; i < MAX_SHORT_CODE_LENGTH; i++)
@@ -344,8 +351,8 @@ void Decompressor::parseBitmapHuffmanTree()
         {
             lastCode = (lastCode + 1) << delta;
             delta = 1;
-            _codePrefixesSmall[_indexPrefixLengthCodeCount[i].index] = lastCode << (16 - i);
-            _codeMasksSmall[_indexPrefixLengthCodeCount[i].index] = (~0U) << (16 - _indexPrefixLengthCodeCount[i].prefixLength);
+            _codePrefixes[_indexPrefixLengthCodeCount[i].index] = lastCode << (16 - i);
+            _codeMasks[_indexPrefixLengthCodeCount[i].index] = (~0U) << (16 - _indexPrefixLengthCodeCount[i].prefixLength);
             _prefixIndices[15 - _indexPrefixLengthCodeCount[i].index] = symbolIdx;
             _prefixShifts[15 - _indexPrefixLengthCodeCount[i].index] = _indexPrefixLengthCodeCount[i].prefixLength;
             _suffixShifts[15 - _indexPrefixLengthCodeCount[i].index] = 16 - i + _indexPrefixLengthCodeCount[i].prefixLength;
@@ -358,12 +365,12 @@ void Decompressor::parseBitmapHuffmanTree()
         }
     }
 #endif
-    _codePrefixesSmallVector[0] = _mm256_and_si256(_codeMasksSmallVector[0], _codePrefixesSmallVector[0]);
+    _codePrefixesVector = _mm256_and_si256(_codeMasksVector, _codePrefixesVector);
     
-    for (uint16_t i = 0; i < MAX_CODE_LENGTH; i++)
+    for (uint16_t i = 0; i < MAX_NUMBER_OF_CODES; i++)
     {
-        bitset<16> prefix(_codePrefixesSmall[i]);
-        bitset<16> mask(_codeMasksSmall[i]);
+        bitset<16> prefix(_codePrefixes[i]);
+        bitset<16> mask(_codeMasks[i]);
         DEBUG_PRINT(i << ": " << prefix << " " << mask << " " << (int)_prefixShifts[i] << " " << (int)_suffixShifts[i] << " " << (int)_prefixIndices[i]);
     }
 }
@@ -432,8 +439,8 @@ void Decompressor::transformRLE(uint16_t *compressedData, symbol_t *decompressed
     uint32_t nextIdx = 1;
     uint16_t bitLength = 0;
     uint16_t inverseBitLength = 16;
-    uint16v16_t prefixes = _mm256_load_si256(_codePrefixesSmallVector);
-    uint16v16_t masks = _mm256_load_si256(_codeMasksSmallVector);
+    uint16v16_t prefixes = _codePrefixesVector;
+    uint16v16_t masks = _codeMasksVector;
     uint16_t current = (compressedData[currentIdx] << bitLength) | (compressedData[nextIdx] >> inverseBitLength);
     DEBUG_PRINT("Current: " << bitset<16>(current));
     uint16v16_t currentVector = _mm256_set1_epi16(current);
