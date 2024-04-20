@@ -31,7 +31,7 @@ void Compressor::computeHistogram()
     DEBUG_PRINT("Computing histogram");
     uint64_t *intHistogram = _intHistogram;
 
-    #pragma omp simd aligned(intHistogram: 64) simdlen(16)
+    #pragma omp simd aligned(intHistogram: 64) simdlen(8)
     for (uint32_t i = 0; i < NUMBER_OF_SYMBOLS; i++)
     {
         intHistogram[i] = 0;
@@ -54,15 +54,12 @@ void Compressor::computeHistogram()
     FrequencySymbolIndex maxFrequencyStruct;
     reinterpret_cast<uint64_t &>(maxFrequencyStruct) = INT64_MAX;
 
-    #pragma omp simd aligned(structHistogram, intHistogram: 64) simdlen(16)
+    #pragma omp simd aligned(structHistogram, intHistogram: 64) simdlen(8)
     for (uint32_t i = 0; i < NUMBER_OF_SYMBOLS; i++)
     {
-        DEBUG_PRINT("Symbol: " << i << " Frequency: " << intHistogram[i]);
         reinterpret_cast<uint64_t *>(structHistogram)[i] = intHistogram[i] << 8;
         structHistogram[i].index = i;
         structHistogram[i] = intHistogram[i] == 0 ? maxFrequencyStruct : structHistogram[i];
-        DEBUG_PRINT("Frequency: " << structHistogram[i].frequencyMidBits << " " << structHistogram[i].frequencyHighBits);
-        DEBUG_PRINT("");
     }
     DEBUG_PRINT("Histogram computed");
 }
@@ -113,12 +110,7 @@ void Compressor::buildHuffmanTree()
             min2 = _mm512_min_epi64(min2, current2);
         }
         min1 = _mm512_min_epi64(min1, min2);
-        for (uint8_t i = 0; i < 8; i++)
-        {
-            DEBUG_PRINT("Min1: " << reinterpret_cast<uint64_t *>(&min1)[i] << " " << bitset<64>(reinterpret_cast<uint64_t *>(&min1)[i]));
-        }
         firstMin.intMin = _mm512_reduce_min_epi64(min1);
-        DEBUG_PRINT("First min: " << (int)firstMin.structMin.index << " " << firstMin.structMin.frequencyMidBits << " " << firstMin.structMin.frequencyHighBits);
         _structHistogram[firstMin.structMin.index] = maxFrequencyStruct;
         
         min1 = _vectorHistogram[0];
@@ -131,12 +123,8 @@ void Compressor::buildHuffmanTree()
             min2 = _mm512_min_epi64(min2, current2);
         }
         min1 = _mm512_min_epi64(min1, min2);
-        for (uint8_t i = 0; i < 8; i++)
-        {
-            DEBUG_PRINT("Min2: " << reinterpret_cast<uint64_t *>(&min1)[i] << " " << bitset<64>(reinterpret_cast<uint64_t *>(&min1)[i]));
-        }
+        
         secondMin.intMin = _mm512_reduce_min_epi64(min1);
-        DEBUG_PRINT("Second min: " << (int)secondMin.structMin.index << " " << secondMin.structMin.frequencyMidBits << " " << secondMin.structMin.frequencyHighBits);
 
         uint16_t firstIndex = _parentsSortedIndices[firstMin.structMin.index];
         sortedIdx = firstIndex == 0 ? sortedIdx + 1 : sortedIdx;
@@ -151,37 +139,29 @@ void Compressor::buildHuffmanTree()
         _symbolsParentsDepths[firstIndex].depth = _parentsSortedIndices[firstMin.structMin.index] == 0;
         _symbolsParentsDepths[firstIndex].parent = sortedIdx;
         _symbolsParentsDepths[firstIndex].symbol = firstMin.structMin.index;
-        DEBUG_PRINT("First: " << firstIndex << " " << (int)_symbolsParentsDepths[firstIndex].symbol << " " << (char)_symbolsParentsDepths[firstIndex].symbol);
         firstMin.structMin.index = 0;
 
         if (secondMin.intMin == INT64_MAX)
         {
             _symbolsParentsDepths[sortedIdx].depth = -1;
             sortedIdx -= 2;
-            DEBUG_PRINT("Sorting done");
             break;
         }
 
         _symbolsParentsDepths[secondIndex].depth = _parentsSortedIndices[secondMin.structMin.index] == 0;
         _symbolsParentsDepths[secondIndex].parent = sortedIdx;
         _symbolsParentsDepths[secondIndex].symbol = secondMin.structMin.index;
-        DEBUG_PRINT("Second: " << secondIndex << " " << _symbolsParentsDepths[secondIndex].parent << " " << (int)_symbolsParentsDepths[secondIndex].symbol << " " << (char)_symbolsParentsDepths[secondIndex].symbol);
         secondIndex = secondMin.structMin.index;
         secondMin.structMin.index = 0;
 
         Minimum nextNode;
         nextNode.intMin = firstMin.intMin + secondMin.intMin;
         nextNode.structMin.index = secondIndex;
-        DEBUG_PRINT("Next: " << (int)nextNode.structMin.index << " " << nextNode.structMin.frequencyMidBits << " " << nextNode.structMin.frequencyHighBits);
         _structHistogram[secondIndex] = nextNode.structMin;
         _parentsSortedIndices[secondIndex] = sortedIdx;
     }
 
     int16_t symbolsDepthsIdx = 0;
-    for (uint16_t i = sortedIdx; i > 0; i--)
-    {
-        DEBUG_PRINT(i << ": Symbol: " << (int)_symbolsParentsDepths[i].symbol << " Parent: " << (int)_symbolsParentsDepths[i].parent << " Depth: " << (int)_symbolsParentsDepths[i].depth);
-    }
     for (uint16_t i = sortedIdx; i > 0; i--)
     {
         uint8_t nextDepth = _symbolsParentsDepths[_symbolsParentsDepths[i].parent].depth + 1;
@@ -190,16 +170,39 @@ void Compressor::buildHuffmanTree()
             _symbols[symbolsDepthsIdx] = _symbolsParentsDepths[i].symbol;
             _depths[symbolsDepthsIdx] = nextDepth;
             symbolsDepthsIdx++;
-            DEBUG_PRINT("Symbol: " << (int)_symbolsParentsDepths[i].symbol << " " << _symbolsParentsDepths[i].symbol << " depth: " << (int)(_symbolsParentsDepths[_symbolsParentsDepths[i].parent].depth + 1));
         }
-        _symbolsParentsDepths[i].depth = _symbolsParentsDepths[_symbolsParentsDepths[i].parent].depth + 1;
+        _symbolsParentsDepths[i].depth = nextDepth;
     }
 
     _numberOfSymbols = symbolsDepthsIdx;
     symbolsDepthsIdx--;
-    for (int16_t i = symbolsDepthsIdx; i >= 0; i--)
+    
+    // rebalance the tree
+    uint16_t depthIdx = 0;
+    uint16_t nodesToRebalance = 1 << (_depths[0] - 1);
+    uint8_t depth = _depths[0];
+    while (depthIdx < symbolsDepthsIdx)
     {
-        DEBUG_PRINT("Symbol: " << (int)_symbols[i] << " Depth: " << (int)_depths[i]);
+        nodesToRebalance = depthIdx + nodesToRebalance < _numberOfSymbols ? nodesToRebalance : _numberOfSymbols - depthIdx;
+        for (uint16_t i = 0; i < nodesToRebalance; i++)
+        {
+            _depths[depthIdx++] = depth;
+        }
+
+        if (depth < _depths[depthIdx])
+        {
+            DEBUG_PRINT("Next depth: " << (int)_depths[depthIdx] << " current depth: " << (int)depth);
+            nodesToRebalance <<= _depths[depthIdx] - depth - 1;
+            depth = _depths[depthIdx] - 1;
+        }
+        else if (depth == _depths[depthIdx])
+        {
+            DEBUG_PRINT("Same depths depth: " << (int)_depths[depthIdx] << " current depth: " << (int)depth);
+            nodesToRebalance <<= 1;
+            depth++;
+        }
+
+        depth++;
     }
 
     uint8_t maxDepth = _depths[symbolsDepthsIdx];
@@ -224,7 +227,6 @@ void Compressor::buildHuffmanTree()
         // repay the debt
         while (debt > 0)
         {
-            DEBUG_PRINT("Debt: " << debt << " repaying: " << (1 << (maxDepth - _depths[depthIdx] - 1)));
             debt -= 1 << (maxDepth - _depths[depthIdx] - 1);
             _depths[depthIdx]++;
             depthIdx--;
@@ -234,10 +236,8 @@ void Compressor::buildHuffmanTree()
         for (int16_t i = depthIdx + 2; i < symbolsDepthsIdx; i++)
         {
             int32_t stealBack = 1 << (maxDepth - _depths[i]);
-            DEBUG_PRINT("Steal back: " << stealBack);
             if (stealBack + debt <= 0)
             {
-                DEBUG_PRINT("Stealing back: " << stealBack);
                 _depths[i]--;
                 debt += stealBack;
             }
@@ -245,14 +245,7 @@ void Compressor::buildHuffmanTree()
             {
                 break;
             }
-        }
-        
-        DEBUG_PRINT("Max depth: " << (int)maxDepth << " Debt: " << debt << " Max depth idx: " << depthIdx);
-    }
-
-    for (int16_t i = symbolsDepthsIdx; i >= 0; i--)
-    {
-        DEBUG_PRINT("Symbol: " << (int)_symbols[i] << " Depth: " << (int)_depths[i]);
+        }      
     }
 
     // create the Huffman tree starting from first character that occurred at least once
@@ -377,7 +370,6 @@ void Compressor::populateCodeTable()
         reinterpret_cast<uint64v4_t *>(bits)[0] = _mm256_setzero_si256();
         _usedDepths |= 1U << (_depths[i]);
         uint8_t symbol = 255 - _symbols[i];
-        DEBUG_PRINT("Symbol: " << (char)_symbols[i] << " Depth: " << (int)_depths[i]);
         bits[3] = (uint64_t)(symbol < 64) << symbol;
         bits[2] = (uint64_t)(symbol < 128 && symbol >= 64) << (symbol - 64);
         bits[1] = (uint64_t)(symbol < 192 && symbol >= 128) << (symbol - 128);
@@ -390,14 +382,16 @@ void Compressor::populateCodeTable()
     uint8_t depthIndex = 0;
     uint8_t delta = 0;
     // populate the code table
-    for (uint8_t i = 1; i <= MAX_CODE_LENGTH; i++)
+    for (uint8_t i = 0; i < MAX_NUMBER_OF_CODES; i++)
     {
         if (_usedDepths & (1UL << i))
         {
             _symbolsAtDepths[depthIndex++] = _symbolsAtDepths[i];
+            DEBUG_PRINT("Depth: " << (int)i);
             uint64v4_t bitsVector = _mm256_load_si256(_symbolsAtDepths + i);
             uint64_t *bits = reinterpret_cast<uint64_t *>(&bitsVector);
             lastCode = (lastCode + 1) << delta;
+            uint16_t oldCode = lastCode;
             lastCode--;
             for (uint8_t j = 0; j < 4; j++)
             {
@@ -407,6 +401,7 @@ void Compressor::populateCodeTable()
                 {
                     uint8_t adjustedSymbol = symbol + leadingZeros;
                     lastCode++;
+                    DEBUG_PRINT("Code: " << bitset<16>(lastCode));
                     bits[j] ^= 1UL << (63 - leadingZeros); // remove the current symbol from the bitmap
                     _codeTable[adjustedSymbol].code = lastCode;
                     _codeTable[adjustedSymbol].length = i;
@@ -414,7 +409,9 @@ void Compressor::populateCodeTable()
             }
             delta = 0;
             bits = reinterpret_cast<uint64_t *>(_symbolsAtDepths + i);
-            cerr << "Depth: " << (int)i << " Vect: " << bitset<64>(bits[0]) << " " << bitset<64>(bits[1]) << " " << bitset<64>(bits[2]) << " " << bitset<64>(bits[3]) << endl;
+            //cerr << "Depth: " << (int)i << " Vect: " << bitset<64>(bits[0]) << " " << bitset<64>(bits[1]) << " " << bitset<64>(bits[2]) << " " << bitset<64>(bits[3]) << endl;
+            //DEBUG_PRINT("Last code: " << bitset<16>(oldCode) << " Delta: " << (int)delta << " depth: " << (int)i << " symbol count: " << (int)(lastCode - oldCode));
+            //DEBUG_PRINT("Current code: " << bitset<16>(lastCode)); 
         }
         delta++;
     }
@@ -497,13 +494,20 @@ void Compressor::populateCodeTable()
     }
     cerr << endl;*/
 
-    for (uint16_t i = 0; i < NUMBER_OF_SYMBOLS; i++)
+    /*for (uint16_t i = 0; i < NUMBER_OF_SYMBOLS; i++)
     {
         uint16_t code = _codeTable[i].code;
         uint16_t codeLength = _codeTable[i].length;
         bitset<16> codeBits(code);
-        cerr << "'" << (char)i << "' " << (int)i << ":   \t" << codeBits << " " << codeLength << endl;
-    }
+        if (i < 33 || i > 126)
+        {
+            cerr << "  " << (int)i << ":    \t" << codeBits << " " << codeLength << endl;
+        }
+        else
+        {
+            cerr << (char)i << " " << (int)i << ":    \t" << codeBits << " " << codeLength << endl;
+        }
+    }*/
     DEBUG_PRINT("Code table populated");
 }
 

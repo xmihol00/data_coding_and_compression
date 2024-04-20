@@ -206,7 +206,6 @@ void Decompressor::parseBitmapHuffmanTree()
     uint8_t lastDepth = 0;
     uint16_t lastCode = -1;
     uint8_t masksIdx = 0;
-    _usedDepths >>= 1;
     for (uint8_t i = 0; i < MAX_NUMBER_OF_CODES; i++)
     {
         if (_usedDepths & (1UL << i))
@@ -226,26 +225,10 @@ void Decompressor::parseBitmapHuffmanTree()
 
             _depthsIndices[masksIdx].depth = i;
             _depthsIndices[masksIdx].prefixLength = i - 16 + countl_zero(static_cast<uint16_t>(symbolCount - 1));
-            uint16_t additionalPrefix = lastCode & (static_cast<uint16_t>(~0) >> (16 - _depthsIndices[masksIdx].depth + _depthsIndices[masksIdx].prefixLength));
-            if (additionalPrefix)
-            {
-                _depthsIndices[masksIdx + 1].depth = i;
-                _depthsIndices[masksIdx + 1].prefixLength = _depthsIndices[masksIdx].prefixLength;
-                _depthsIndices[masksIdx].depth = i;
-                _depthsIndices[masksIdx].prefixLength = lastDepth;
-                _depthsIndices[masksIdx].symbolsAtDepthIndex = depthIdx;
-                _depthsIndices[masksIdx].masksIndex = masksIdx;
-                _indexPrefixLengths[masksIdx].index = masksIdx;
-                _indexPrefixLengths[masksIdx].prefixLength = _depthsIndices[masksIdx].prefixLength;
-
-                masksIdx++;
-
-            }
             _depthsIndices[masksIdx].symbolsAtDepthIndex = depthIdx;
             _depthsIndices[masksIdx].masksIndex = masksIdx;
             _indexPrefixLengths[masksIdx].index = masksIdx;
             _indexPrefixLengths[masksIdx].prefixLength = _depthsIndices[masksIdx].prefixLength;
-
 
             masksIdx++;
             depthIdx++;
@@ -269,14 +252,13 @@ void Decompressor::parseBitmapHuffmanTree()
         uint8_t delta = _depthsIndices[i].depth - lastDepth;
         lastDepth = _depthsIndices[i].depth;
         lastCode = (lastCode + 1) << delta;
+        DEBUG_PRINT("Last code: " << bitset<16>(lastCode) << " Prefix: " << bitset<16>(lastCode << (16 - _depthsIndices[i].depth)) << " Mask: " << bitset<16>(~0U << (16 - _depthsIndices[i].prefixLength)) << " depth: " << (int)_depthsIndices[i].depth << " prefix length: " << (int)_depthsIndices[i].prefixLength);
         _codePrefixes[15 - _depthsIndices[i].masksIndex] = lastCode << (16 - _depthsIndices[i].depth);
         _codeMasks[15 - _depthsIndices[i].masksIndex] = (~0U) << (16 - _depthsIndices[i].prefixLength);
         _prefixIndices[_depthsIndices[i].masksIndex] = symbolIdx;
         _prefixShifts[_depthsIndices[i].masksIndex] = _depthsIndices[i].prefixLength;
         _suffixShifts[_depthsIndices[i].masksIndex] = 16 - _depthsIndices[i].depth + _depthsIndices[i].prefixLength;
         symbolIdx += lastCode & (static_cast<uint16_t>(~0) >> (16 - _depthsIndices[i].depth + _depthsIndices[i].prefixLength));
-        DEBUG_PRINT("Last code: " << bitset<16>(lastCode) << " " << (int)lastCode);
-        DEBUG_PRINT("symbol idx adjustment: " << (lastCode & (static_cast<uint16_t>(~0) >> (16 - _depthsIndices[i].depth + _depthsIndices[i].prefixLength))));
 
         int16_t maxSymbols = 1 << (_depthsIndices[i].depth - _depthsIndices[i].prefixLength);
         uint16_t lastSymbolIdx = symbolIdx;
