@@ -32,7 +32,7 @@ Arguments parseArguments(int argc, char* argv[])
     args.width = 0;
     args.inputFileName = "";
     args.outputFileName = "";
-    args.threads = 4;
+    args.threads = 1; // TODO: change to 4
 
     vector<string> arguments(argv, argv + argc);
     for (size_t i = 1; i < arguments.size(); i++) // parse arguments one by one, skipping the program name

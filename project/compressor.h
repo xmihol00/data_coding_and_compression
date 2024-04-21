@@ -11,24 +11,6 @@ public:
     void compress(std::string inputFileName, std::string outputFileName);
 
 private:
-    void clearMemory();
-    void readInputFile(std::string inputFileName);
-    void computeHistogram();
-    void buildHuffmanTree();
-    void populateCodeTable();
-    void decomposeDataBetweenThreads(symbol_t *data, uint32_t &bytesPerThread, uint32_t &startingIdx, symbol_t &firstSymbol);
-    void transformRLE(symbol_t *sourceData, uint16_t *compressedData, uint32_t &compressedSize, uint64_t &startingIdx);
-    void createHeader();
-    void writeOutputFile(std::string outputFileName, std::string inputFileName);
-
-    void compressStatic();
-    void compressAdaptive();
-    void compressStaticModel();
-    void compressAdaptiveModel();
-
-    void analyzeImageAdaptive();
-    void applyDiferenceModel(symbol_t *source, symbol_t *destination);
-
     struct FrequencySymbolIndex
     {
         uint8_t index;
@@ -51,6 +33,25 @@ private:
     } __attribute__((packed));
 
     static constexpr FrequencySymbolIndex MAX_FREQUENCY_SYMBOL_INDEX = { .index = 0xff, .frequencyLowBits = 0xff, .frequencyMidBits = 0xffff, .frequencyHighBits = 0x7fff'ffff };
+    static constexpr uint8_t MAX_HISTOGRAM_THREADS = 8;
+
+    void readInputFile(std::string inputFileName);
+    void computeHistogram();
+    void buildHuffmanTree();
+    void populateCodeTable();
+    void transformRLE(symbol_t *sourceData, uint16_t *compressedData, uint32_t &compressedSize, uint64_t &startingIdx);
+    void createHeader();
+    void packCompressedSizes(uint16_t &maxBitsCompressedSizes);
+    void compressDepthMaps();
+    void writeOutputFile(std::string outputFileName, std::string inputFileName);
+
+    void compressStatic();
+    void compressAdaptive();
+    void compressStaticModel();
+    void compressAdaptiveModel();
+
+    void analyzeImageAdaptive();
+    void applyDiferenceModel(symbol_t *source, symbol_t *destination);
 
     uint8_t _memoryPool[10 * NUMBER_OF_SYMBOLS * sizeof(uint64_t)] __attribute__((aligned(64)));
     FrequencySymbolIndex *_structHistogram{reinterpret_cast<FrequencySymbolIndex *>(_memoryPool)};
@@ -60,7 +61,8 @@ private:
     uint16_t *_parentsSortedIndices{reinterpret_cast<uint16_t *>(_memoryPool + 3 * NUMBER_OF_SYMBOLS * sizeof(FrequencySymbolIndex))};
     HuffmanCode *_codeTable{reinterpret_cast<HuffmanCode *>(_memoryPool)};
     symbol_t *_symbols{reinterpret_cast<symbol_t *>(_memoryPool + NUMBER_OF_SYMBOLS * sizeof(HuffmanCode))};
-    uint8_t  *_depths{reinterpret_cast<uint8_t *>(_memoryPool + NUMBER_OF_SYMBOLS * sizeof(HuffmanCode) + NUMBER_OF_SYMBOLS * sizeof(symbol_t))};
+    uint8_t *_depths{reinterpret_cast<uint8_t *>(_memoryPool + NUMBER_OF_SYMBOLS * sizeof(HuffmanCode) + NUMBER_OF_SYMBOLS * sizeof(symbol_t))};
+    uint8_t *_compressedDepthMaps{reinterpret_cast<uint8_t *>(_memoryPool)};
     
     bool _compressionUnsuccessful{false};
     uint16_t _numberOfSymbols;
@@ -72,12 +74,14 @@ private:
 
     uint16_t _headerSize;
     uint16_t _threadBlocksSizesSize{0};
-
-    int32_t *_rlePerBlockCounts[MAX_NUM_THREADS] = {nullptr, };
-
-    uint64_t _repetitions[NUMBER_OF_SYMBOLS];
-
     uint64_t _threadPadding;
+
+    int32_t *_rlePerBlockCounts[MAX_NUM_THREADS]{nullptr, };
+
+    uint8_t _mostPopulatedDepth;
+    uint8_t _mostPopulatedDepthIdx;
+    uint16_t _maxSymbolsPerDepth;
+    uint16_t _compressedDepthMapsSize;
 };
 
 #endif

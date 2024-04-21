@@ -25,6 +25,7 @@ bool Decompressor::readInputFile(string inputFileName, string outputFileName)
     inputFile.seekg(0, ios::end);
     uint64_t fileSize = inputFile.tellg();
     inputFile.seekg(0, ios::beg);
+    uint64_t alreadyReadBytes = 0;
 
     FirstByteHeader firstByte;
     inputFile.read(reinterpret_cast<char *>(&firstByte), sizeof(FirstByteHeader));
@@ -49,6 +50,7 @@ bool Decompressor::readInputFile(string inputFileName, string outputFileName)
     }
 
     inputFile.seekg(0, ios::beg);
+    uint16_t bitmapsSize;
     switch (firstByte.getHeaderType() & MULTI_THREADED)
     {
         case SINGLE_THREADED:
@@ -64,9 +66,9 @@ bool Decompressor::readInputFile(string inputFileName, string outputFileName)
                 cerr << endl;
             #endif
                 _usedDepths = header.getCodeDepths();
-                uint16_t bitmapsSize = sizeof(uint64v4_t) * popcount(_usedDepths);
-                inputFile.read(reinterpret_cast<char *>(_symbolsAtDepths), bitmapsSize);
-                fileSize -= sizeof(DepthBitmapsHeader) + bitmapsSize;
+                bitmapsSize = sizeof(uint64v4_t) * popcount(_usedDepths);
+                inputFile.read(reinterpret_cast<char *>(_rawDepthBitmaps), bitmapsSize);
+                alreadyReadBytes += sizeof(DepthBitmapsHeader);
                 _compressedSizesExScan[0] = 0;
             }
             break;
@@ -100,9 +102,10 @@ bool Decompressor::readInputFile(string inputFileName, string outputFileName)
             #endif
 
                 _usedDepths = header.getCodeDepths();
-                uint16_t bitmapsSize = sizeof(uint64v4_t) * popcount(_usedDepths);
-                inputFile.read(reinterpret_cast<char *>(_symbolsAtDepths), bitmapsSize);
-                fileSize -= sizeof(DepthBitmapsMultiThreadedHeader) + bitmapsSize + _numberOfBytesCompressedBlocks;
+                bitmapsSize = sizeof(uint64v4_t) * popcount(_usedDepths);
+                inputFile.read(reinterpret_cast<char *>(_rawDepthBitmaps), bitmapsSize);
+                alreadyReadBytes += sizeof(DepthBitmapsMultiThreadedHeader) + _numberOfBytesCompressedBlocks;
+                parseThreadingInfo();
             }
             break;
         
@@ -111,23 +114,11 @@ bool Decompressor::readInputFile(string inputFileName, string outputFileName)
             exit(1);
     }
 
-#ifdef _DEBUG_PRINT_ACTIVE_
-    DEBUG_PRINT("Used depths: " << bitset<32>(_usedDepths));
-    uint16_t codes = popcount(_usedDepths);
-    DEBUG_PRINT("Number of code depths: " << codes);
-    cerr << "Symbols at depths: ";
-    for (uint16_t i = 0; i < codes; i++)
-    {
-        cerr << "\n" << i << ": ";
-        uint64_t *bits = reinterpret_cast<uint64_t *>(_symbolsAtDepths + i);
-        cerr << bitset<64>(bits[0]) << " ";
-        cerr << bitset<64>(bits[1]) << " ";
-        cerr << bitset<64>(bits[2]) << " ";
-        cerr << bitset<64>(bits[3]) << " ";
-    }
-    cerr << endl;
-#endif
-    
+    parseBitmapHuffmanTree(bitmapsSize);
+    alreadyReadBytes += bitmapsSize;
+    fileSize -= alreadyReadBytes;
+    inputFile.seekg(alreadyReadBytes, ios::beg);
+
     BasicHeader &header = reinterpret_cast<BasicHeader &>(_headerBuffer);
     switch (header.getHeaderType() & ADAPTIVE)
     {
@@ -200,7 +191,7 @@ bool Decompressor::readInputFile(string inputFileName, string outputFileName)
     return true;
 }
 
-void Decompressor::parseBitmapHuffmanTree()
+void Decompressor::parseBitmapHuffmanTree(uint16_t &readBytes)
 {
     DEBUG_PRINT("Parsing bitmap Huffman tree");
 
@@ -208,6 +199,94 @@ void Decompressor::parseBitmapHuffmanTree()
     uint8_t lastDepth = 0;
     uint16_t lastCode = -1;
     uint8_t masksIdx = 0;
+
+    uint8_t missingDepth = _rawDepthBitmaps[0];
+    DEBUG_PRINT("Missing depth: " << (int)missingDepth);
+    DEBUG_PRINT("Used depths: " << bitset<32>(_usedDepths));
+    uint16_t rawDepthBitmapsIdx = 1;
+    uint8_t recoverDepthIdx = 0;
+
+    for (uint8_t i = 1; i < MAX_NUMBER_OF_CODES; i++)
+    {
+        if (_usedDepths & (1UL << i))
+        {
+            if (i == missingDepth)
+            {
+                recoverDepthIdx = depthIdx;
+                DEBUG_PRINT("Recover depth idx: " << (int)recoverDepthIdx);
+            }
+            else
+            {
+                uint32_t mask = _rawDepthBitmaps[rawDepthBitmapsIdx++] << 24;
+                mask |= _rawDepthBitmaps[rawDepthBitmapsIdx++] << 16;
+                mask |= _rawDepthBitmaps[rawDepthBitmapsIdx++] << 8;
+                mask |= _rawDepthBitmaps[rawDepthBitmapsIdx++];
+
+                _symbolsAtDepths[depthIdx] = _mm256_setzero_si256();
+                uint8_t *depthBytes = reinterpret_cast<uint8_t *>(_symbolsAtDepths + depthIdx);
+                while (mask)
+                {
+                    uint8_t firstSetBit = 31 - countl_zero(mask);
+                    mask ^= 1U << firstSetBit;
+                    depthBytes[firstSetBit] = _rawDepthBitmaps[rawDepthBitmapsIdx++];
+                }
+            }
+            depthIdx++;
+        }
+    }
+
+    if (_usedDepths & 1)
+    {
+        _usedDepths ^= 1;
+        if (missingDepth != 0)
+        {
+            uint32_t mask = _rawDepthBitmaps[rawDepthBitmapsIdx++] << 24;
+            mask |= _rawDepthBitmaps[rawDepthBitmapsIdx++] << 16;
+            mask |= _rawDepthBitmaps[rawDepthBitmapsIdx++] << 8;
+            mask |= _rawDepthBitmaps[rawDepthBitmapsIdx++];
+
+            _symbolsAtDepths[depthIdx] = _mm256_setzero_si256();
+            uint8_t *depthBytes = reinterpret_cast<uint8_t *>(_symbolsAtDepths + depthIdx);
+            while (mask)
+            {
+                uint8_t firstSetBit = 31 - countl_zero(mask);
+                mask ^= 1U << firstSetBit;
+                depthBytes[firstSetBit] = _rawDepthBitmaps[rawDepthBitmapsIdx++];
+            }
+        }
+    }
+    readBytes = rawDepthBitmapsIdx;
+
+    if (missingDepth != 0)
+    {
+        _symbolsAtDepths[recoverDepthIdx] = _mm256_set1_epi32(0xffff'ffff);
+        for (uint8_t i = 0; i <= depthIdx; i++)
+        {
+            if (i != recoverDepthIdx)
+            {
+                _symbolsAtDepths[recoverDepthIdx] = _mm256_xor_si256(_symbolsAtDepths[recoverDepthIdx], _symbolsAtDepths[i]);
+            }
+        }
+    }
+
+#ifdef _DEBUG_PRINT_ACTIVE_
+    DEBUG_PRINT("Used depths: " << bitset<32>(_usedDepths));
+    uint16_t codes = popcount(_usedDepths);
+    DEBUG_PRINT("Number of code depths: " << codes);
+    cerr << "Symbols at depths: ";
+    for (uint16_t i = 0; i < codes + 1; i++)
+    {
+        cerr << "\n" << i << ": ";
+        uint64_t *bits = reinterpret_cast<uint64_t *>(_symbolsAtDepths + i);
+        cerr << bitset<64>(bits[0]) << " ";
+        cerr << bitset<64>(bits[1]) << " ";
+        cerr << bitset<64>(bits[2]) << " ";
+        cerr << bitset<64>(bits[3]) << " ";
+    }
+    cerr << endl;
+#endif
+
+    depthIdx = 0;
     for (uint8_t i = 0; i < MAX_NUMBER_OF_CODES; i++)
     {
         if (_usedDepths & (1UL << i))
@@ -414,11 +493,11 @@ void Decompressor::parseHeader()
     switch (_header.getHeaderType() & MULTI_THREADED)
     {
         case MULTI_THREADED:
-            parseThreadingInfo();
+            //parseThreadingInfo();
             [[fallthrough]];
 
         case SINGLE_THREADED:
-            parseBitmapHuffmanTree();
+            //parseBitmapHuffmanTree();
             break;
         
         default:
@@ -444,7 +523,7 @@ void Decompressor::transformRLE(uint16_t *compressedData, symbol_t *decompressed
     uint16v16_t currentVector = _mm256_set1_epi16(current);
     uint16v16_t masked = _mm256_and_si256(currentVector, masks);
     uint16v16_t xored = _mm256_xor_si256(prefixes, masked);
-    uint16_t prefixBitMap = _mm256_cmp_epu16_mask(xored, _mm256_setzero_si256(), _MM_CMPINT_EQ);
+    uint16_t prefixBitMap = _mm256_cmp_epi16_mask(xored, _mm256_setzero_si256(), _MM_CMPINT_EQ);
     DEBUG_PRINT("PrefixBitMap: " << bitset<16>(prefixBitMap));
     uint8_t prefixIdx = countl_zero(prefixBitMap);
     DEBUG_PRINT("PrefixIdx: " << (int)prefixIdx);
@@ -471,7 +550,7 @@ void Decompressor::transformRLE(uint16_t *compressedData, symbol_t *decompressed
         currentVector = _mm256_set1_epi16(current);
         masked = _mm256_and_si256(currentVector, masks);
         xored = _mm256_xor_si256(prefixes, masked);
-        prefixBitMap = _mm256_cmp_epu16_mask(xored, _mm256_setzero_si256(), _MM_CMPINT_EQ);
+        prefixBitMap = _mm256_cmp_epi16_mask(xored, _mm256_setzero_si256(), _MM_CMPINT_EQ);
         //DEBUG_PRINT("PrefixBitMap: " << bitset<16>(prefixBitMap));
         prefixIdx = countl_zero(prefixBitMap);
         //DEBUG_PRINT("PrefixIdx: " << (int)prefixIdx);

@@ -20,10 +20,9 @@ public:
 private:
     bool readInputFile(std::string inputFileName, std::string outputFileName);
     void writeOutputFile(std::string outputFileName);
-    void parseBitmapHuffmanTree();
+    void parseBitmapHuffmanTree(uint16_t &readBytes);
     void parseThreadingInfo();
     void parseHeader();
-    void decomposeDataBetweenThreads(uint64_t &bytesPerThread, uint32_t &startingIdx);
     void transformRLE(uint16_t *compressedData, symbol_t *decompressedData, uint64_t bytesToDecompress);
     void reverseDifferenceModel(symbol_t *source, symbol_t *destination, uint64_t bytesToProcess);
 
@@ -40,6 +39,7 @@ private:
     uint8_t *_decompressionBuffer{nullptr};
     uint16_t *_compressedData{nullptr};
     symbol_t *_decompressedData{nullptr};
+    uint8_t _rawDepthBitmaps[MAX_NUMBER_OF_CODES * NUMBER_OF_SYMBOLS];
 
     FirstByteHeader &_header = reinterpret_cast<FirstByteHeader &>(_headerBuffer);
 

@@ -52,14 +52,6 @@ public:
     }
 
 protected:
-    static constexpr uint16_t NUMBER_OF_SYMBOLS{256};
-    static constexpr uint16_t MAX_CODE_LENGTH{15};
-    static constexpr uint16_t MAX_NUMBER_OF_CODES{16};
-    static constexpr uint16_t BLOCK_SIZE{16};
-    static constexpr uint16_t MAX_NUM_THREADS{32};
-    static constexpr uint16_t BITS_PER_REPETITION_NUMBER{4};
-    static constexpr uint16_t BITS_PER_BLOCK_TYPE{2};
-
     enum AdaptiveTraversals
     {
         HORIZONTAL = 0,
@@ -83,6 +75,14 @@ protected:
         MULTI_THREADED  = 1 << THREADS
     };
 
+    static constexpr uint16_t NUMBER_OF_SYMBOLS{256};
+    static constexpr uint16_t MAX_CODE_LENGTH{15};
+    static constexpr uint16_t MAX_NUMBER_OF_CODES{16};
+    static constexpr uint16_t BLOCK_SIZE{16};
+    static constexpr uint16_t MAX_NUM_THREADS{32};
+    static constexpr uint16_t BITS_PER_REPETITION_NUMBER{4};
+    static constexpr uint16_t BITS_PER_BLOCK_TYPE{2};
+
     bool _model;
     bool _adaptive;
     uint64_t _width;
@@ -99,7 +99,6 @@ protected:
     uint32_t _compressedSizesExScan[MAX_NUM_THREADS + 1];
 
     uint8_t _symbolsPerDepth[MAX_NUMBER_OF_CODES * 2];
-    uint8_t _maxSymbolsPerDepthIdx;
     uint32_t _usedDepths;
     uint64v4_t _symbolsAtDepths[MAX_NUMBER_OF_CODES * 2] __attribute__((aligned(64)));
 
