@@ -26,47 +26,93 @@ Compressor::~Compressor()
     }
 }
 
+void Compressor::clearMemory()
+{
+    uint64_t *repetitions = _repetitions;
+    #pragma omp simd aligned(repetitions: 64) simdlen(8)
+    for (uint16_t i = 0; i < NUMBER_OF_SYMBOLS; i++)
+    {
+        repetitions[i] = 0;
+    }
+    _compressionUnsuccessful = false;
+}
+
 void Compressor::computeHistogram()
 {
-    DEBUG_PRINT("Computing histogram");
+    DEBUG_PRINT("Computing histogram with thread " << omp_get_thread_num() << " started");
+    int threadId = omp_get_thread_num();
+
     uint64_t *intHistogram = _intHistogram;
+    symbol_t *buffer = _sourceBuffer;
+    uint16_t numberOfThreads = _numberOfThreads > 8 ? 8 : _numberOfThreads;
 
-    #pragma omp simd aligned(intHistogram: 64) simdlen(8)
-    for (uint32_t i = 0; i < NUMBER_OF_SYMBOLS; i++)
+    if (threadId < 8)
     {
-        intHistogram[i] = 0;
-    }
-
-    uint8_t lastSymbol = ~_sourceBuffer[0];
-    DEBUG_PRINT("Histogram cleared, size: " << _size);
-    uint32_t repetitions = 0;
-    for (uint64_t i = 0; i < _size; i++)
-    {
-        if (_sourceBuffer[i] != lastSymbol)
+        uint64_t symbolsToProcess = (_size + 7) / numberOfThreads;
+        intHistogram += threadId * NUMBER_OF_SYMBOLS;
+        buffer += threadId * symbolsToProcess;
+        if (threadId == _numberOfThreads - 1)
         {
-            intHistogram[_sourceBuffer[i]]++;
-            _repetitions[repetitions]++;
-            repetitions = 0;
+            symbolsToProcess = _size - threadId * symbolsToProcess;
         }
-        else
+
+        #pragma omp simd aligned(intHistogram: 64) simdlen(8)
+        for (uint32_t i = 0; i < NUMBER_OF_SYMBOLS; i++)
         {
-            repetitions++;
-            if (repetitions == 255)
+            intHistogram[i] = 0;
+        }
+
+        uint8_t lastSymbol = ~buffer[0];
+        uint32_t repetitions = 0;
+        for (uint64_t i = 0; i < symbolsToProcess; i++)
+        {
+            if (buffer[i] != lastSymbol)
             {
+                intHistogram[buffer[i]]++;
+
+                #pragma omp atomic
                 _repetitions[repetitions]++;
+
                 repetitions = 0;
             }
-        }
-        lastSymbol = _sourceBuffer[i];
-    }
+            else
+            {
+                repetitions++;
+                if (repetitions == 255)
+                {
+                    #pragma omp atomic
+                    _repetitions[repetitions]++;
 
-    #ifdef _DEBUG_PRINT_ACTIVE_
-        cerr << "Repetitions: \n";
-        for (uint16_t i = 0; i < 256; i++)
-        {
-            cerr << i << ": " << _repetitions[i] << endl;
+                    repetitions = 0;
+                }
+            }
+            lastSymbol = buffer[i];
         }
-    #endif
+    }
+    #pragma omp barrier
+
+    #pragma omp single
+    {
+        intHistogram = _intHistogram;
+        for (uint8_t i = 1; i < numberOfThreads; i++)
+        {
+            #pragma omp simd aligned(intHistogram: 64) simdlen(8)
+            for (uint16_t j = 0; j < NUMBER_OF_SYMBOLS; j++)
+            {
+                intHistogram[j] += intHistogram[i * NUMBER_OF_SYMBOLS + j];
+            }
+        }
+
+        FrequencySymbolIndex *structHistogram = _structHistogram;
+        #pragma omp simd aligned(structHistogram, intHistogram: 64) simdlen(8)
+        for (uint32_t i = 0; i < NUMBER_OF_SYMBOLS; i++)
+        {
+            reinterpret_cast<uint64_t *>(structHistogram)[i] = intHistogram[i] << 8;
+            structHistogram[i].index = i;
+            structHistogram[i] = intHistogram[i] == 0 ? MAX_FREQUENCY_SYMBOL_INDEX : structHistogram[i];
+        }
+    }
+    // implicit barrier
 
     /*uint64_t maxFrequency = max_element(histogram, histogram + NUMBER_OF_SYMBOLS)[0];
     if (maxFrequency >= 1UL << 40) // this will likely never happen 
@@ -75,25 +121,12 @@ void Compressor::computeHistogram()
         exit(1);
     }*/
 
-    FrequencySymbolIndex *structHistogram = _structHistogram;
-    FrequencySymbolIndex maxFrequencyStruct;
-    reinterpret_cast<uint64_t &>(maxFrequencyStruct) = INT64_MAX;
-
-    #pragma omp simd aligned(structHistogram, intHistogram: 64) simdlen(8)
-    for (uint32_t i = 0; i < NUMBER_OF_SYMBOLS; i++)
-    {
-        reinterpret_cast<uint64_t *>(structHistogram)[i] = intHistogram[i] << 8;
-        structHistogram[i].index = i;
-        structHistogram[i] = intHistogram[i] == 0 ? maxFrequencyStruct : structHistogram[i];
-    }
     DEBUG_PRINT("Histogram computed");
 }
 
 void Compressor::buildHuffmanTree()
 {
     DEBUG_PRINT("Building Huffman tree");
-    FrequencySymbolIndex maxFrequencyStruct;
-    reinterpret_cast<uint64_t &>(maxFrequencyStruct) = INT64_MAX;
     uint32_t *symbolsParentsDepths = reinterpret_cast<uint32_t *>(_symbolsParentsDepths);
     uint16_t *parentsSortedIndices = _parentsSortedIndices;
     DEBUG_PRINT("Size: " << sizeof(FrequencySymbolIndex) << " " << sizeof(SymbolParentDepth) << " " << sizeof(uint32_t) << " " << sizeof(uint16_t));
@@ -136,7 +169,7 @@ void Compressor::buildHuffmanTree()
         }
         min1 = _mm512_min_epi64(min1, min2);
         firstMin.intMin = _mm512_reduce_min_epi64(min1);
-        _structHistogram[firstMin.structMin.index] = maxFrequencyStruct;
+        _structHistogram[firstMin.structMin.index] = MAX_FREQUENCY_SYMBOL_INDEX;
         
         min1 = _vectorHistogram[0];
         min2 = _vectorHistogram[1];
@@ -185,7 +218,9 @@ void Compressor::buildHuffmanTree()
         _structHistogram[secondIndex] = nextNode.structMin;
         _parentsSortedIndices[secondIndex] = sortedIdx;
     }
+    DEBUG_PRINT("Symbols sorted");
 
+    DEBUG_PRINT("Building the tree");
     int16_t symbolsDepthsIdx = 0;
     for (uint16_t i = sortedIdx; i > 0; i--)
     {
@@ -198,16 +233,17 @@ void Compressor::buildHuffmanTree()
         }
         _symbolsParentsDepths[i].depth = nextDepth;
     }
+    DEBUG_PRINT("Symbols and depths sorted");
 
     _numberOfSymbols = symbolsDepthsIdx;
     symbolsDepthsIdx--;
 
+    DEBUG_PRINT("Pruning the tree");
     uint8_t maxDepth = _depths[symbolsDepthsIdx];
     constexpr uint16_t decreasedMaxCodeLength = MAX_CODE_LENGTH - 1;
     bool balanced = maxDepth > decreasedMaxCodeLength;
     if (maxDepth > decreasedMaxCodeLength)
     {
-        DEBUG_PRINT("Balancing the tree");
         int16_t depthIdx = symbolsDepthsIdx;
         uint8_t maxDepthShift = maxDepth - decreasedMaxCodeLength;
         int32_t debt = 0;
@@ -247,7 +283,9 @@ void Compressor::buildHuffmanTree()
             }
         }      
     }
+    DEBUG_PRINT("Tree pruned");
     
+    DEBUG_PRINT("Rebalancing the tree");
     // rebalance the tree
     uint16_t depthIdx = 0;
     uint16_t nodesToRebalance = 1 << (_depths[0] - 1);
@@ -276,6 +314,7 @@ void Compressor::buildHuffmanTree()
 
         depth++;
     }
+    DEBUG_PRINT("Tree rebalanced");
     DEBUG_PRINT("Last depth: " << (int)_depths[_numberOfSymbols - 1]);
 
     DEBUG_PRINT("Huffman tree built");
@@ -381,7 +420,12 @@ void Compressor::transformRLE(symbol_t *sourceData, uint16_t *compressedData, ui
         sourceData[_size] = ~sourceData[_size - 1];
     }
     sourceData += startingIdx;
+    DEBUG_PRINT("Starting index: " << startingIdx << " First symbol: " << (char)firstSymbol);
+    startingIdx += _threadPadding * threadNumber;
+    DEBUG_PRINT("Starting index with padding: " << startingIdx);
     compressedData += startingIdx >> 1;
+
+    #pragma omp barrier // synchronize
 
     compressedData[0] = 0;
     uint32_t currentCompressedIdx = 0;
@@ -391,7 +435,8 @@ void Compressor::transformRLE(symbol_t *sourceData, uint16_t *compressedData, ui
     symbol_t current = firstSymbol;
     uint8_t chunkIdx = 0;
 
-    while (sourceDataIdx <= bytesToCompress && (currentCompressedIdx << 1) <= bytesToCompress)
+    uint64_t shortsToCompress = (bytesToCompress + _threadPadding - 2) >> 1;
+    while (sourceDataIdx <= bytesToCompress && nextCompressedIdx < shortsToCompress)
     {
         if (sourceData[sourceDataIdx] == current)
         {
@@ -444,7 +489,8 @@ void Compressor::transformRLE(symbol_t *sourceData, uint16_t *compressedData, ui
         }
         sourceDataIdx++;
     }
-   
+    
+    _compressionUnsuccessful = sourceDataIdx <= bytesToCompress;
     compressedSize = nextCompressedIdx * 2;
     DEBUG_PRINT("RLE transformed, thread " << omp_get_thread_num() << " compressed size: " << compressedSize);
 }
@@ -565,7 +611,8 @@ void Compressor::writeOutputFile(string outputFileName, string inputFileName)
         exit(1);
     }
     
-    if (_size < _headerSize + _threadBlocksSizesSize + sizeof(uint64v4_t) * popcount(_usedDepths) + _compressedSizesExScan[_numberOfThreads]) // data not compressed
+    if ((_size < _headerSize + _threadBlocksSizesSize + sizeof(uint64v4_t) * popcount(_usedDepths) + _compressedSizesExScan[_numberOfThreads]) ||
+        _compressionUnsuccessful) // data not compressed
     {
         DEBUG_PRINT("Compressed data is larger than the input file");
         FirstByteHeader &header = reinterpret_cast<FirstByteHeader &>(_headerBuffer);
@@ -642,23 +689,6 @@ void Compressor::writeOutputFile(string outputFileName, string inputFileName)
     DEBUG_PRINT("Output file written");
 }
 
-void Compressor::printTree(uint16_t nodeIdx, uint16_t indent = 0)
-{
-#ifdef _DEBUG_PRINT_ACTIVE_
-    /*if (_tree[nodeIdx].isLeaf())
-    {
-        Leaf leaf = reinterpret_cast<Leaf *>(_tree)[nodeIdx];
-        cerr << string(indent, ' ') <<  nodeIdx << ": Leaf: " << leaf.count << " " << (int)(leaf.symbol) << endl;
-    }
-    else
-    {
-        cerr << string(indent, ' ') <<  nodeIdx << ": Node: " << _tree[nodeIdx].count << " " << _tree[nodeIdx].left << " " << _tree[nodeIdx].right << endl;
-        printTree(_tree[nodeIdx].left, indent + 2);
-        printTree(_tree[nodeIdx].right, indent + 2);
-    }*/
-#endif
-}
-
 void Compressor::readInputFile(string inputFileName)
 {
     ifstream inputFile(inputFileName, ios::binary);
@@ -692,6 +722,10 @@ void Compressor::readInputFile(string inputFileName)
     }
 
     uint64_t roundedSize = ((_size + _numberOfThreads - 1) / _numberOfThreads) * _numberOfThreads + 1;
+    DEBUG_PRINT("Rounded size: " << roundedSize);
+    _threadPadding = _numberOfThreads > 1 ? (roundedSize >> 4) : 0;
+    DEBUG_PRINT("Thread padding: " << _threadPadding);
+    roundedSize += _threadPadding * _numberOfThreads;
     _sourceBuffer = static_cast<symbol_t *>(aligned_alloc(64, roundedSize * sizeof(symbol_t)));
     _destinationBuffer = static_cast<symbol_t *>(aligned_alloc(64, roundedSize * sizeof(symbol_t)));
     if (_sourceBuffer == nullptr || _destinationBuffer == nullptr)
@@ -708,16 +742,12 @@ void Compressor::readInputFile(string inputFileName)
 void Compressor::compressStatic()
 {
     int threadNumber = omp_get_thread_num();
+    computeHistogram(); // TODO: parallelize
+
     #pragma omp single
     {
         DEBUG_PRINT("Static compression started");
-
-        computeHistogram(); // TODO: parallelize
-
-        // sort the histogram by frequency of symbols in ascending order
-        //sort(_intHistogram, _intHistogram + NUMBER_OF_SYMBOLS, 
-        //    [](const Leaf &a, const Leaf &b) { return a.count < b.count; });
-        
+      
         buildHuffmanTree();
 
         populateCodeTable();
@@ -1025,6 +1055,7 @@ void Compressor::decomposeDataBetweenThreads(symbol_t *data, uint32_t &bytesPerT
 
 void Compressor::compress(string inputFileName, string outputFileName)
 {
+    clearMemory();
     readInputFile(inputFileName);
     
     if (_adaptive)

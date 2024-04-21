@@ -11,6 +11,7 @@ public:
     void compress(std::string inputFileName, std::string outputFileName);
 
 private:
+    void clearMemory();
     void readInputFile(std::string inputFileName);
     void computeHistogram();
     void buildHuffmanTree();
@@ -27,32 +28,6 @@ private:
 
     void analyzeImageAdaptive();
     void applyDiferenceModel(symbol_t *source, symbol_t *destination);
-
-    void printTree(uint16_t nodeIdx, uint16_t indent);
-
-    struct Leaf
-    {
-        uint32_t count;
-        uint16_t : 16;
-        uint8_t symbol;
-        uint8_t : 8;
-    };
-
-    struct Node
-    {
-        uint32_t count;
-        uint16_t left;
-        uint16_t right;
-
-        constexpr inline bool isNode() const { return left; }
-        constexpr inline bool isLeaf() const { return !left; }
-    };
-
-    struct Canonical
-    {
-        uint8_t codeLength;
-        uint16_t code;
-    };
 
     struct FrequencySymbolIndex
     {
@@ -75,7 +50,9 @@ private:
         uint16_t length;
     } __attribute__((packed));
 
-    uint8_t _memoryPool[6 * NUMBER_OF_SYMBOLS * sizeof(uint64_t)] __attribute__((aligned(64)));
+    static constexpr FrequencySymbolIndex MAX_FREQUENCY_SYMBOL_INDEX = { .index = 0xff, .frequencyLowBits = 0xff, .frequencyMidBits = 0xffff, .frequencyHighBits = 0x7fff'ffff };
+
+    uint8_t _memoryPool[10 * NUMBER_OF_SYMBOLS * sizeof(uint64_t)] __attribute__((aligned(64)));
     FrequencySymbolIndex *_structHistogram{reinterpret_cast<FrequencySymbolIndex *>(_memoryPool)};
     uint64v8_t *_vectorHistogram{reinterpret_cast<uint64v8_t *>(_memoryPool)};
     uint64_t *_intHistogram{reinterpret_cast<uint64_t *>(_memoryPool + NUMBER_OF_SYMBOLS * sizeof(FrequencySymbolIndex))};
@@ -85,10 +62,8 @@ private:
     symbol_t *_symbols{reinterpret_cast<symbol_t *>(_memoryPool + NUMBER_OF_SYMBOLS * sizeof(HuffmanCode))};
     uint8_t  *_depths{reinterpret_cast<uint8_t *>(_memoryPool + NUMBER_OF_SYMBOLS * sizeof(HuffmanCode) + NUMBER_OF_SYMBOLS * sizeof(symbol_t))};
     
+    bool _compressionUnsuccessful{false};
     uint16_t _numberOfSymbols;
-    uint16_t _treeIndex;
-    uint16_t _sortedNodesHead;
-    uint16_t _sortedNodesTail;
 
     uint8_t *_sourceBuffer{nullptr};
     uint8_t *_destinationBuffer{nullptr};
@@ -100,7 +75,9 @@ private:
 
     int32_t *_rlePerBlockCounts[MAX_NUM_THREADS] = {nullptr, };
 
-    uint64_t _repetitions[NUMBER_OF_SYMBOLS] = {0}; // TODO
+    uint64_t _repetitions[NUMBER_OF_SYMBOLS];
+
+    uint64_t _threadPadding;
 };
 
 #endif

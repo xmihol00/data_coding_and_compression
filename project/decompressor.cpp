@@ -190,7 +190,7 @@ bool Decompressor::readInputFile(string inputFileName, string outputFileName)
 
 #ifdef _DEBUG_PRINT_ACTIVE_
     cerr << "Compressed data: ";
-    for (uint16_t i = 0; i < 10; i++)
+    for (uint32_t i = 0; i < 10; i++)
     {
         cerr << bitset<16>(_compressedData[i]) << " ";
     }
@@ -483,7 +483,7 @@ void Decompressor::transformRLE(uint16_t *compressedData, symbol_t *decompressed
         codeLength = 16 + prefixShift - suffixShift;
         symbol = _symbolsTable[_prefixIndices[prefixIdx] + suffix];
         //DEBUG_PRINT("Suffix: " << (int)suffix);
-        //DEBUG_PRINT("Thread: " << omp_get_thread_num() << " symbol: " << /*(char)symbol << " " <<*/ (int)symbol);
+        //DEBUG_PRINT("Thread: " << omp_get_thread_num() << " symbol: " << /*(char)symbol << " " <<*/ (int)symbol << " currentIdx: " << currentIdx);
         decompressedData[decompressedIdx++] = symbol;
         sameSymbolCount += lastSymbol == symbol;
         sameSymbolCount >>= lastSymbol != symbol;
@@ -531,7 +531,6 @@ void Decompressor::transformRLE(uint16_t *compressedData, symbol_t *decompressed
             exit(0);
         }*/
     }
-
     DEBUG_PRINT("Thread: " << omp_get_thread_num() << " decompressedIdx: " << decompressedIdx << " block size:" << bytesToDecompress);
 #endif
 }
