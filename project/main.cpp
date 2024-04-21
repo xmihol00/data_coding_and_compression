@@ -5,18 +5,17 @@ using namespace std;
 
 int main(int argc, char* argv[])
 {
-    int numberOfThreads = 2; // omp_get_num_procs();
-    omp_set_num_threads(numberOfThreads);
-    
     Arguments args = parseArguments(argc, argv);
+    omp_set_num_threads(args.threads);
+    
     if (args.compress)
     {
-        Compressor compressor(args.model, args.adaptive, args.width, numberOfThreads);
+        Compressor compressor(args.model, args.adaptive, args.width, args.threads);
         compressor.compress(args.inputFileName, args.outputFileName);
     }
     else
     {
-        Decompressor decompressor(numberOfThreads);
+        Decompressor decompressor(args.threads);
         decompressor.decompress(args.inputFileName, args.outputFileName);
     }
     
@@ -33,6 +32,7 @@ Arguments parseArguments(int argc, char* argv[])
     args.width = 0;
     args.inputFileName = "";
     args.outputFileName = "";
+    args.threads = 4;
 
     vector<string> arguments(argv, argv + argc);
     for (size_t i = 1; i < arguments.size(); i++) // parse arguments one by one, skipping the program name
@@ -62,10 +62,12 @@ Arguments parseArguments(int argc, char* argv[])
             catch (const invalid_argument& e)
             {
                 cerr << "Error: Unsigned integral expected after the '-w' switch, got '" << arguments[i] << "'." << endl;
+                exit(1);
             }
             catch (const out_of_range& e)
             {
-                std::cerr << e.what() << '\n'; // TODO
+                cerr << "Error: Specified width is out of range with '" << arguments[i] << "'." << endl;
+                exit(1);
             }
         }
         else if (arguments[i] == "-i")
@@ -105,7 +107,40 @@ Arguments parseArguments(int argc, char* argv[])
             cout << "  -w <width>:       Width of the compressed image." << endl;
             cout << "  -i <input_file>:  Specify the input file." << endl;
             cout << "  -o <output_file>: Specify the output file." << endl;
+            cout << "  -t <threads>:     Number of threads to use (default is 4), must be a power of 2." << endl;
             exit(0);
+        }
+        else if (arguments[i] == "-t")
+        {
+            try
+            {
+                uint64_t threads = stoul(arguments[++i]);
+                if (threads > 0 && threads <= 32)
+                {
+                    args.threads = threads;
+                    if (popcount(threads) != 1)
+                    {
+                        uint64_t leadingZeros = 63 - countl_zero(threads);
+                        args.threads = 1 << leadingZeros;
+                        cerr << "Warning: Number of threads must be a power of 2, adjusted to " << args.threads << "." << endl;
+                    }
+                }
+                else
+                {
+                    cerr << "Warning: Number of threads must be even number between 1 and 32, got '" << arguments[i] << "', adjusted to 16." << endl;
+                    args.threads = 16;
+                }
+            }
+            catch (const invalid_argument& e)
+            {
+                cerr << "Error: Unsigned integral expected after the '-t' switch, got '" << arguments[i] << "'." << endl;
+                exit(1);
+            }
+            catch (const out_of_range& e)
+            {
+                cerr << "Error: Specified number of threads is out of range with '" << arguments[i] << "'." << endl;
+                exit(1);
+            }
         }
         else
         {

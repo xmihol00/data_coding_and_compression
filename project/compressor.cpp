@@ -159,6 +159,7 @@ void Compressor::buildHuffmanTree()
     {
         uint64v8_t min1 = _vectorHistogram[0];
         uint64v8_t min2 = _vectorHistogram[1];
+        #pragma GGC unroll (NUMBER_OF_SYMBOLS / 16)
         for (uint8_t i = 2; i < NUMBER_OF_SYMBOLS / 8 ; i += 2)
         {
             uint64v8_t current1 = _vectorHistogram[i];
@@ -173,6 +174,7 @@ void Compressor::buildHuffmanTree()
         
         min1 = _vectorHistogram[0];
         min2 = _vectorHistogram[1];
+        #pragma GGC unroll (NUMBER_OF_SYMBOLS / 16)
         for (uint8_t i = 2; i < NUMBER_OF_SYMBOLS / 8 ; i += 2)
         {
             uint64v8_t current1 = _vectorHistogram[i];
@@ -721,11 +723,18 @@ void Compressor::readInputFile(string inputFileName)
         exit(1);
     }
 
+    if ((_width % BLOCK_SIZE || _height % BLOCK_SIZE) && _adaptive) // verify that file is divisible by block size
+    {
+        cerr << "Warning: The input file width and height is not divisible by a built in adaptive granularity of " << BLOCK_SIZE << "." << endl;
+        cerr << "         Static compression will be used instead." << endl;
+        _adaptive = false;
+    }
+
     uint64_t roundedSize = ((_size + _numberOfThreads - 1) / _numberOfThreads) * _numberOfThreads + 1;
-    DEBUG_PRINT("Rounded size: " << roundedSize);
-    _threadPadding = _numberOfThreads > 1 ? (roundedSize >> 4) : 0;
-    DEBUG_PRINT("Thread padding: " << _threadPadding);
+    _threadPadding = roundedSize >> 4; // ensure there is some spare space if compressed block is larger than the original block
     roundedSize += _threadPadding * _numberOfThreads;
+
+    // these buffers will be used in a ping-pong fashion
     _sourceBuffer = static_cast<symbol_t *>(aligned_alloc(64, roundedSize * sizeof(symbol_t)));
     _destinationBuffer = static_cast<symbol_t *>(aligned_alloc(64, roundedSize * sizeof(symbol_t)));
     if (_sourceBuffer == nullptr || _destinationBuffer == nullptr)
@@ -733,7 +742,6 @@ void Compressor::readInputFile(string inputFileName)
         cerr << "Error: Unable to allocate memory for the input file." << endl;
         exit(1);
     }
-    cerr << (void *) _sourceBuffer << " " << (void *) _destinationBuffer << endl;
 
     inputFile.read(reinterpret_cast<char *>(_sourceBuffer), _size);
     inputFile.close();
@@ -742,7 +750,7 @@ void Compressor::readInputFile(string inputFileName)
 void Compressor::compressStatic()
 {
     int threadNumber = omp_get_thread_num();
-    computeHistogram(); // TODO: parallelize
+    computeHistogram();
 
     #pragma omp single
     {
@@ -791,13 +799,6 @@ void Compressor::analyzeImageAdaptive()
 {
     #pragma omp sections
     {
-        #pragma omp section // histogram of symbols, same for each traversal technique
-        {
-            computeHistogram();
-            //sort(_intHistogram, _intHistogram + NUMBER_OF_SYMBOLS, 
-            //     [](const Leaf &a, const Leaf &b) { return a.count < b.count; });
-        }
-
         #pragma omp section // horizontal lines in blocks
         {
             constexpr AdaptiveTraversals sectionId = HORIZONTAL;
@@ -913,7 +914,7 @@ void Compressor::compressAdaptive()
     }
     #pragma omp barrier
     
-    #pragma omp master
+    #pragma omp single
     {
         for (uint32_t i = 0; i < _blockCount; i++)
         {
@@ -929,38 +930,34 @@ void Compressor::compressAdaptive()
                 _bestBlockTraversals[i] = bestTraversal;
             }
         }
+    }
+    // implicit barrier
 
-        #pragma omp task
+    #pragma omp for schedule(dynamic, 1)
+    for (uint32_t i = 0; i < _blocksPerColumn; i++)
+    {
+        for (uint32_t j = 0; j < _blocksPerRow; j++)
         {
-            buildHuffmanTree();
-            populateCodeTable();
-        }
-
-        for (uint32_t i = 0; i < _blocksPerColumn; i++)
-        {
-            for (uint32_t j = 0; j < _blocksPerRow; j++)
+            switch (_bestBlockTraversals[i * _blocksPerRow + j])
             {
-                switch (_bestBlockTraversals[i * _blocksPerRow + j])
-                {
-                case HORIZONTAL:
-                    #pragma omp task firstprivate(j, i)
-                    {
-                        serializeBlock(_sourceBuffer, _destinationBuffer, j, i);
-                    }
-                    break;
-                
-                case VERTICAL:
-                    #pragma omp task firstprivate(j, i)
-                    {
-                        transposeSerializeBlock(_sourceBuffer, _destinationBuffer, j, i);
-                    }
-                    break;
-                }
+            case HORIZONTAL:
+                serializeBlock(_sourceBuffer, _destinationBuffer, j, i);
+                break;
+            
+            case VERTICAL:
+                transposeSerializeBlock(_sourceBuffer, _destinationBuffer, j, i);
+                break;
             }
         }
     }
-    #pragma omp taskwait
-    #pragma omp barrier
+
+    computeHistogram();
+    #pragma omp single
+    {
+        buildHuffmanTree();
+        populateCodeTable();
+    } 
+    // implicit barrier
 
     uint64_t startingIdx;
     {
