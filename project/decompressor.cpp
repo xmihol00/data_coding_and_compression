@@ -112,11 +112,13 @@ bool Decompressor::readInputFile(string inputFileName, string outputFileName)
     }
 
 #ifdef _DEBUG_PRINT_ACTIVE_
-    DEBUG_PRINT("Used depths: " << bitset<16>(_usedDepths));
+    DEBUG_PRINT("Used depths: " << bitset<32>(_usedDepths));
+    uint16_t codes = popcount(_usedDepths);
+    DEBUG_PRINT("Number of code depths: " << codes);
     cerr << "Symbols at depths: ";
-    for (uint16_t i = 0; i < popcount(_usedDepths); i++)
+    for (uint16_t i = 0; i < codes; i++)
     {
-        cerr << "\n";
+        cerr << "\n" << i << ": ";
         uint64_t *bits = reinterpret_cast<uint64_t *>(_symbolsAtDepths + i);
         cerr << bitset<64>(bits[0]) << " ";
         cerr << bitset<64>(bits[1]) << " ";
@@ -211,7 +213,7 @@ void Decompressor::parseBitmapHuffmanTree()
         if (_usedDepths & (1UL << i))
         {
         #if __AVX512VPOPCNTDQ__
-            uint64v4_t popCounts = _mm256_popcnt_epi64(_symbolsAtDepths[depthIdx]); // AVX512VPOPCNTDQ
+            uint64v4_t popCounts = _mm256_popcnt_epi64(_symbolsAtDepths[depthIdx]);
             uint64_t *bits = reinterpret_cast<uint64_t *>(&popCounts);
             uint16_t sum1 = bits[0] + bits[1];
             uint16_t sum2 = bits[2] + bits[3];

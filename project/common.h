@@ -99,7 +99,7 @@ protected:
     uint32_t _compressedSizesExScan[MAX_NUM_THREADS + 1];
 
     uint32_t _usedDepths;
-    uint64v4_t _symbolsAtDepths[MAX_CODE_LENGTH] __attribute__((aligned(64)));
+    uint64v4_t _symbolsAtDepths[MAX_NUMBER_OF_CODES] __attribute__((aligned(64)));
 
     uint8_t _headerBuffer[32];
 

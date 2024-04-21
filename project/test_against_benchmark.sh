@@ -6,7 +6,9 @@ fi
 
 all_tests_passed=true
 
-for switch in "" "-a"; do
+for switch in "" "-a" "-m" "-m -a"; do
+    echo ""
+    echo -e "Testing with switch \e[0;34m$switch\e[0m"
     rm -f compressed_files/*
     rm -f decompressed_files/*
     for file in $data_dir/*; do
