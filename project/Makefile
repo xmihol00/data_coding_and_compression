@@ -7,7 +7,7 @@ AVX512 = $(shell grep avx512 /proc/cpuinfo >/dev/null && echo "-mavx512f -mavx51
 INFO_FLAGS = -fopt-info-vec -fopt-info-vec-optimized
 
 CC = g++
-CFLAGS = -Wall -Wextra -std=c++20 -mavx2 -fopenmp -O3 $(AVX512) $(INFO_FLAGS)
+CFLAGS = -Wall -Wextra -std=c++20 -mavx2 -fopenmp -O3 -g $(AVX512) $(INFO_FLAGS)
 CPP_SRC = $(wildcard $(PROJECT_DIR)/*.cpp)
 
 TARGET = $(PROJECT_DIR)/huff_codec

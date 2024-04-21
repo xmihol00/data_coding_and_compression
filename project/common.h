@@ -57,7 +57,7 @@ protected:
     static constexpr uint16_t MAX_NUMBER_OF_CODES{16};
     static constexpr uint16_t BLOCK_SIZE{16};
     static constexpr uint16_t MAX_NUM_THREADS{32};
-    static constexpr uint16_t BITS_PER_REPETITION_NUMBER{8};
+    static constexpr uint16_t BITS_PER_REPETITION_NUMBER{4};
     static constexpr uint16_t BITS_PER_BLOCK_TYPE{2};
 
     enum AdaptiveTraversals
@@ -98,8 +98,10 @@ protected:
     uint32_t _compressedSizes[MAX_NUM_THREADS];
     uint32_t _compressedSizesExScan[MAX_NUM_THREADS + 1];
 
+    uint8_t _symbolsPerDepth[MAX_NUMBER_OF_CODES * 2];
+    uint8_t _maxSymbolsPerDepthIdx;
     uint32_t _usedDepths;
-    uint64v4_t _symbolsAtDepths[MAX_NUMBER_OF_CODES] __attribute__((aligned(64)));
+    uint64v4_t _symbolsAtDepths[MAX_NUMBER_OF_CODES * 2] __attribute__((aligned(64)));
 
     uint8_t _headerBuffer[32];
 

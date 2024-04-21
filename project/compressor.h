@@ -99,6 +99,8 @@ private:
     uint16_t _threadBlocksSizesSize{0};
 
     int32_t *_rlePerBlockCounts[MAX_NUM_THREADS] = {nullptr, };
+
+    uint64_t _repetitions[NUMBER_OF_SYMBOLS] = {0}; // TODO
 };
 
 #endif

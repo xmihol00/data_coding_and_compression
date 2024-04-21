@@ -213,7 +213,7 @@ void Decompressor::parseBitmapHuffmanTree()
         if (_usedDepths & (1UL << i))
         {
         #if __AVX512VPOPCNTDQ__
-            uint64v4_t popCounts = _mm256_popcnt_epi64(_symbolsAtDepths[depthIdx]);
+            uint64v4_t popCounts = _mm256_popcnt_epi64(_symbolsAtDepths[depthIdx]); // AVX512VPOPCNTDQ
             uint64_t *bits = reinterpret_cast<uint64_t *>(&popCounts);
             uint16_t sum1 = bits[0] + bits[1];
             uint16_t sum2 = bits[2] + bits[3];
@@ -227,10 +227,26 @@ void Decompressor::parseBitmapHuffmanTree()
 
             _depthsIndices[masksIdx].depth = i;
             _depthsIndices[masksIdx].prefixLength = i - 16 + countl_zero(static_cast<uint16_t>(symbolCount - 1));
+            uint16_t additionalPrefix = lastCode & (static_cast<uint16_t>(~0) >> (16 - _depthsIndices[masksIdx].depth + _depthsIndices[masksIdx].prefixLength));
+            if (additionalPrefix)
+            {
+                _depthsIndices[masksIdx + 1].depth = i;
+                _depthsIndices[masksIdx + 1].prefixLength = _depthsIndices[masksIdx].prefixLength;
+                _depthsIndices[masksIdx].depth = i;
+                _depthsIndices[masksIdx].prefixLength = lastDepth;
+                _depthsIndices[masksIdx].symbolsAtDepthIndex = depthIdx;
+                _depthsIndices[masksIdx].masksIndex = masksIdx;
+                _indexPrefixLengths[masksIdx].index = masksIdx;
+                _indexPrefixLengths[masksIdx].prefixLength = _depthsIndices[masksIdx].prefixLength;
+
+                masksIdx++;
+
+            }
             _depthsIndices[masksIdx].symbolsAtDepthIndex = depthIdx;
             _depthsIndices[masksIdx].masksIndex = masksIdx;
             _indexPrefixLengths[masksIdx].index = masksIdx;
             _indexPrefixLengths[masksIdx].prefixLength = _depthsIndices[masksIdx].prefixLength;
+
 
             masksIdx++;
             depthIdx++;
@@ -244,7 +260,6 @@ void Decompressor::parseBitmapHuffmanTree()
     {
         _depthsIndices[_indexPrefixLengths[i].index].masksIndex = i;
     }
-    DEBUG_PRINT("MasksIdx: " << (int)masksIdx);
 
     lastDepth = 0;
     lastCode = -1;
@@ -254,7 +269,6 @@ void Decompressor::parseBitmapHuffmanTree()
         uint8_t delta = _depthsIndices[i].depth - lastDepth;
         lastDepth = _depthsIndices[i].depth;
         lastCode = (lastCode + 1) << delta;
-        DEBUG_PRINT("Last code: " << bitset<16>(lastCode) << " Prefix: " << bitset<16>(lastCode << (16 - _depthsIndices[i].depth)) << " Mask: " << bitset<16>(~0U << (16 - _depthsIndices[i].prefixLength)) << " depth: " << (int)_depthsIndices[i].depth << " prefix length: " << (int)_depthsIndices[i].prefixLength);
         _codePrefixes[15 - _depthsIndices[i].masksIndex] = lastCode << (16 - _depthsIndices[i].depth);
         _codeMasks[15 - _depthsIndices[i].masksIndex] = (~0U) << (16 - _depthsIndices[i].prefixLength);
         _prefixIndices[_depthsIndices[i].masksIndex] = symbolIdx;
@@ -491,7 +505,7 @@ void Decompressor::transformRLE(uint16_t *compressedData, symbol_t *decompressed
             {
                 current = (compressedData[currentIdx] << bitLength) | (compressedData[nextIdx] >> inverseBitLength);
                 repeat = current & 0x8000;
-                uint32_t repetitions = ((current & 0x7FFF) >> BITS_PER_REPETITION_NUMBER);
+                uint32_t repetitions = ((current & 0x7FFF) >> (16 - BITS_PER_REPETITION_NUMBER));
                 repetitions <<= multiplier;
                 //DEBUG_PRINT("Thread: " << omp_get_thread_num() << " repetitions: " << repetitions);
 
