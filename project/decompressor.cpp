@@ -292,31 +292,25 @@ void Decompressor::parseBitmapHuffmanTree(uint16_t &readBytes)
         if (_usedDepths & (1UL << i))
         {
         #if __AVX512VPOPCNTDQ__
-            uint64v4_t popCounts = _mm256_popcnt_epi64(_symbolsAtDepths[depthIdx]); // AVX512VPOPCNTDQ
+            uint64v4_t popCounts = _mm256_popcnt_epi64(_symbolsAtDepths[depthIdx]);
             uint64_t *bits = reinterpret_cast<uint64_t *>(&popCounts);
             uint16_t sum1 = bits[0] + bits[1];
             uint16_t sum2 = bits[2] + bits[3];
             uint16_t symbolCount = sum1 + sum2;
         #else
             uint64_t *bits = reinterpret_cast<uint64_t *>(_symbolsAtDepths + depthIdx);
-            uint16_t symbolCount = _mm_popcnt_u64(bits[0]) + _mm_popcnt_u64(bits[1]) + _mm_popcnt_u64(bits[2]) + _mm_popcnt_u64(bits[3]);
+            uint32_t symbolsToProcess = _mm_popcnt_u64(bits[0]) + _mm_popcnt_u64(bits[1]) + _mm_popcnt_u64(bits[2]) + _mm_popcnt_u64(bits[3]);
         #endif
-            uint8_t delta = i - lastDepth;
-            lastCode = (lastCode + 1) << delta;
-            uint16_t symbolsToProcess = symbolCount;
+            lastCode = (lastCode + 1) << (i - lastDepth);
+            lastDepth = i;
 
             while (symbolsToProcess)
             {
                 uint8_t trailingZeros = countr_zero(lastCode);
-                uint64_t fits = 1 << trailingZeros;
-                fits = symbolsToProcess < fits ? symbolsToProcess : fits;
+                uint32_t fits = min(1U << trailingZeros, symbolsToProcess);
                 uint8_t leadingZeros = 64 - countl_zero(fits);
-                uint16_t minZeros = min(leadingZeros, trailingZeros);
-                uint16_t prefix = lastCode;
+                uint8_t minZeros = min(min(leadingZeros, i), trailingZeros);
                 uint16_t prefixLength = i - minZeros;
-                prefix <<= 16 - i;
-                uint16_t mask = (~0U) << (16 - i + minZeros);
-                DEBUG_PRINT("Prefix: " << bitset<16>(prefix) << " " << bitset<16>(mask) << " " << prefixLength << " Depth: " << (int)i << " Symbols: " << (int)fits);
                 lastCode += fits;
                 symbolsToProcess -= fits;
 
@@ -330,9 +324,8 @@ void Decompressor::parseBitmapHuffmanTree(uint16_t &readBytes)
                 masksIdx++;
             }
 
-            lastCode += symbolCount - 1;
+            lastCode--;
             depthIdx++;
-            lastDepth = i;
         }
     }
     sort(_indexPrefixLengths, _indexPrefixLengths + masksIdx, 
@@ -341,7 +334,7 @@ void Decompressor::parseBitmapHuffmanTree(uint16_t &readBytes)
     {
         _depthsIndices[_indexPrefixLengths[i].index].masksIndex = i;
     }
-
+    
     lastDepth = 0;
     lastCode = -1;
     uint16_t symbolIdx = 0;
@@ -350,17 +343,14 @@ void Decompressor::parseBitmapHuffmanTree(uint16_t &readBytes)
         uint8_t delta = _depthsIndices[i].depth - lastDepth;
         lastDepth = _depthsIndices[i].depth;
         lastCode = (lastCode + 1) << delta;
-        DEBUG_PRINT("First code: " << bitset<16>(lastCode) << " mask Idx: " << (int)_depthsIndices[i].masksIndex);
         _codePrefixes[31 - _depthsIndices[i].masksIndex] = lastCode << (16 - _depthsIndices[i].depth);
-        DEBUG_PRINT("Prefix: " << bitset<16>(_codePrefixes[31 - _depthsIndices[i].masksIndex]));
         _codeMasks[31 - _depthsIndices[i].masksIndex] = (~0U) << (16 - _depthsIndices[i].prefixLength);
-        DEBUG_PRINT("Mask: " << bitset<16>(_codeMasks[31 - _depthsIndices[i].masksIndex]));
-        _prefixIndices[_depthsIndices[i].masksIndex] = symbolIdx;
-        _prefixShifts[_depthsIndices[i].masksIndex] = _depthsIndices[i].prefixLength;
-        _suffixShifts[_depthsIndices[i].masksIndex] = 16 - _depthsIndices[i].depth + _depthsIndices[i].prefixLength;
+        _indexShiftsCodeLengths[_depthsIndices[i].masksIndex].prefixIndex = symbolIdx;
+        _indexShiftsCodeLengths[_depthsIndices[i].masksIndex].suffixShift = 16 - _depthsIndices[i].depth + _depthsIndices[i].prefixLength;
+        _indexShiftsCodeLengths[_depthsIndices[i].masksIndex].prefixShift = _depthsIndices[i].prefixLength;
+        _indexShiftsCodeLengths[_depthsIndices[i].masksIndex].codeLength = _depthsIndices[i].depth;
 
-        int16_t maxSymbols = 1 << (_depthsIndices[i].depth - _depthsIndices[i].prefixLength);
-        DEBUG_PRINT("Depth: " << (int)_depthsIndices[i].depth);
+        int32_t maxSymbols = 1 << countr_zero(lastCode); 
         uint16_t lastSymbolIdx = symbolIdx;
         uint64_t *bits = reinterpret_cast<uint64_t *>(_symbolsAtDepths + _depthsIndices[i].symbolsAtDepthIndex);
         for (uint8_t j = 0; j < 4; j++)
@@ -373,90 +363,16 @@ void Decompressor::parseBitmapHuffmanTree(uint16_t &readBytes)
                 uint8_t adjustedSymbol = symbol + leadingZeros;
                 bits[j] ^= 1UL << (63 - leadingZeros);
                 _symbolsTable[symbolIdx++] = adjustedSymbol;
-                DEBUG_PRINT("SymbolIdx: " << symbolIdx << " adjustedSymbol: " << (int)adjustedSymbol);
             }
         }
         lastCode += symbolIdx - lastSymbolIdx - 1;
-        DEBUG_PRINT("last code: " << bitset<16>(lastCode));
     }
-    
-
-#if 0 // TODO
-    #if __AVX512BW__ && __AVX512VL__
-        reinterpret_cast<uint32v16_t *>(_indexPrefixLengthCodeCount)[0] = _mm512_setzero_si512();
-        reinterpret_cast<uint32v16_t *>(_indexPrefixLengthCodeCount)[1] = _mm512_setzero_si512();
-    #endif
-    CodeLengthsSingleThreadedHeader &header = reinterpret_cast<CodeLengthsSingleThreadedHeader &>(_header);
-    for (uint16_t i = 0, j = 0; i < NUMBER_OF_SYMBOLS / 2; i++, j += 2)
-    {
-        _codeLengthsSymbols[j].codeLength = header.codeLengths[i] >> 4;
-        _codeLengthsSymbols[j].symbol = j;
-        _indexPrefixLengthCodeCount[_codeLengthsSymbols[j].codeLength].codeCount++;
-        _codeLengthsSymbols[j + 1].codeLength = header.codeLengths[i] & 0x0F;
-        _codeLengthsSymbols[j + 1].symbol = j + 1;
-        _indexPrefixLengthCodeCount[_codeLengthsSymbols[j + 1].codeLength].codeCount++;
-    }
-
-    uint8_t lastCodeCount = 0;
-    for (uint8_t i = 0; i < MAX_NUMBER_OF_CODES; i++)
-    {
-        _indexPrefixLengthCodeCount[i].cumulativeCodeCount = lastCodeCount;
-        lastCodeCount += _indexPrefixLengthCodeCount[i].codeCount; 
-        _indexPrefixLengths[i].index = i;
-        _indexPrefixLengths[i].prefixLength = (i - 16 + countl_zero(static_cast<uint16_t>(_indexPrefixLengthCodeCount[i].codeCount - 1)));
-    }
-    sort(_indexPrefixLengths, _indexPrefixLengths + MAX_NUMBER_OF_CODES, 
-            [](const IndexPrefixLength &a, const IndexPrefixLength &b) { return a.prefixLength < b.prefixLength; });
-    
-    for (uint8_t i = 0; i < MAX_SHORT_CODE_LENGTH; i++)
-    {
-        _indexPrefixLengthCodeCount[_indexPrefixLengths[i].index].prefixLength = _indexPrefixLengths[i].prefixLength;
-        _indexPrefixLengthCodeCount[_indexPrefixLengths[i].index].index = i;
-    }
-
-    sort(_codeLengthsSymbols, _codeLengthsSymbols + NUMBER_OF_SYMBOLS, 
-            [](const CodeLengthSymbol &a, const CodeLengthSymbol &b) { return a.codeLength < b.codeLength || (a.codeLength == b.codeLength && a.symbol < b.symbol); });
-
-    uint16_t codesIdx = 0;
-    while (_codeLengthsSymbols[codesIdx].codeLength == 0)
-    {
-        codesIdx++;
-    }
-
-    uint16_t lastCode = -1;
-    uint8_t delta = 0;
-    uint16_t symbolIdx = 0;
-    for (uint8_t i = 0; i < MAX_SHORT_CODE_LENGTH; i++)
-    {
-        if (_indexPrefixLengthCodeCount[i].prefixLength < 0)
-        {
-            delta++;
-        }
-        else
-        {
-            lastCode = (lastCode + 1) << delta;
-            delta = 1;
-            _codePrefixes[_indexPrefixLengthCodeCount[i].index] = lastCode << (16 - i);
-            _codeMasks[_indexPrefixLengthCodeCount[i].index] = (~0U) << (16 - _indexPrefixLengthCodeCount[i].prefixLength);
-            _prefixIndices[15 - _indexPrefixLengthCodeCount[i].index] = symbolIdx;
-            _prefixShifts[15 - _indexPrefixLengthCodeCount[i].index] = _indexPrefixLengthCodeCount[i].prefixLength;
-            _suffixShifts[15 - _indexPrefixLengthCodeCount[i].index] = 16 - i + _indexPrefixLengthCodeCount[i].prefixLength;
-            symbolIdx += lastCode & (static_cast<uint16_t>(~0) >> (16 - i + _indexPrefixLengthCodeCount[i].prefixLength));
-            for (uint16_t j = 0; j < _indexPrefixLengthCodeCount[i].codeCount; j++)
-            {
-                _symbolsTable[symbolIdx++] = _codeLengthsSymbols[codesIdx++].symbol;
-            }
-            lastCode += _indexPrefixLengthCodeCount[i].codeCount - 1;
-        }
-    }
-#endif
-    //_codePrefixesVector = _mm256_and_si256(_codeMasksVector, _codePrefixesVector);
     
     for (uint16_t i = 0; i < MAX_NUMBER_OF_PREFIXES; i++)
     {
         bitset<16> prefix(_codePrefixes[i]);
         bitset<16> mask(_codeMasks[i]);
-        DEBUG_PRINT(i << ": " << prefix << " " << mask << " " << (int)_prefixShifts[i] << " " << (int)_suffixShifts[i] << " " << (int)_prefixIndices[i]);
+        DEBUG_PRINT(i << ": " << prefix << " " << mask << " " << (int)_indexShiftsCodeLengths[i].prefixShift << " " << (int)_indexShiftsCodeLengths[i].suffixShift << " " << (int)_indexShiftsCodeLengths[i].codeLength << " " << (int)_indexShiftsCodeLengths[i].prefixIndex);
     }
 }
 
@@ -496,24 +412,6 @@ void Decompressor::parseThreadingInfo()
     }
 }
 
-void Decompressor::parseHeader()
-{
-    switch (_header.getHeaderType() & MULTI_THREADED)
-    {
-        case MULTI_THREADED:
-            //parseThreadingInfo();
-            [[fallthrough]];
-
-        case SINGLE_THREADED:
-            //parseBitmapHuffmanTree();
-            break;
-        
-        default:
-            cout << "Error: Unsupported header type" << endl;
-            exit(1);
-    }
-}
-
 void Decompressor::transformRLE(uint16_t *compressedData, symbol_t *decompressedData, uint64_t bytesToDecompress)
 {
     DEBUG_PRINT("Thread: " << omp_get_thread_num() << " bytesToDecompress: " << bytesToDecompress);
@@ -534,51 +432,38 @@ void Decompressor::transformRLE(uint16_t *compressedData, symbol_t *decompressed
     uint32_t prefixBitMap = _mm512_cmp_epi16_mask(xored, _mm512_setzero_si512(), _MM_CMPINT_EQ);
     DEBUG_PRINT("PrefixBitMap: " << bitset<16>(prefixBitMap));
     uint8_t prefixIdx = countl_zero(prefixBitMap);
+    IndexShiftsCodeLength codeMatch = _indexShiftsCodeLengths[prefixIdx];
     DEBUG_PRINT("PrefixIdx: " << (int)prefixIdx);
-    uint8_t prefixShift = _prefixShifts[prefixIdx];
-    DEBUG_PRINT("PrefixLength: " << (int)prefixShift);
-    uint8_t suffixShift = _suffixShifts[prefixIdx];
-    DEBUG_PRINT("SuffixShift: " << (int)suffixShift);
-    uint8_t suffix = static_cast<uint16_t>(current << prefixShift) >> suffixShift;
-    uint8_t codeLength = 16 + prefixShift - suffixShift;
-    DEBUG_PRINT("symbol idx: " << _prefixIndices[prefixIdx] + suffix << " " << (int)suffix);
-    symbol_t symbol = _symbolsTable[_prefixIndices[prefixIdx] + suffix];
+    DEBUG_PRINT("PrefixLength: " << (int)codeMatch.prefixShift);
+    DEBUG_PRINT("SuffixShift: " << (int)codeMatch.suffixShift);
+    uint8_t suffix = static_cast<uint16_t>(current << codeMatch.prefixShift) >> codeMatch.suffixShift;
+    symbol_t symbol = _symbolsTable[codeMatch.prefixIndex + suffix];
     decompressedData[decompressedIdx++] = symbol;
     DEBUG_PRINT("Symbol: " << (char)symbol << " " << (int)symbol << "\n");
-    bitLength += codeLength;
+    bitLength += codeMatch.codeLength;
     symbol_t lastSymbol = symbol;
     uint8_t sameSymbolCount = 0;
     inverseBitLength = 16 - bitLength;
 
     while (decompressedIdx < bytesToDecompress)
     {
-        //DEBUG_PRINT("BitLength: " << (int)bitLength);
         current = (compressedData[currentIdx] << bitLength) | (compressedData[nextIdx] >> inverseBitLength);
-        //DEBUG_PRINT("Current: " << bitset<16>(current));
         currentVector = _mm512_set1_epi16(current);
         masked = _mm512_and_si512(currentVector, masks);
         xored = _mm512_xor_si512(prefixes, masked);
         prefixBitMap = _mm512_cmp_epi16_mask(xored, _mm512_setzero_si512(), _MM_CMPINT_EQ);
-        //DEBUG_PRINT("PrefixBitMap: " << bitset<16>(prefixBitMap));
         prefixIdx = countl_zero(prefixBitMap);
-        //DEBUG_PRINT("PrefixIdx: " << (int)prefixIdx);
-        prefixShift = _prefixShifts[prefixIdx];
-        //DEBUG_PRINT("PrefixLength: " << (int)prefixShift);
-        suffixShift = _suffixShifts[prefixIdx];
-        //DEBUG_PRINT("SuffixShift: " << (int)suffixShift);
-        suffix = static_cast<uint16_t>(current << prefixShift) >> suffixShift;
-        codeLength = 16 + prefixShift - suffixShift;
-        symbol = _symbolsTable[_prefixIndices[prefixIdx] + suffix];
-        //DEBUG_PRINT("Suffix: " << (int)suffix);
-        //DEBUG_PRINT("Thread: " << omp_get_thread_num() << " symbol: " << /*(char)symbol << " " <<*/ (int)symbol << " currentIdx: " << currentIdx);
+        codeMatch = _indexShiftsCodeLengths[prefixIdx];
+        suffix = static_cast<uint16_t>(current << codeMatch.prefixShift) >> codeMatch.suffixShift;
+        symbol = _symbolsTable[codeMatch.prefixIndex + suffix];
         decompressedData[decompressedIdx++] = symbol;
         sameSymbolCount += lastSymbol == symbol;
         sameSymbolCount >>= lastSymbol != symbol;
         lastSymbol = symbol;
 
-        bitLength += codeLength;
+        bitLength += codeMatch.codeLength;
         overflow = bitLength >= 16;
-        bitLength &= 0x0F;
+        bitLength &= 0x0f;
         nextIdx += overflow;
         currentIdx += overflow;
         inverseBitLength = 16 - bitLength;
@@ -594,7 +479,6 @@ void Decompressor::transformRLE(uint16_t *compressedData, symbol_t *decompressed
                 repeat = current & 0x8000;
                 uint32_t repetitions = ((current & 0x7FFF) >> (16 - BITS_PER_REPETITION_NUMBER));
                 repetitions <<= multiplier;
-                //DEBUG_PRINT("Thread: " << omp_get_thread_num() << " repetitions: " << repetitions);
 
                 for (uint32_t i = 0; i < repetitions; i++)
                 {
@@ -610,13 +494,7 @@ void Decompressor::transformRLE(uint16_t *compressedData, symbol_t *decompressed
                 multiplier += (BITS_PER_REPETITION_NUMBER - 1);
             }
             while (repeat);
-            //DEBUG_PRINT("");
         }
-
-        /*if (nextIdx >= 25)
-        {
-            exit(0);
-        }*/
     }
     DEBUG_PRINT("Thread: " << omp_get_thread_num() << " decompressedIdx: " << decompressedIdx << " block size:" << bytesToDecompress);
 #endif
@@ -788,8 +666,6 @@ void Decompressor::decompress(string inputFileName, string outputFileName)
 {
     if (readInputFile(inputFileName, outputFileName))
     {
-        parseHeader();
-
         #pragma omp parallel
         {
             if (_header.getHeaderType() & MODEL)

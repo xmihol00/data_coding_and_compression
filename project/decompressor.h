@@ -22,7 +22,6 @@ private:
     void writeOutputFile(std::string outputFileName);
     void parseBitmapHuffmanTree(uint16_t &readBytes);
     void parseThreadingInfo();
-    void parseHeader();
     void transformRLE(uint16_t *compressedData, symbol_t *decompressedData, uint64_t bytesToDecompress);
     void reverseDifferenceModel(symbol_t *source, symbol_t *destination, uint64_t bytesToProcess);
 
@@ -71,13 +70,17 @@ private:
         uint8_t prefixLength;
     } _depthsIndices[MAX_NUMBER_OF_PREFIXES] __attribute__((aligned(64)));
 
+    struct IndexShiftsCodeLength
+    {
+        uint8_t prefixIndex;
+        uint8_t suffixShift;
+        uint8_t prefixShift;
+        uint8_t codeLength;
+    } _indexShiftsCodeLengths[MAX_NUMBER_OF_PREFIXES] __attribute__((aligned(64)));
+
     uint32_t _codeTableLarge[NUMBER_OF_SYMBOLS] __attribute__((aligned(64)));
     uint16_t *_codeTableSmall{reinterpret_cast<uint16_t *>(_codeTableLarge)};
     uint8_t _symbolsTable[NUMBER_OF_SYMBOLS * 2] __attribute__((aligned(64)));
-
-    uint16_t _prefixIndices[MAX_NUMBER_OF_PREFIXES];
-    uint16_t _prefixShifts[MAX_NUMBER_OF_PREFIXES];
-    uint16_t _suffixShifts[MAX_NUMBER_OF_PREFIXES];
 
     uint16v32_t _codePrefixesVector __attribute__((aligned(64)));
     uint16_t *_codePrefixes{reinterpret_cast<uint16_t *>(&_codePrefixesVector)};

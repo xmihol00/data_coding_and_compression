@@ -210,6 +210,7 @@ void Compressor::buildHuffmanTree()
         _symbolsParentsDepths[i].depth = nextDepth;
     }
     _numberOfSymbols = symbolsDepthsIdx;
+    DEBUG_PRINT("Number of symbols: " << _numberOfSymbols);
     
     uint16_t lastCode = -1;
     uint8_t lastDepth = 0;
@@ -221,8 +222,6 @@ void Compressor::buildHuffmanTree()
     uint8_t adjustedDepthIdx = 0;
     while (numberOfPrefixes > 32 || mDepth > MAX_CODE_LENGTH)
     {
-        DEBUG_PRINT("");
-        DEBUG_PRINT("Rounding shift: " << (int)roundingShift);
         numberOfPrefixes = 0;
         addedSymbols = 0;
         lastCode = -1;
@@ -231,14 +230,12 @@ void Compressor::buildHuffmanTree()
         adjustedDepthIdx = 0;
         for (uint16_t i = 0; i < MAX_NUMBER_OF_CODES * 2 && processedSymbols; i++)
         {
-            DEBUG_PRINT("Depth: " << (int)i << " Symbols: " << symbolsPerDepth[i]);
             uint16_t adjustedSymbols = symbolsPerDepth[i];
             
             if (symbolsPerDepth[i] != 0 || addedSymbols >= processedSymbols)
             {
                 adjustedSymbols += addedSymbols;
                 adjustedSymbols = processedSymbols < adjustedSymbols ? processedSymbols : adjustedSymbols;
-                DEBUG_PRINT("Adjusted symbols: " << adjustedSymbols);
                 lastCode = (lastCode + 1) << (i - lastDepth);
                 lastDepth = i;
                 uint16_t symbolsToInsert = adjustedSymbols;
@@ -248,19 +245,13 @@ void Compressor::buildHuffmanTree()
                     symbolsToInsert <<= roundingShift;
                 }
                 addedSymbols = adjustedSymbols - symbolsToInsert;
-                DEBUG_PRINT("Added symbols: " << addedSymbols << " Symbols to insert: " << symbolsToInsert);
+                
                 while (symbolsToInsert)
                 {
                     uint8_t trailingZeros = countr_zero(lastCode);
                     uint64_t fits = 1 << trailingZeros;
                     fits = symbolsToInsert < fits ? symbolsToInsert : fits;
                     uint8_t leadingZeros = 64 - countl_zero(fits);
-                    uint16_t minZeros = min(leadingZeros, trailingZeros);
-                    uint16_t prefix = lastCode;
-                    uint16_t prefixLength = i - minZeros;
-                    prefix <<= 16 - i;
-                    uint16_t mask = (~0U) << (16 - i + minZeros);
-                    DEBUG_PRINT("Prefix: " << bitset<16>(prefix) << " " << bitset<16>(mask) << " " << prefixLength << " Depth: " << (int)i << " Symbols: " << (int)fits);
                     lastCode += fits;
                     symbolsToInsert -= fits;
                     processedSymbols -= fits;
@@ -275,16 +266,10 @@ void Compressor::buildHuffmanTree()
             addedSymbols <<= 1;
             mDepth = i;
         }
-        DEBUG_PRINT("Number of prefixes: " << numberOfPrefixes);
         roundingShift++;
     }
-    DEBUG_PRINT("Round shift: " << (int)roundingShift);
-    _depths = _adjustedDepths;
-    for (uint16_t i = 0; i < 256; i++)
-    {
-        DEBUG_PRINT("adj index: " << (int)_depths[i]);
-    }
-    
+    DEBUG_PRINT("Rounding shift: " << (int)--roundingShift);
+
 
     /*uint32_t overpay = 0;
     for (uint16_t i = 0; i < MAX_NUMBER_OF_CODES * 2; i++)
@@ -416,14 +401,13 @@ void Compressor::populateCodeTable()
     {
         uint64_t bits[4];
         reinterpret_cast<uint64v4_t *>(bits)[0] = _mm256_setzero_si256();
-        _usedDepths |= 1U << _depths[i];
-        DEBUG_PRINT("Depth: " << (int)_depths[i]);
+        _usedDepths |= 1U << _adjustedDepths[i];
         uint8_t symbol = 255 - _symbols[i];
         bits[3] = (uint64_t)(symbol < 64) << symbol;
         bits[2] = (uint64_t)(symbol < 128 && symbol >= 64) << (symbol - 64);
         bits[1] = (uint64_t)(symbol < 192 && symbol >= 128) << (symbol - 128);
         bits[0] = (uint64_t)(symbol >= 192) << (symbol - 192);
-        _symbolsAtDepths[_depths[i]] = _mm256_or_si256(_symbolsAtDepths[_depths[i]], reinterpret_cast<uint64v4_t *>(bits)[0]);
+        _symbolsAtDepths[_adjustedDepths[i]] = _mm256_or_si256(_symbolsAtDepths[_adjustedDepths[i]], reinterpret_cast<uint64v4_t *>(bits)[0]);
     }
     DEBUG_PRINT("Depths used: " << bitset<32>(_usedDepths));
 
