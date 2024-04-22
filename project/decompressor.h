@@ -79,10 +79,10 @@ private:
     uint16_t _prefixShifts[MAX_NUMBER_OF_CODES];
     uint16_t _suffixShifts[MAX_NUMBER_OF_CODES];
 
-    uint16v16_t _codePrefixesVector __attribute__((aligned(64)));
+    uint16v32_t _codePrefixesVector __attribute__((aligned(64)));
     uint16_t *_codePrefixes{reinterpret_cast<uint16_t *>(&_codePrefixesVector)};
 
-    uint16v16_t _codeMasksVector;
+    uint16v32_t _codeMasksVector;
     uint16_t *_codeMasks{reinterpret_cast<uint16_t *>(&_codeMasksVector)};
 };
 

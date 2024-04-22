@@ -24,6 +24,7 @@
 
 using symbol_t = uint8_t;
 using uint16v16_t = __m256i;
+using uint16v32_t = __m512i;
 using uint8v8_t = uint64_t;
 using uint8v16_t = __m128i;
 using uint8v32_t = __m256i;

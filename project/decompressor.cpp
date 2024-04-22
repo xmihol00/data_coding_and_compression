@@ -303,33 +303,35 @@ void Decompressor::parseBitmapHuffmanTree(uint16_t &readBytes)
         #endif
             uint8_t delta = i - lastDepth;
             lastCode = (lastCode + 1) << delta;
+            uint16_t symbolsToProcess = symbolCount;
 
-            _depthsIndices[masksIdx].depth = i;
-            _depthsIndices[masksIdx].prefixLength = i - 16 + countl_zero(static_cast<uint16_t>(symbolCount - 1));
-            uint16_t additionalPrefix = lastCode & (static_cast<uint16_t>(~0) >> (16 - _depthsIndices[masksIdx].depth + _depthsIndices[masksIdx].prefixLength));
-            if (additionalPrefix)
+            while (symbolsToProcess)
             {
-                _depthsIndices[masksIdx + 1].depth = i;
-                _depthsIndices[masksIdx + 1].prefixLength = _depthsIndices[masksIdx].prefixLength;
+                uint8_t trailingZeros = countr_zero(lastCode);
+                uint64_t fits = 1 << trailingZeros;
+                fits = symbolsToProcess < fits ? symbolsToProcess : fits;
+                uint8_t leadingZeros = 64 - countl_zero(fits);
+                uint16_t minZeros = min(leadingZeros, trailingZeros);
+                uint16_t prefix = lastCode;
+                uint16_t prefixLength = i - minZeros;
+                prefix <<= 16 - i;
+                uint16_t mask = (~0U) << (16 - i + minZeros);
+                DEBUG_PRINT("Prefix: " << bitset<16>(prefix) << " " << bitset<16>(mask) << " " << prefixLength << " Depth: " << (int)i << " Symbols: " << (int)fits);
+                lastCode += fits;
+                symbolsToProcess -= fits;
+
                 _depthsIndices[masksIdx].depth = i;
-                _depthsIndices[masksIdx].prefixLength = lastDepth;
+                _depthsIndices[masksIdx].prefixLength = prefixLength;
                 _depthsIndices[masksIdx].symbolsAtDepthIndex = depthIdx;
                 _depthsIndices[masksIdx].masksIndex = masksIdx;
                 _indexPrefixLengths[masksIdx].index = masksIdx;
                 _indexPrefixLengths[masksIdx].prefixLength = _depthsIndices[masksIdx].prefixLength;
 
                 masksIdx++;
-
             }
-            _depthsIndices[masksIdx].symbolsAtDepthIndex = depthIdx;
-            _depthsIndices[masksIdx].masksIndex = masksIdx;
-            _indexPrefixLengths[masksIdx].index = masksIdx;
-            _indexPrefixLengths[masksIdx].prefixLength = _depthsIndices[masksIdx].prefixLength;
 
-
-            masksIdx++;
-            depthIdx++;
             lastCode += symbolCount - 1;
+            depthIdx++;
             lastDepth = i;
         }
     }
@@ -353,7 +355,6 @@ void Decompressor::parseBitmapHuffmanTree(uint16_t &readBytes)
         _prefixIndices[_depthsIndices[i].masksIndex] = symbolIdx;
         _prefixShifts[_depthsIndices[i].masksIndex] = _depthsIndices[i].prefixLength;
         _suffixShifts[_depthsIndices[i].masksIndex] = 16 - _depthsIndices[i].depth + _depthsIndices[i].prefixLength;
-        symbolIdx += lastCode & (static_cast<uint16_t>(~0) >> (16 - _depthsIndices[i].depth + _depthsIndices[i].prefixLength));
 
         int16_t maxSymbols = 1 << (_depthsIndices[i].depth - _depthsIndices[i].prefixLength);
         uint16_t lastSymbolIdx = symbolIdx;
@@ -442,14 +443,15 @@ void Decompressor::parseBitmapHuffmanTree(uint16_t &readBytes)
         }
     }
 #endif
-    _codePrefixesVector = _mm256_and_si256(_codeMasksVector, _codePrefixesVector);
+    //_codePrefixesVector = _mm256_and_si256(_codeMasksVector, _codePrefixesVector);
     
-    for (uint16_t i = 0; i < MAX_NUMBER_OF_CODES; i++)
+    for (uint16_t i = 0; i < MAX_NUMBER_OF_CODES * 2; i++)
     {
         bitset<16> prefix(_codePrefixes[i]);
         bitset<16> mask(_codeMasks[i]);
         DEBUG_PRINT(i << ": " << prefix << " " << mask << " " << (int)_prefixShifts[i] << " " << (int)_suffixShifts[i] << " " << (int)_prefixIndices[i]);
     }
+    exit(0);
 }
 
 void Decompressor::parseThreadingInfo()
@@ -509,21 +511,21 @@ void Decompressor::parseHeader()
 void Decompressor::transformRLE(uint16_t *compressedData, symbol_t *decompressedData, uint64_t bytesToDecompress)
 {
     DEBUG_PRINT("Thread: " << omp_get_thread_num() << " bytesToDecompress: " << bytesToDecompress);
-#if __AVX512BW__ && __AVX512VL__
+#if __AVX512BW__ && __AVX512VL__ || 1
     bool overflow;
     uint64_t decompressedIdx = 0;
     uint32_t currentIdx = 0;
     uint32_t nextIdx = 1;
     uint16_t bitLength = 0;
     uint16_t inverseBitLength = 16;
-    uint16v16_t prefixes = _codePrefixesVector;
-    uint16v16_t masks = _codeMasksVector;
+    uint16v32_t prefixes = _codePrefixesVector;
+    uint16v32_t masks = _codeMasksVector;
     uint16_t current = (compressedData[currentIdx] << bitLength) | (compressedData[nextIdx] >> inverseBitLength);
     DEBUG_PRINT("Current: " << bitset<16>(current));
-    uint16v16_t currentVector = _mm256_set1_epi16(current);
-    uint16v16_t masked = _mm256_and_si256(currentVector, masks);
-    uint16v16_t xored = _mm256_xor_si256(prefixes, masked);
-    uint16_t prefixBitMap = _mm256_cmp_epi16_mask(xored, _mm256_setzero_si256(), _MM_CMPINT_EQ);
+    uint16v32_t currentVector = _mm512_set1_epi16(current);
+    uint16v32_t masked = _mm512_and_si512(currentVector, masks);
+    uint16v32_t xored = _mm512_xor_si512(prefixes, masked);
+    uint32_t prefixBitMap = _mm512_cmp_epi16_mask(xored, _mm512_setzero_si512(), _MM_CMPINT_EQ);
     DEBUG_PRINT("PrefixBitMap: " << bitset<16>(prefixBitMap));
     uint8_t prefixIdx = countl_zero(prefixBitMap);
     DEBUG_PRINT("PrefixIdx: " << (int)prefixIdx);
@@ -547,10 +549,10 @@ void Decompressor::transformRLE(uint16_t *compressedData, symbol_t *decompressed
         //DEBUG_PRINT("BitLength: " << (int)bitLength);
         current = (compressedData[currentIdx] << bitLength) | (compressedData[nextIdx] >> inverseBitLength);
         //DEBUG_PRINT("Current: " << bitset<16>(current));
-        currentVector = _mm256_set1_epi16(current);
-        masked = _mm256_and_si256(currentVector, masks);
-        xored = _mm256_xor_si256(prefixes, masked);
-        prefixBitMap = _mm256_cmp_epi16_mask(xored, _mm256_setzero_si256(), _MM_CMPINT_EQ);
+        currentVector = _mm512_set1_epi16(current);
+        masked = _mm512_and_si512(currentVector, masks);
+        xored = _mm512_xor_si512(prefixes, masked);
+        prefixBitMap = _mm512_cmp_epi16_mask(xored, _mm512_setzero_si512(), _MM_CMPINT_EQ);
         //DEBUG_PRINT("PrefixBitMap: " << bitset<16>(prefixBitMap));
         prefixIdx = countl_zero(prefixBitMap);
         //DEBUG_PRINT("PrefixIdx: " << (int)prefixIdx);

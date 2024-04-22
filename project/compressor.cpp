@@ -209,6 +209,7 @@ void Compressor::buildHuffmanTree()
         }
         _symbolsParentsDepths[i].depth = nextDepth;
     }
+    _numberOfSymbols = symbolsDepthsIdx;
     
     uint16_t lastCode = -1;
     uint8_t lastDepth = 0;
@@ -217,6 +218,7 @@ void Compressor::buildHuffmanTree()
     uint8_t roundingShift = 0;
     int16_t processedSymbols = 0;
     uint8_t mDepth = _depths[symbolsDepthsIdx - 1];
+    uint8_t adjustedDepthIdx = 0;
     while (numberOfPrefixes > 32 || mDepth > MAX_CODE_LENGTH)
     {
         DEBUG_PRINT("");
@@ -226,6 +228,7 @@ void Compressor::buildHuffmanTree()
         lastCode = -1;
         lastDepth = 0;
         processedSymbols = symbolsDepthsIdx;
+        adjustedDepthIdx = 0;
         for (uint16_t i = 0; i < MAX_NUMBER_OF_CODES * 2 && processedSymbols; i++)
         {
             DEBUG_PRINT("Depth: " << (int)i << " Symbols: " << symbolsPerDepth[i]);
@@ -262,6 +265,10 @@ void Compressor::buildHuffmanTree()
                     symbolsToInsert -= fits;
                     processedSymbols -= fits;
                     numberOfPrefixes++;
+                    for (uint16_t j = 0; j < fits; j++)
+                    {
+                        _adjustedDepths[adjustedDepthIdx++] = i;
+                    }
                 }
                 lastCode--;
             }
@@ -272,9 +279,14 @@ void Compressor::buildHuffmanTree()
         roundingShift++;
     }
     DEBUG_PRINT("Round shift: " << (int)roundingShift);
-    exit(1);
+    _depths = _adjustedDepths;
+    for (uint16_t i = 0; i < 256; i++)
+    {
+        DEBUG_PRINT("adj index: " << (int)_depths[i]);
+    }
+    
 
-    uint32_t overpay = 0;
+    /*uint32_t overpay = 0;
     for (uint16_t i = 0; i < MAX_NUMBER_OF_CODES * 2; i++)
     {
         //symbolsPerDepth[i] += overpay;
@@ -307,7 +319,6 @@ void Compressor::buildHuffmanTree()
     {
         DEBUG_PRINT("Depth: " << (int)i << " Symbols: " << symbolsPerDepth[i]);
     }
-    exit(1);
     DEBUG_PRINT("Symbols and depths sorted");
 
     _numberOfSymbols = symbolsDepthsIdx;
@@ -374,7 +385,7 @@ void Compressor::buildHuffmanTree()
         depth++;
     }
     DEBUG_PRINT("Tree rebalanced");
-    DEBUG_PRINT("Last depth: " << (int)_depths[_numberOfSymbols - 1]);
+    DEBUG_PRINT("Last depth: " << (int)_depths[_numberOfSymbols - 1]);*/
 
     DEBUG_PRINT("Huffman tree built");
 }
@@ -406,6 +417,7 @@ void Compressor::populateCodeTable()
         uint64_t bits[4];
         reinterpret_cast<uint64v4_t *>(bits)[0] = _mm256_setzero_si256();
         _usedDepths |= 1U << _depths[i];
+        DEBUG_PRINT("Depth: " << (int)_depths[i]);
         uint8_t symbol = 255 - _symbols[i];
         bits[3] = (uint64_t)(symbol < 64) << symbol;
         bits[2] = (uint64_t)(symbol < 128 && symbol >= 64) << (symbol - 64);

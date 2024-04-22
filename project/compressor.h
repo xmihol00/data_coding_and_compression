@@ -62,6 +62,7 @@ private:
     HuffmanCode *_codeTable{reinterpret_cast<HuffmanCode *>(_memoryPool)};
     symbol_t *_symbols{reinterpret_cast<symbol_t *>(_memoryPool + NUMBER_OF_SYMBOLS * sizeof(HuffmanCode))};
     uint8_t *_depths{reinterpret_cast<uint8_t *>(_memoryPool + NUMBER_OF_SYMBOLS * sizeof(HuffmanCode) + NUMBER_OF_SYMBOLS * sizeof(symbol_t))};
+    uint8_t *_adjustedDepths{reinterpret_cast<uint8_t *>(_memoryPool + NUMBER_OF_SYMBOLS * sizeof(HuffmanCode) + 2 * NUMBER_OF_SYMBOLS * sizeof(symbol_t))};
     uint8_t *_compressedDepthMaps{reinterpret_cast<uint8_t *>(_memoryPool)};
     
     bool _compressionUnsuccessful{false};
