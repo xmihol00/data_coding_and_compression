@@ -2,6 +2,8 @@
 
 using namespace std;
 
+#define ALLOW_AVX 0
+
 Compressor::Compressor(bool model, bool adaptive, uint64_t width, int32_t numberOfThreads)
     : HuffmanRLECompression(model, adaptive, width, numberOfThreads) { }
 
@@ -129,7 +131,7 @@ void Compressor::buildHuffmanTree()
     DEBUG_PRINT("Starting sorting symbols");
     while (true)
     {
-    #if __AVX512F__ && 0
+    #if __AVX512F__ && ALLOW_AVX
         uint64v8_t min1 = _vectorHistogram[0];
         uint64v8_t min2 = _vectorHistogram[1];
         #pragma GCC unroll (NUMBER_OF_SYMBOLS / 16)
@@ -218,7 +220,7 @@ void Compressor::buildHuffmanTree()
     _numberOfSymbols = symbolsDepthsIdx;
     DEBUG_PRINT("Number of symbols: " << _numberOfSymbols);
 
-#if __AVX512BW__ && __AVX512VL__ && false
+#if __AVX512BW__ && __AVX512VL__ && ALLOW_AVX
     uint16_t lastCode = -1;
     uint8_t lastDepth = 0;
     uint16_t numberOfPrefixes = 33;
@@ -398,6 +400,7 @@ void Compressor::populateCodeTable()
             uint64v4_t bitsVector = _mm256_load_si256(_symbolsAtDepths + i);
             uint64_t *bits = reinterpret_cast<uint64_t *>(&bitsVector);
             lastCode = (lastCode + 1) << delta;
+            DEBUG_PRINT("Depth: " << (int)i << " last code: " << bitset<16>(lastCode));
             lastCode--;
             uint16_t oldCode = lastCode;
 
@@ -676,7 +679,7 @@ void Compressor::compressDepthMaps()
         if (i != _mostPopulatedDepthIdx)
         {    
             uint8_t *depthBytes = reinterpret_cast<uint8_t *>(_symbolsAtDepths + i);
-        #if __AVX512BW__ && __AVX512VL__ && 0
+        #if __AVX512BW__ && __AVX512VL__ && ALLOW_AVX
             uint32_t mask = _mm256_cmp_epi8_mask(_symbolsAtDepths[i], _mm256_setzero_si256(), _MM_CMPINT_NE);
         #else
             uint32_t mask = 0;

@@ -31,7 +31,7 @@ for switch in "" "-a" "-m" "-m -a"; do
 
         rm -f compressed_files/*
         rm -f decompressed_files/*
-        for file in $data_dir/*; do
+        for file in $data_dir/*.raw; do
             echo "Testing $file"
             basename=$(basename $file)
             file_size=$(wc -c < $file)
