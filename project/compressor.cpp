@@ -195,6 +195,7 @@ void Compressor::buildHuffmanTree()
     DEBUG_PRINT("Symbols sorted");
 
     DEBUG_PRINT("Building the tree");
+    uint16_t symbolsPerDepth[MAX_NUMBER_OF_CODES * 2] = {0};
     int16_t symbolsDepthsIdx = 0;
     for (uint16_t i = sortedIdx; i > 0; i--)
     {
@@ -203,10 +204,101 @@ void Compressor::buildHuffmanTree()
         {
             _symbols[symbolsDepthsIdx] = _symbolsParentsDepths[i].symbol;
             _depths[symbolsDepthsIdx] = nextDepth;
+            symbolsPerDepth[nextDepth]++;
             symbolsDepthsIdx++;
         }
         _symbolsParentsDepths[i].depth = nextDepth;
     }
+    
+    uint16_t lastCode = -1;
+    uint8_t lastDepth = 0;
+    uint16_t numberOfPrefixes = 33;
+    uint16_t addedSymbols = 0;
+    uint8_t roundingShift = 0;
+    uint16_t processedSymbols = 0;
+    while (numberOfPrefixes > 32)
+    {
+        DEBUG_PRINT("");
+        DEBUG_PRINT("Rounding shift: " << (int)roundingShift);
+        numberOfPrefixes = 0;
+        addedSymbols = 0;
+        lastCode = -1;
+        lastDepth = 0;
+        processedSymbols = symbolsDepthsIdx;
+        for (uint16_t i = 0; i < MAX_NUMBER_OF_CODES * 2; i++)
+        {
+            DEBUG_PRINT("Depth: " << (int)i << " Symbols: " << symbolsPerDepth[i]);
+            uint16_t adjustedSymbols = symbolsPerDepth[i];
+            
+            if (symbolsPerDepth[i] != 0 || addedSymbols >= processedSymbols)
+            {
+                adjustedSymbols += addedSymbols < processedSymbols ? addedSymbols : processedSymbols;
+                DEBUG_PRINT("Adjusted symbols: " << adjustedSymbols);
+                lastCode = (lastCode + 1) << (i - lastDepth);
+                lastDepth = i;
+                uint16_t symbolsToInsert = adjustedSymbols;
+                symbolsToInsert >>= roundingShift;
+                symbolsToInsert <<= roundingShift;
+                addedSymbols = adjustedSymbols - symbolsToInsert;
+                DEBUG_PRINT("Added symbols: " << addedSymbols << " Symbols to insert: " << symbolsToInsert);
+                while (symbolsToInsert)
+                {
+                    uint8_t trailingZeros = countr_zero(lastCode);
+                    uint64_t fits = 1 << trailingZeros;
+                    fits = symbolsToInsert < fits ? symbolsToInsert : fits;
+                    uint16_t prefix = lastCode;
+                    prefix <<= 16 - i;
+                    uint16_t prefixLength = 15 - i;
+                    prefix |= 1 << prefixLength;
+                    DEBUG_PRINT("Prefix: " << bitset<16>(prefix) << " Depth: " << (int)i << " Symbols: " << (int)fits);
+                    lastCode += fits;
+                    symbolsToInsert -= fits;
+                    processedSymbols -= fits;
+                    numberOfPrefixes++;
+                }
+                lastCode--;
+            }
+            addedSymbols <<= 1;
+        }
+        DEBUG_PRINT("Number of prefixes: " << numberOfPrefixes);
+        roundingShift++;
+    }
+    exit(1);
+
+    uint32_t overpay = 0;
+    for (uint16_t i = 0; i < MAX_NUMBER_OF_CODES * 2; i++)
+    {
+        //symbolsPerDepth[i] += overpay;
+        if (symbolsPerDepth[i] != 0)
+        {
+            uint8_t leadingZerosDown = 15 - countl_zero(symbolsPerDepth[i]);
+            uint8_t leadingZerosUp = leadingZerosDown + 1;
+            uint16_t roundedDown = 1 << leadingZerosDown;
+            uint16_t roundedUp = 1 << leadingZerosUp;
+            uint16_t upDifference = roundedUp - symbolsPerDepth[i];
+            uint16_t downDifference = symbolsPerDepth[i] - roundedDown;
+            if (upDifference < downDifference)
+            {
+                symbolsPerDepth[i] = roundedUp;
+                overpay = upDifference;
+            }
+            else
+            {
+                symbolsPerDepth[i] = roundedDown;
+                symbolsPerDepth[i + i] += downDifference;
+            }
+            overpay = symbolsPerDepth[i] - roundedDown;
+            symbolsPerDepth[i] = roundedDown;
+        }
+        overpay <<= 1;
+    }
+    
+    DEBUG_PRINT("Symbols per depth rounded");
+    for (uint16_t i = 0; i < MAX_NUMBER_OF_CODES * 2; i++)
+    {
+        DEBUG_PRINT("Depth: " << (int)i << " Symbols: " << symbolsPerDepth[i]);
+    }
+    exit(1);
     DEBUG_PRINT("Symbols and depths sorted");
 
     _numberOfSymbols = symbolsDepthsIdx;
