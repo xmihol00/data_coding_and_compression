@@ -2,7 +2,7 @@
 
 using namespace std;
 
-#define ALLOW_AVX 0
+#define ALLOW_AVX 1
 
 Compressor::Compressor(bool model, bool adaptive, uint64_t width, int32_t numberOfThreads)
     : HuffmanRLECompression(model, adaptive, width, numberOfThreads) { }
@@ -374,14 +374,28 @@ void Compressor::populateCodeTable()
     for (uint16_t i = 0; i < _numberOfSymbols; i++)
     {
         uint64_t bits[4];
+    #if __AVX2__ && ALLOW_AVX
         reinterpret_cast<uint64v4_t *>(bits)[0] = _mm256_setzero_si256();
+    #else
+        bits[0] = 0;
+        bits[1] = 0;
+        bits[2] = 0;
+        bits[3] = 0;
+    #endif
         _usedDepths |= 1U << _adjustedDepths[i];
         uint8_t symbol = 255 - _symbols[i];
         bits[3] = (uint64_t)(symbol < 64) << symbol;
         bits[2] = (uint64_t)(symbol < 128 && symbol >= 64) << (symbol - 64);
         bits[1] = (uint64_t)(symbol < 192 && symbol >= 128) << (symbol - 128);
         bits[0] = (uint64_t)(symbol >= 192) << (symbol - 192);
+    #if __AVX2__ && ALLOW_AVX
         _symbolsAtDepths[_adjustedDepths[i]] = _mm256_or_si256(_symbolsAtDepths[_adjustedDepths[i]], reinterpret_cast<uint64v4_t *>(bits)[0]);
+    #else
+        reinterpret_cast<uint64_t *>(_symbolsAtDepths + _adjustedDepths[i])[0] |= bits[0];
+        reinterpret_cast<uint64_t *>(_symbolsAtDepths + _adjustedDepths[i])[1] |= bits[1];
+        reinterpret_cast<uint64_t *>(_symbolsAtDepths + _adjustedDepths[i])[2] |= bits[2];
+        reinterpret_cast<uint64_t *>(_symbolsAtDepths + _adjustedDepths[i])[3] |= bits[3];
+    #endif
     }
     DEBUG_PRINT("Depths used: " << bitset<32>(_usedDepths));
 
@@ -397,10 +411,17 @@ void Compressor::populateCodeTable()
         if (_usedDepths & (1UL << i))
         {
             _symbolsAtDepths[depthIndex++] = _symbolsAtDepths[i];
+        #if __AVX2__ && ALLOW_AVX
             uint64v4_t bitsVector = _mm256_load_si256(_symbolsAtDepths + i);
             uint64_t *bits = reinterpret_cast<uint64_t *>(&bitsVector);
+        #else
+            uint64_t bits[4];
+            bits[0] = reinterpret_cast<uint64_t *>(_symbolsAtDepths + i)[0];
+            bits[1] = reinterpret_cast<uint64_t *>(_symbolsAtDepths + i)[1];
+            bits[2] = reinterpret_cast<uint64_t *>(_symbolsAtDepths + i)[2];
+            bits[3] = reinterpret_cast<uint64_t *>(_symbolsAtDepths + i)[3];
+        #endif
             lastCode = (lastCode + 1) << delta;
-            DEBUG_PRINT("Depth: " << (int)i << " last code: " << bitset<16>(lastCode));
             lastCode--;
             uint16_t oldCode = lastCode;
 
@@ -538,13 +559,21 @@ void Compressor::createHeader()
 
     compressDepthMaps();
 
+    #if __AVX2__ && ALLOW_AVX
+        reinterpret_cast<uint16v16_t *>(_headerBuffer)[0] = _mm256_setzero_si256(); // clear the buffer
+    #else
+        reinterpret_cast<uint64_t *>(_headerBuffer)[0] = 0;
+        reinterpret_cast<uint64_t *>(_headerBuffer)[1] = 0;
+        reinterpret_cast<uint64_t *>(_headerBuffer)[2] = 0;
+        reinterpret_cast<uint64_t *>(_headerBuffer)[3] = 0;
+    #endif
+
     if (_numberOfThreads > 1)
     {
         DEBUG_PRINT("Multi-threaded header with: " << _numberOfThreads << " threads");
         uint16_t maxBitsCompressedSizes;
         packCompressedSizes(maxBitsCompressedSizes);
-        
-        reinterpret_cast<uint16v16_t *>(_headerBuffer)[0] = _mm256_setzero_si256(); // clear the buffer
+    
         DepthBitmapsMultiThreadedHeader &header = reinterpret_cast<DepthBitmapsMultiThreadedHeader &>(_headerBuffer);
         header.clearFirstByte();
         header.insertHeaderType(MULTI_THREADED);
@@ -559,7 +588,6 @@ void Compressor::createHeader()
     else
     {
         DEBUG_PRINT("Single-threaded header");
-        reinterpret_cast<uint16v16_t *>(_headerBuffer)[0] = _mm256_setzero_si256(); // clear the buffer
         DepthBitmapsHeader &header = reinterpret_cast<DepthBitmapsHeader &>(_headerBuffer);
         header.clearFirstByte();
         header.insertHeaderType(SINGLE_THREADED);
@@ -653,11 +681,27 @@ void Compressor::compressDepthMaps()
     uint16_t numberOfMaps = popcount(_usedDepths);
     if (_numberOfSymbols < 256) // put the unseen symbols at the 0th depth, which is going to be the last one
     {
+    #if __AVX2__ && ALLOW_AVX
         _symbolsAtDepths[numberOfMaps] = _mm256_set1_epi32(0xffff'ffff);
         for (uint16_t i = 0; i < numberOfMaps; i++)
         {
             _symbolsAtDepths[numberOfMaps] = _mm256_xor_si256(_symbolsAtDepths[numberOfMaps], _symbolsAtDepths[i]);
         }
+    #else
+        uint64_t *symbolsUnpacked = reinterpret_cast<uint64_t *>(_symbolsAtDepths + numberOfMaps);
+        for (uint16_t i = 0; i < 4; i++)
+        {
+            symbolsUnpacked[i] = 0xffff'ffff'ffff'ffff;
+        }
+        for (uint16_t i = 0; i < numberOfMaps; i++)
+        {
+            uint64_t *bits = reinterpret_cast<uint64_t *>(_symbolsAtDepths + i);
+            for (uint16_t j = 0; j < 4; j++)
+            {
+                symbolsUnpacked[j] ^= bits[j];
+            }
+        }
+    #endif
 
         uint16_t numberOfUnseenSymbols = 256 - _numberOfSymbols;
         if (numberOfUnseenSymbols > _maxSymbolsPerDepth)

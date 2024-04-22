@@ -2,7 +2,7 @@
 
 using namespace std;
 
-#define ALLOW_AVX 0
+#define ALLOW_AVX 1
 
 Decompressor::Decompressor(int32_t numberOfThreads)
     : HuffmanRLECompression(false, false, 0, numberOfThreads) { }
@@ -222,8 +222,16 @@ void Decompressor::parseBitmapHuffmanTree(uint16_t &readBytes)
                 mask |= _rawDepthBitmaps[rawDepthBitmapsIdx++] << 8;
                 mask |= _rawDepthBitmaps[rawDepthBitmapsIdx++];
 
+            #if __AVX2__ && ALLOW_AVX
                 _symbolsAtDepths[depthIdx] = _mm256_setzero_si256();
                 uint8_t *depthBytes = reinterpret_cast<uint8_t *>(_symbolsAtDepths + depthIdx);
+            #else
+                uint8_t *depthBytes = reinterpret_cast<uint8_t *>(_symbolsAtDepths + depthIdx);
+                for (uint8_t j = 0; j < 32; j++)
+                {
+                    depthBytes[j] = 0;
+                }
+            #endif
                 while (mask)
                 {
                     uint8_t firstSetBit = 31 - countl_zero(mask);
@@ -245,8 +253,16 @@ void Decompressor::parseBitmapHuffmanTree(uint16_t &readBytes)
             mask |= _rawDepthBitmaps[rawDepthBitmapsIdx++] << 8;
             mask |= _rawDepthBitmaps[rawDepthBitmapsIdx++];
 
-            _symbolsAtDepths[depthIdx] = _mm256_setzero_si256();
-            uint8_t *depthBytes = reinterpret_cast<uint8_t *>(_symbolsAtDepths + depthIdx);
+            #if __AVX2__ && ALLOW_AVX
+                _symbolsAtDepths[depthIdx] = _mm256_setzero_si256();
+                uint8_t *depthBytes = reinterpret_cast<uint8_t *>(_symbolsAtDepths + depthIdx);
+            #else
+                uint8_t *depthBytes = reinterpret_cast<uint8_t *>(_symbolsAtDepths + depthIdx);
+                for (uint8_t j = 0; j < 32; j++)
+                {
+                    depthBytes[j] = 0;
+                }
+            #endif
             while (mask)
             {
                 uint8_t firstSetBit = 31 - countl_zero(mask);
@@ -259,12 +275,29 @@ void Decompressor::parseBitmapHuffmanTree(uint16_t &readBytes)
 
     if (missingDepth != 0)
     {
+    #if __AVX2__ && ALLOW_AVX
         _symbolsAtDepths[recoverDepthIdx] = _mm256_set1_epi32(0xffff'ffff);
+    #else
+        uint64_t *bits = reinterpret_cast<uint64_t *>(_symbolsAtDepths + recoverDepthIdx);
+        bits[0] = 0xffff'ffff'ffff'ffff;
+        bits[1] = 0xffff'ffff'ffff'ffff;
+        bits[2] = 0xffff'ffff'ffff'ffff;
+        bits[3] = 0xffff'ffff'ffff'ffff;
+    #endif
         for (uint8_t i = 0; i <= depthIdx; i++)
         {
             if (i != recoverDepthIdx)
             {
+            #if __AVX2__ && ALLOW_AVX
                 _symbolsAtDepths[recoverDepthIdx] = _mm256_xor_si256(_symbolsAtDepths[recoverDepthIdx], _symbolsAtDepths[i]);
+            #else
+                uint64_t *bits = reinterpret_cast<uint64_t *>(_symbolsAtDepths + recoverDepthIdx);
+                uint64_t *otherBits = reinterpret_cast<uint64_t *>(_symbolsAtDepths + i);
+                bits[0] ^= otherBits[0];
+                bits[1] ^= otherBits[1];
+                bits[2] ^= otherBits[2];
+                bits[3] ^= otherBits[3];
+            #endif
             }
         }
     }
