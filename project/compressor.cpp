@@ -215,8 +215,9 @@ void Compressor::buildHuffmanTree()
     uint16_t numberOfPrefixes = 33;
     uint16_t addedSymbols = 0;
     uint8_t roundingShift = 0;
-    uint16_t processedSymbols = 0;
-    while (numberOfPrefixes > 32)
+    int16_t processedSymbols = 0;
+    uint8_t mDepth = _depths[symbolsDepthsIdx - 1];
+    while (numberOfPrefixes > 32 || mDepth > MAX_CODE_LENGTH)
     {
         DEBUG_PRINT("");
         DEBUG_PRINT("Rounding shift: " << (int)roundingShift);
@@ -225,20 +226,24 @@ void Compressor::buildHuffmanTree()
         lastCode = -1;
         lastDepth = 0;
         processedSymbols = symbolsDepthsIdx;
-        for (uint16_t i = 0; i < MAX_NUMBER_OF_CODES * 2; i++)
+        for (uint16_t i = 0; i < MAX_NUMBER_OF_CODES * 2 && processedSymbols; i++)
         {
             DEBUG_PRINT("Depth: " << (int)i << " Symbols: " << symbolsPerDepth[i]);
             uint16_t adjustedSymbols = symbolsPerDepth[i];
             
             if (symbolsPerDepth[i] != 0 || addedSymbols >= processedSymbols)
             {
-                adjustedSymbols += addedSymbols < processedSymbols ? addedSymbols : processedSymbols;
+                adjustedSymbols += addedSymbols;
+                adjustedSymbols = processedSymbols < adjustedSymbols ? processedSymbols : adjustedSymbols;
                 DEBUG_PRINT("Adjusted symbols: " << adjustedSymbols);
                 lastCode = (lastCode + 1) << (i - lastDepth);
                 lastDepth = i;
                 uint16_t symbolsToInsert = adjustedSymbols;
-                symbolsToInsert >>= roundingShift;
-                symbolsToInsert <<= roundingShift;
+                if (symbolsToInsert != processedSymbols)
+                {
+                    symbolsToInsert >>= roundingShift;
+                    symbolsToInsert <<= roundingShift;
+                }
                 addedSymbols = adjustedSymbols - symbolsToInsert;
                 DEBUG_PRINT("Added symbols: " << addedSymbols << " Symbols to insert: " << symbolsToInsert);
                 while (symbolsToInsert)
@@ -246,11 +251,13 @@ void Compressor::buildHuffmanTree()
                     uint8_t trailingZeros = countr_zero(lastCode);
                     uint64_t fits = 1 << trailingZeros;
                     fits = symbolsToInsert < fits ? symbolsToInsert : fits;
+                    uint8_t leadingZeros = 64 - countl_zero(fits);
+                    uint16_t minZeros = min(leadingZeros, trailingZeros);
                     uint16_t prefix = lastCode;
+                    uint16_t prefixLength = i - minZeros;
                     prefix <<= 16 - i;
-                    uint16_t prefixLength = 15 - i;
-                    prefix |= 1 << prefixLength;
-                    DEBUG_PRINT("Prefix: " << bitset<16>(prefix) << " Depth: " << (int)i << " Symbols: " << (int)fits);
+                    uint16_t mask = (~0U) << (16 - i + minZeros);
+                    DEBUG_PRINT("Prefix: " << bitset<16>(prefix) << " " << bitset<16>(mask) << " " << prefixLength << " Depth: " << (int)i << " Symbols: " << (int)fits);
                     lastCode += fits;
                     symbolsToInsert -= fits;
                     processedSymbols -= fits;
@@ -259,10 +266,12 @@ void Compressor::buildHuffmanTree()
                 lastCode--;
             }
             addedSymbols <<= 1;
+            mDepth = i;
         }
         DEBUG_PRINT("Number of prefixes: " << numberOfPrefixes);
         roundingShift++;
     }
+    DEBUG_PRINT("Round shift: " << (int)roundingShift);
     exit(1);
 
     uint32_t overpay = 0;
