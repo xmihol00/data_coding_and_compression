@@ -129,6 +129,7 @@ void Compressor::buildHuffmanTree()
     DEBUG_PRINT("Starting sorting symbols");
     while (true)
     {
+    #if __AVX512F__ && 0
         uint64v8_t min1 = _vectorHistogram[0];
         uint64v8_t min2 = _vectorHistogram[1];
         #pragma GCC unroll (NUMBER_OF_SYMBOLS / 16)
@@ -157,6 +158,11 @@ void Compressor::buildHuffmanTree()
         min1 = _mm512_min_epi64(min1, min2);
         
         secondMin.intMin = _mm512_reduce_min_epi64(min1);
+    #else
+        firstMin.intMin = min_element(reinterpret_cast<int64_t *>(_structHistogram), reinterpret_cast<int64_t *>(_structHistogram) + NUMBER_OF_SYMBOLS)[0];
+        _structHistogram[firstMin.structMin.index] = MAX_FREQUENCY_SYMBOL_INDEX;
+        secondMin.intMin = min_element(reinterpret_cast<int64_t *>(_structHistogram), reinterpret_cast<int64_t *>(_structHistogram) + NUMBER_OF_SYMBOLS)[0];
+    #endif
 
         uint16_t firstIndex = _parentsSortedIndices[firstMin.structMin.index];
         sortedIdx = firstIndex == 0 ? sortedIdx + 1 : sortedIdx;
@@ -211,16 +217,17 @@ void Compressor::buildHuffmanTree()
     }
     _numberOfSymbols = symbolsDepthsIdx;
     DEBUG_PRINT("Number of symbols: " << _numberOfSymbols);
-    
+
+#if __AVX512BW__ && __AVX512VL__ && false
     uint16_t lastCode = -1;
     uint8_t lastDepth = 0;
     uint16_t numberOfPrefixes = 33;
     uint16_t addedSymbols = 0;
     uint8_t roundingShift = 0;
     int16_t processedSymbols = 0;
-    uint8_t mDepth = _depths[symbolsDepthsIdx - 1];
+    uint8_t maxDepth = _depths[symbolsDepthsIdx - 1];
     uint8_t adjustedDepthIdx = 0;
-    while (numberOfPrefixes > 32 || mDepth > MAX_CODE_LENGTH)
+    while (numberOfPrefixes > 32 || maxDepth > MAX_CODE_LENGTH)
     {
         numberOfPrefixes = 0;
         addedSymbols = 0;
@@ -251,11 +258,11 @@ void Compressor::buildHuffmanTree()
                     uint8_t trailingZeros = countr_zero(lastCode);
                     uint64_t fits = 1 << trailingZeros;
                     fits = symbolsToInsert < fits ? symbolsToInsert : fits;
-                    uint8_t leadingZeros = 64 - countl_zero(fits);
                     lastCode += fits;
                     symbolsToInsert -= fits;
                     processedSymbols -= fits;
                     numberOfPrefixes++;
+
                     for (uint16_t j = 0; j < fits; j++)
                     {
                         _adjustedDepths[adjustedDepthIdx++] = i;
@@ -264,49 +271,12 @@ void Compressor::buildHuffmanTree()
                 lastCode--;
             }
             addedSymbols <<= 1;
-            mDepth = i;
+            maxDepth = i;
         }
         roundingShift++;
     }
     DEBUG_PRINT("Rounding shift: " << (int)--roundingShift);
-
-
-    /*uint32_t overpay = 0;
-    for (uint16_t i = 0; i < MAX_NUMBER_OF_CODES * 2; i++)
-    {
-        //symbolsPerDepth[i] += overpay;
-        if (symbolsPerDepth[i] != 0)
-        {
-            uint8_t leadingZerosDown = 15 - countl_zero(symbolsPerDepth[i]);
-            uint8_t leadingZerosUp = leadingZerosDown + 1;
-            uint16_t roundedDown = 1 << leadingZerosDown;
-            uint16_t roundedUp = 1 << leadingZerosUp;
-            uint16_t upDifference = roundedUp - symbolsPerDepth[i];
-            uint16_t downDifference = symbolsPerDepth[i] - roundedDown;
-            if (upDifference < downDifference)
-            {
-                symbolsPerDepth[i] = roundedUp;
-                overpay = upDifference;
-            }
-            else
-            {
-                symbolsPerDepth[i] = roundedDown;
-                symbolsPerDepth[i + i] += downDifference;
-            }
-            overpay = symbolsPerDepth[i] - roundedDown;
-            symbolsPerDepth[i] = roundedDown;
-        }
-        overpay <<= 1;
-    }
-    
-    DEBUG_PRINT("Symbols per depth rounded");
-    for (uint16_t i = 0; i < MAX_NUMBER_OF_CODES * 2; i++)
-    {
-        DEBUG_PRINT("Depth: " << (int)i << " Symbols: " << symbolsPerDepth[i]);
-    }
-    DEBUG_PRINT("Symbols and depths sorted");
-
-    _numberOfSymbols = symbolsDepthsIdx;
+#else
     symbolsDepthsIdx--;
 
     DEBUG_PRINT("Pruning the tree");
@@ -369,8 +339,10 @@ void Compressor::buildHuffmanTree()
 
         depth++;
     }
+    _adjustedDepths = _depths;
     DEBUG_PRINT("Tree rebalanced");
-    DEBUG_PRINT("Last depth: " << (int)_depths[_numberOfSymbols - 1]);*/
+    DEBUG_PRINT("Last depth: " << (int)_depths[_numberOfSymbols - 1]);
+#endif
 
     DEBUG_PRINT("Huffman tree built");
 }
@@ -423,12 +395,12 @@ void Compressor::populateCodeTable()
         if (_usedDepths & (1UL << i))
         {
             _symbolsAtDepths[depthIndex++] = _symbolsAtDepths[i];
-            DEBUG_PRINT("Depth: " << (int)i);
             uint64v4_t bitsVector = _mm256_load_si256(_symbolsAtDepths + i);
             uint64_t *bits = reinterpret_cast<uint64_t *>(&bitsVector);
             lastCode = (lastCode + 1) << delta;
             lastCode--;
             uint16_t oldCode = lastCode;
+
             for (uint8_t j = 0; j < 4; j++)
             {
                 uint8_t symbol = j << 6;
@@ -437,7 +409,6 @@ void Compressor::populateCodeTable()
                 {
                     uint8_t adjustedSymbol = symbol + leadingZeros;
                     lastCode++;
-                    DEBUG_PRINT("Code: " << bitset<16>(lastCode) << " Symbol: " << (int)adjustedSymbol);
                     bits[j] ^= 1UL << (63 - leadingZeros); // remove the current symbol from the bitmap
                     _codeTable[adjustedSymbol].code = lastCode;
                     _codeTable[adjustedSymbol].length = i;
@@ -485,9 +456,7 @@ void Compressor::transformRLE(symbol_t *sourceData, uint16_t *compressedData, ui
         sourceData[_size] = ~sourceData[_size - 1];
     }
     sourceData += startingIdx;
-    DEBUG_PRINT("Starting index: " << startingIdx << " First symbol: " << (char)firstSymbol);
     startingIdx += _threadPadding * threadNumber;
-    DEBUG_PRINT("Starting index with padding: " << startingIdx);
     compressedData += startingIdx >> 1;
 
     #pragma omp barrier // synchronize
@@ -706,20 +675,27 @@ void Compressor::compressDepthMaps()
     {
         if (i != _mostPopulatedDepthIdx)
         {    
+            uint8_t *depthBytes = reinterpret_cast<uint8_t *>(_symbolsAtDepths + i);
+        #if __AVX512BW__ && __AVX512VL__ && 0
             uint32_t mask = _mm256_cmp_epi8_mask(_symbolsAtDepths[i], _mm256_setzero_si256(), _MM_CMPINT_NE);
-            DEBUG_PRINT("Mask: " << bitset<32>(mask) << " at: " << i);
+        #else
+            uint32_t mask = 0;
+            #pragma GCC unroll 32
+            for (uint8_t j = 0; j < 32; j++)
+            {
+                mask |= (depthBytes[j] != 0) << j;
+            }
+        #endif
             _compressedDepthMaps[compressedIdx++] = mask >> 24;
             _compressedDepthMaps[compressedIdx++] = mask >> 16;
             _compressedDepthMaps[compressedIdx++] = mask >> 8;
             _compressedDepthMaps[compressedIdx++] = mask;
 
-            uint8_t *depthBytes = reinterpret_cast<uint8_t *>(_symbolsAtDepths + i);
             while (mask)
             {
                 uint8_t firstSetBit = 31 - countl_zero(mask);
                 mask ^= 1 << firstSetBit;
                 _compressedDepthMaps[compressedIdx++] = depthBytes[firstSetBit];
-                DEBUG_PRINT("Packing: " << bitset<8>(depthBytes[firstSetBit]) << " at: " <<  compressedIdx - 1);
             }
         }
     }

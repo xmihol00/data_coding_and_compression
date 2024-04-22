@@ -415,7 +415,7 @@ void Decompressor::parseThreadingInfo()
 void Decompressor::transformRLE(uint16_t *compressedData, symbol_t *decompressedData, uint64_t bytesToDecompress)
 {
     DEBUG_PRINT("Thread: " << omp_get_thread_num() << " bytesToDecompress: " << bytesToDecompress);
-#if __AVX512BW__ && __AVX512VL__ || 1
+#if __AVX512BW__ && __AVX512VL__
     bool overflow;
     uint64_t decompressedIdx = 0;
     uint32_t currentIdx = 0;

@@ -15,6 +15,9 @@ thread_combinations=(
     "4 2"
     "4 4"
     "8 4"
+    "4 8"
+    "8 8"
+    "8 1"
 )
 
 for switch in "" "-a" "-m" "-m -a"; do
