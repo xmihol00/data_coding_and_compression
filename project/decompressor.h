@@ -55,13 +55,13 @@ private:
         uint16_t cumulativeCodeCount;
         uint16_t index;
         int16_t prefixLength;
-    } _indexPrefixLengthCodeCount[MAX_NUMBER_OF_CODES] __attribute__((aligned(64)));
+    } _indexPrefixLengthCodeCount[MAX_NUMBER_OF_PREFIXES] __attribute__((aligned(64)));
 
     struct IndexPrefixLength
     {
         uint16_t index;
         int16_t prefixLength;
-    } _indexPrefixLengths[MAX_NUMBER_OF_CODES] __attribute__((aligned(64)));
+    } _indexPrefixLengths[MAX_NUMBER_OF_PREFIXES] __attribute__((aligned(64)));
 
     struct DepthIndices
     {
@@ -69,15 +69,15 @@ private:
         uint8_t masksIndex;
         uint8_t depth;
         uint8_t prefixLength;
-    } _depthsIndices[MAX_NUMBER_OF_CODES] __attribute__((aligned(64)));
+    } _depthsIndices[MAX_NUMBER_OF_PREFIXES] __attribute__((aligned(64)));
 
     uint32_t _codeTableLarge[NUMBER_OF_SYMBOLS] __attribute__((aligned(64)));
     uint16_t *_codeTableSmall{reinterpret_cast<uint16_t *>(_codeTableLarge)};
     uint8_t _symbolsTable[NUMBER_OF_SYMBOLS * 2] __attribute__((aligned(64)));
 
-    uint16_t _prefixIndices[MAX_NUMBER_OF_CODES];
-    uint16_t _prefixShifts[MAX_NUMBER_OF_CODES];
-    uint16_t _suffixShifts[MAX_NUMBER_OF_CODES];
+    uint16_t _prefixIndices[MAX_NUMBER_OF_PREFIXES];
+    uint16_t _prefixShifts[MAX_NUMBER_OF_PREFIXES];
+    uint16_t _suffixShifts[MAX_NUMBER_OF_PREFIXES];
 
     uint16v32_t _codePrefixesVector __attribute__((aligned(64)));
     uint16_t *_codePrefixes{reinterpret_cast<uint16_t *>(&_codePrefixesVector)};

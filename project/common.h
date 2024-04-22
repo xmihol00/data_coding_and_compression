@@ -79,6 +79,7 @@ protected:
     static constexpr uint16_t NUMBER_OF_SYMBOLS{256};
     static constexpr uint16_t MAX_CODE_LENGTH{15};
     static constexpr uint16_t MAX_NUMBER_OF_CODES{16};
+    static constexpr uint16_t MAX_NUMBER_OF_PREFIXES{32};
     static constexpr uint16_t BLOCK_SIZE{16};
     static constexpr uint16_t MAX_NUM_THREADS{32};
     static constexpr uint16_t BITS_PER_REPETITION_NUMBER{4};

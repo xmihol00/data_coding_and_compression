@@ -350,13 +350,17 @@ void Decompressor::parseBitmapHuffmanTree(uint16_t &readBytes)
         uint8_t delta = _depthsIndices[i].depth - lastDepth;
         lastDepth = _depthsIndices[i].depth;
         lastCode = (lastCode + 1) << delta;
-        _codePrefixes[15 - _depthsIndices[i].masksIndex] = lastCode << (16 - _depthsIndices[i].depth);
-        _codeMasks[15 - _depthsIndices[i].masksIndex] = (~0U) << (16 - _depthsIndices[i].prefixLength);
+        DEBUG_PRINT("First code: " << bitset<16>(lastCode) << " mask Idx: " << (int)_depthsIndices[i].masksIndex);
+        _codePrefixes[31 - _depthsIndices[i].masksIndex] = lastCode << (16 - _depthsIndices[i].depth);
+        DEBUG_PRINT("Prefix: " << bitset<16>(_codePrefixes[31 - _depthsIndices[i].masksIndex]));
+        _codeMasks[31 - _depthsIndices[i].masksIndex] = (~0U) << (16 - _depthsIndices[i].prefixLength);
+        DEBUG_PRINT("Mask: " << bitset<16>(_codeMasks[31 - _depthsIndices[i].masksIndex]));
         _prefixIndices[_depthsIndices[i].masksIndex] = symbolIdx;
         _prefixShifts[_depthsIndices[i].masksIndex] = _depthsIndices[i].prefixLength;
         _suffixShifts[_depthsIndices[i].masksIndex] = 16 - _depthsIndices[i].depth + _depthsIndices[i].prefixLength;
 
         int16_t maxSymbols = 1 << (_depthsIndices[i].depth - _depthsIndices[i].prefixLength);
+        DEBUG_PRINT("Depth: " << (int)_depthsIndices[i].depth);
         uint16_t lastSymbolIdx = symbolIdx;
         uint64_t *bits = reinterpret_cast<uint64_t *>(_symbolsAtDepths + _depthsIndices[i].symbolsAtDepthIndex);
         for (uint8_t j = 0; j < 4; j++)
@@ -369,10 +373,13 @@ void Decompressor::parseBitmapHuffmanTree(uint16_t &readBytes)
                 uint8_t adjustedSymbol = symbol + leadingZeros;
                 bits[j] ^= 1UL << (63 - leadingZeros);
                 _symbolsTable[symbolIdx++] = adjustedSymbol;
+                DEBUG_PRINT("SymbolIdx: " << symbolIdx << " adjustedSymbol: " << (int)adjustedSymbol);
             }
         }
         lastCode += symbolIdx - lastSymbolIdx - 1;
+        DEBUG_PRINT("last code: " << bitset<16>(lastCode));
     }
+    
 
 #if 0 // TODO
     #if __AVX512BW__ && __AVX512VL__
@@ -445,13 +452,12 @@ void Decompressor::parseBitmapHuffmanTree(uint16_t &readBytes)
 #endif
     //_codePrefixesVector = _mm256_and_si256(_codeMasksVector, _codePrefixesVector);
     
-    for (uint16_t i = 0; i < MAX_NUMBER_OF_CODES * 2; i++)
+    for (uint16_t i = 0; i < MAX_NUMBER_OF_PREFIXES; i++)
     {
         bitset<16> prefix(_codePrefixes[i]);
         bitset<16> mask(_codeMasks[i]);
         DEBUG_PRINT(i << ": " << prefix << " " << mask << " " << (int)_prefixShifts[i] << " " << (int)_suffixShifts[i] << " " << (int)_prefixIndices[i]);
     }
-    exit(0);
 }
 
 void Decompressor::parseThreadingInfo()
