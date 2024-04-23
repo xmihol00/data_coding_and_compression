@@ -1,7 +1,13 @@
 #ifndef _COMMON_H_
 #define _COMMON_H_
 
-#include "omp.h"
+#if _OPENMP
+    #include "omp.h"
+#else
+    constexpr int omp_get_thread_num() { return 0; }
+    constexpr int omp_get_num_threads() { return 1; }
+    constexpr void omp_set_num_threads(int) { }
+#endif
 
 #include <string>
 #include <cstdint>
@@ -15,7 +21,6 @@
 #include <bitset>
 #include <bit>
 
-#define _DEBUG_PRINT_ACTIVE_
 #ifdef _DEBUG_PRINT_ACTIVE_
     #define DEBUG_PRINT(value) std::cerr << value << std::endl
 #else

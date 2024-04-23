@@ -2,8 +2,6 @@
 
 using namespace std;
 
-#define ALLOW_AVX 1
-
 Compressor::Compressor(bool model, bool adaptive, uint64_t width, int32_t numberOfThreads)
     : HuffmanRLECompression(model, adaptive, width, numberOfThreads) { }
 
@@ -30,8 +28,8 @@ Compressor::~Compressor()
 
 void Compressor::computeHistogram()
 {
-    DEBUG_PRINT("Computing histogram with thread " << omp_get_thread_num() << " started");
     int threadId = omp_get_thread_num();
+    DEBUG_PRINT("Thread " << threadId << ": computing histogram");
 
     uint64_t *intHistogram = _intHistogram;
     symbol_t *buffer = _sourceBuffer;
@@ -95,7 +93,7 @@ void Compressor::computeHistogram()
         exit(1);
     }*/
 
-    DEBUG_PRINT("Histogram computed");
+    DEBUG_PRINT("Thread " << threadId << ": histogram computed");
 }
 
 void Compressor::buildHuffmanTree()
@@ -103,9 +101,7 @@ void Compressor::buildHuffmanTree()
     DEBUG_PRINT("Building Huffman tree");
     uint32_t *symbolsParentsDepths = reinterpret_cast<uint32_t *>(_symbolsParentsDepths);
     uint16_t *parentsSortedIndices = _parentsSortedIndices;
-    DEBUG_PRINT("Size: " << sizeof(FrequencySymbolIndex) << " " << sizeof(SymbolParentDepth) << " " << sizeof(uint32_t) << " " << sizeof(uint16_t));
 
-    DEBUG_PRINT("Clearing symbolsParentsDepths and parentsSortedIndices");
     #pragma omp simd aligned(symbolsParentsDepths: 64) simdlen(16)
     for (uint16_t i = 0; i < NUMBER_OF_SYMBOLS; i++)
     {
@@ -116,7 +112,6 @@ void Compressor::buildHuffmanTree()
     {
         parentsSortedIndices[i] = 0;
     }
-    DEBUG_PRINT("Cleared symbolsParentsDepths and parentsSortedIndices");
     
     uint16_t sortedIdx = 0;
     union Minimum
@@ -128,10 +123,9 @@ void Compressor::buildHuffmanTree()
     Minimum firstMin;
     Minimum secondMin;
     
-    DEBUG_PRINT("Starting sorting symbols");
     while (true)
     {
-    #if __AVX512F__ && ALLOW_AVX
+    #if __AVX512F__
         uint64v8_t min1 = _vectorHistogram[0];
         uint64v8_t min2 = _vectorHistogram[1];
         #pragma GCC unroll (NUMBER_OF_SYMBOLS / 16)
@@ -200,9 +194,7 @@ void Compressor::buildHuffmanTree()
         _structHistogram[secondIndex] = nextNode.structMin;
         _parentsSortedIndices[secondIndex] = sortedIdx;
     }
-    DEBUG_PRINT("Symbols sorted");
 
-    DEBUG_PRINT("Building the tree");
     uint16_t symbolsPerDepth[MAX_NUMBER_OF_CODES * 2] = {0};
     int16_t symbolsDepthsIdx = 0;
     for (uint16_t i = sortedIdx; i > 0; i--)
@@ -218,9 +210,8 @@ void Compressor::buildHuffmanTree()
         _symbolsParentsDepths[i].depth = nextDepth;
     }
     _numberOfSymbols = symbolsDepthsIdx;
-    DEBUG_PRINT("Number of symbols: " << _numberOfSymbols);
 
-#if __AVX512BW__ && __AVX512VL__ && ALLOW_AVX
+#if __AVX512BW__ && __AVX512VL__
     uint16_t lastCode = -1;
     uint8_t lastDepth = 0;
     uint16_t numberOfPrefixes = 33;
@@ -277,11 +268,9 @@ void Compressor::buildHuffmanTree()
         }
         roundingShift++;
     }
-    DEBUG_PRINT("Rounding shift: " << (int)--roundingShift);
 #else
     symbolsDepthsIdx--;
 
-    DEBUG_PRINT("Pruning the tree");
     uint8_t maxDepth = _depths[symbolsDepthsIdx];
     constexpr uint16_t decreasedMaxCodeLength = MAX_CODE_LENGTH - 1;
     if (maxDepth > decreasedMaxCodeLength)
@@ -310,14 +299,11 @@ void Compressor::buildHuffmanTree()
             depthIdx--;
         }     
     }
-    DEBUG_PRINT("Tree pruned");
     
-    DEBUG_PRINT("Rebalancing the tree");
     // rebalance the tree
     uint16_t depthIdx = 0;
     uint16_t nodesToRebalance = 1 << (_depths[0] - 1);
     uint8_t depth = _depths[0];
-    DEBUG_PRINT("First depth: " << (int)_depths[0]);
     while (depthIdx < _numberOfSymbols)
     {
         nodesToRebalance = depthIdx + nodesToRebalance < _numberOfSymbols ? nodesToRebalance : _numberOfSymbols - depthIdx;
@@ -328,13 +314,11 @@ void Compressor::buildHuffmanTree()
 
         if (depth < _depths[depthIdx])
         {
-            DEBUG_PRINT("Next depth: " << (int)_depths[depthIdx] << " current depth: " << (int)depth);
             nodesToRebalance <<= _depths[depthIdx] - depth;
             depth = _depths[depthIdx];
         }
         else if (depth == _depths[depthIdx])
         {
-            DEBUG_PRINT("Same depths depth: " << (int)_depths[depthIdx] << " current depth: " << (int)depth);
             nodesToRebalance <<= 1;
             depth += 1;
         }
@@ -342,8 +326,6 @@ void Compressor::buildHuffmanTree()
         depth++;
     }
     _adjustedDepths = _depths;
-    DEBUG_PRINT("Tree rebalanced");
-    DEBUG_PRINT("Last depth: " << (int)_depths[_numberOfSymbols - 1]);
 #endif
 
     DEBUG_PRINT("Huffman tree built");
@@ -374,7 +356,7 @@ void Compressor::populateCodeTable()
     for (uint16_t i = 0; i < _numberOfSymbols; i++)
     {
         uint64_t bits[4];
-    #if __AVX2__ && ALLOW_AVX
+    #if __AVX2__
         reinterpret_cast<uint64v4_t *>(bits)[0] = _mm256_setzero_si256();
     #else
         bits[0] = 0;
@@ -388,7 +370,7 @@ void Compressor::populateCodeTable()
         bits[2] = (uint64_t)(symbol < 128 && symbol >= 64) << (symbol - 64);
         bits[1] = (uint64_t)(symbol < 192 && symbol >= 128) << (symbol - 128);
         bits[0] = (uint64_t)(symbol >= 192) << (symbol - 192);
-    #if __AVX2__ && ALLOW_AVX
+    #if __AVX2__
         _symbolsAtDepths[_adjustedDepths[i]] = _mm256_or_si256(_symbolsAtDepths[_adjustedDepths[i]], reinterpret_cast<uint64v4_t *>(bits)[0]);
     #else
         reinterpret_cast<uint64_t *>(_symbolsAtDepths + _adjustedDepths[i])[0] |= bits[0];
@@ -397,7 +379,6 @@ void Compressor::populateCodeTable()
         reinterpret_cast<uint64_t *>(_symbolsAtDepths + _adjustedDepths[i])[3] |= bits[3];
     #endif
     }
-    DEBUG_PRINT("Depths used: " << bitset<32>(_usedDepths));
 
     uint16_t lastCode = -1;
     uint8_t depthIndex = 0;
@@ -411,7 +392,7 @@ void Compressor::populateCodeTable()
         if (_usedDepths & (1UL << i))
         {
             _symbolsAtDepths[depthIndex++] = _symbolsAtDepths[i];
-        #if __AVX2__ && ALLOW_AVX
+        #if __AVX2__
             uint64v4_t bitsVector = _mm256_load_si256(_symbolsAtDepths + i);
             uint64_t *bits = reinterpret_cast<uint64_t *>(&bitsVector);
         #else
@@ -457,7 +438,7 @@ void Compressor::populateCodeTable()
 void Compressor::transformRLE(symbol_t *sourceData, uint16_t *compressedData, uint32_t &compressedSize, uint64_t &startingIdx)
 {
     int threadNumber = omp_get_thread_num();
-    DEBUG_PRINT("Transforming RLE with thread " << threadNumber << " started");
+    DEBUG_PRINT("Thread " << threadNumber << ": transforming RLE");
 
     uint32_t bytesToCompress = (_size + _numberOfThreads - 1) / _numberOfThreads;
     bytesToCompress += bytesToCompress & 0x1; // ensure even number of bytes per thread, TODO solve single thread case
@@ -504,8 +485,6 @@ void Compressor::transformRLE(symbol_t *sourceData, uint16_t *compressedData, ui
         {
             uint16_t codeLength = _codeTable[current].length;
             uint16_t code = _codeTable[current].code << (16 - codeLength);
-            //bitset<16> maskedCodeBits(code);
-            //DEBUG_PRINT((char)current << ": " << maskedCodeBits << ", times:" << sameSymbolCount);
 
             for (uint32_t i = 0; i < sameSymbolCount && i < 3; i++)
             {
@@ -550,7 +529,7 @@ void Compressor::transformRLE(symbol_t *sourceData, uint16_t *compressedData, ui
     
     _compressionUnsuccessful = sourceDataIdx <= bytesToCompress;
     compressedSize = nextCompressedIdx * 2;
-    DEBUG_PRINT("RLE transformed, thread " << omp_get_thread_num() << " compressed size: " << compressedSize);
+    DEBUG_PRINT("Thread " << threadNumber << ": RLE transformed");
 }
 
 void Compressor::createHeader()
@@ -559,7 +538,7 @@ void Compressor::createHeader()
 
     compressDepthMaps();
 
-    #if __AVX2__ && ALLOW_AVX
+    #if __AVX2__
         reinterpret_cast<uint16v16_t *>(_headerBuffer)[0] = _mm256_setzero_si256(); // clear the buffer
     #else
         reinterpret_cast<uint64_t *>(_headerBuffer)[0] = 0;
@@ -570,7 +549,6 @@ void Compressor::createHeader()
 
     if (_numberOfThreads > 1)
     {
-        DEBUG_PRINT("Multi-threaded header with: " << _numberOfThreads << " threads");
         uint16_t maxBitsCompressedSizes;
         packCompressedSizes(maxBitsCompressedSizes);
     
@@ -581,19 +559,16 @@ void Compressor::createHeader()
         header.setNumberOfThreads(_numberOfThreads);
         header.setBitsPerBlockSize(maxBitsCompressedSizes);
         header.setCodeDepths(_usedDepths);
-        DEBUG_PRINT("Code depths: " << bitset<16>(_usedDepths));
         _headerSize = sizeof(DepthBitmapsMultiThreadedHeader);
         _threadBlocksSizesSize = (_numberOfThreads * maxBitsCompressedSizes + 7) / 8;
     }
     else
     {
-        DEBUG_PRINT("Single-threaded header");
         DepthBitmapsHeader &header = reinterpret_cast<DepthBitmapsHeader &>(_headerBuffer);
         header.clearFirstByte();
         header.insertHeaderType(SINGLE_THREADED);
         header.setVersion(0);
         header.setCodeDepths(_usedDepths);
-        DEBUG_PRINT("Code depths: " << bitset<16>(_usedDepths));
         _headerSize = sizeof(DepthBitmapsHeader);
         _threadBlocksSizesSize = 0;
     }
@@ -606,7 +581,6 @@ void Compressor::createHeader()
         header.setHeight(_height);
 
         _blockTypesByteSize = (_blockCount * BITS_PER_BLOCK_TYPE + 7) / 8;
-        DEBUG_PRINT("Block types byte size: " << _blockTypesByteSize);
         _blockTypes = new uint8_t[_blockTypesByteSize];
 
         for (uint32_t i = 0, j = 0; j < _blockCount; i++, j += 4)
@@ -638,13 +612,14 @@ void Compressor::createHeader()
 
 void Compressor::packCompressedSizes(uint16_t &maxBitsCompressedSizes)
 {
+    DEBUG_PRINT("Packing compressed sizes");
+
     maxBitsCompressedSizes = 0;
     for (uint8_t i = 0; i < _numberOfThreads; i++)
     {
         uint16_t bits = 32 - countl_zero(_compressedSizes[i]);
         maxBitsCompressedSizes = max(maxBitsCompressedSizes, bits);
     }
-    DEBUG_PRINT("Max bits for compressed sizes: " << maxBitsCompressedSizes);
 
     uint8_t *packedCompressedSizes = reinterpret_cast<uint8_t *>(_compressedSizes);
     uint16_t idx = 0;
@@ -671,17 +646,17 @@ void Compressor::packCompressedSizes(uint16_t &maxBitsCompressedSizes)
         } 
         while (bits);
     }
+    DEBUG_PRINT("Compressed sizes packed");
 }
 
 void Compressor::compressDepthMaps()
 {
     DEBUG_PRINT("Compressing depth maps");
 
-    DEBUG_PRINT("Number of symbols: " << _numberOfSymbols);
     uint16_t numberOfMaps = popcount(_usedDepths);
     if (_numberOfSymbols < 256) // put the unseen symbols at the 0th depth, which is going to be the last one
     {
-    #if __AVX2__ && ALLOW_AVX
+    #if __AVX2__
         _symbolsAtDepths[numberOfMaps] = _mm256_set1_epi32(0xffff'ffff);
         for (uint16_t i = 0; i < numberOfMaps; i++)
         {
@@ -716,14 +691,13 @@ void Compressor::compressDepthMaps()
 
     _compressedDepthMaps[0] = _mostPopulatedDepth;
     uint16_t compressedIdx = 1;
-    DEBUG_PRINT("Max symbols per depth: " << _maxSymbolsPerDepth << " at: " << (int)_mostPopulatedDepth << " with: " << (int)_mostPopulatedDepthIdx);
 
     for (uint16_t i = 0; i < numberOfMaps; i++)
     {
         if (i != _mostPopulatedDepthIdx)
         {    
             uint8_t *depthBytes = reinterpret_cast<uint8_t *>(_symbolsAtDepths + i);
-        #if __AVX512BW__ && __AVX512VL__ && ALLOW_AVX
+        #if __AVX512BW__ && __AVX512VL__
             uint32_t mask = _mm256_cmp_epi8_mask(_symbolsAtDepths[i], _mm256_setzero_si256(), _MM_CMPINT_NE);
         #else
             uint32_t mask = 0;
@@ -765,7 +739,6 @@ void Compressor::writeOutputFile(string outputFileName, string inputFileName)
     if ((_size < _headerSize + _threadBlocksSizesSize + sizeof(uint64v4_t) * popcount(_usedDepths) + _compressedSizesExScan[_numberOfThreads]) ||
         _compressionUnsuccessful) // data not compressed
     {
-        DEBUG_PRINT("Compressed data is larger than the input file");
         FirstByteHeader &header = reinterpret_cast<FirstByteHeader &>(_headerBuffer);
         header.clearFirstByte();
         header.setNotCompressed();
@@ -789,51 +762,6 @@ void Compressor::writeOutputFile(string outputFileName, string inputFileName)
         outputFile.write(reinterpret_cast<char *>(_compressedDepthMaps), _compressedDepthMapsSize);
         outputFile.write(reinterpret_cast<char *>(_blockTypes), _blockTypesByteSize);
         outputFile.write(reinterpret_cast<char *>(_destinationBuffer), _compressedSizesExScan[_numberOfThreads]); 
-
-    #ifdef _DEBUG_PRINT_ACTIVE_
-        cerr << "Header: ";
-        for (uint16_t i = 0; i < _headerSize; i++)
-        {
-            cerr << bitset<8>(_headerBuffer[i]) << " ";
-        }
-        cerr << endl;
-
-        cerr << "Compressed sizes: ";
-        for (uint16_t i = 0; i < _threadBlocksSizesSize; i++)
-        {
-            cerr << bitset<8>(reinterpret_cast<char *>(_compressedSizes)[i]) << " ";
-        }
-        cerr << endl;
-
-        uint16_t codes = popcount(_usedDepths);
-        DEBUG_PRINT("Used depths: " << bitset<32>(_usedDepths));
-        DEBUG_PRINT("Number of used depths: " << codes);
-        cerr << "Symbols at depths: ";
-        for (uint16_t i = 0; i < codes; i++)
-        {
-            cerr << "\n" << i << ": ";
-            uint64_t *bits = reinterpret_cast<uint64_t *>(_symbolsAtDepths + i);
-            cerr << bitset<64>(bits[0]) << " ";
-            cerr << bitset<64>(bits[1]) << " ";
-            cerr << bitset<64>(bits[2]) << " ";
-            cerr << bitset<64>(bits[3]) << " ";
-        }
-        cerr << endl;
-
-        cerr << "Block types: ";
-        for (uint16_t i = 0; i < _blockTypesByteSize; i++)
-        {
-            cerr << bitset<8>(_blockTypes[i]) << " ";
-        }
-        cerr << endl;
-
-        cerr << "Compressed data: ";
-        for (uint16_t i = 0; i < 10; i++)
-        {
-            cerr << bitset<16>(reinterpret_cast<uint16_t *>(_destinationBuffer)[i]) << " ";
-        }
-        cerr << endl;
-    #endif
     }
     outputFile.close();
 
@@ -842,6 +770,7 @@ void Compressor::writeOutputFile(string outputFileName, string inputFileName)
 
 void Compressor::readInputFile(string inputFileName)
 {
+    DEBUG_PRINT("Reading input file");
     ifstream inputFile(inputFileName, ios::binary);
     if (!inputFile.is_open())
     {
@@ -894,6 +823,7 @@ void Compressor::readInputFile(string inputFileName)
 
     inputFile.read(reinterpret_cast<char *>(_sourceBuffer), _size);
     inputFile.close();
+    DEBUG_PRINT("Input file read");
 }
 
 void Compressor::compressStatic()
@@ -1209,7 +1139,6 @@ void Compressor::compress(string inputFileName, string outputFileName)
         }
         DEBUG_PRINT("Thread " << omp_get_thread_num() << " finished");
     }
-    DEBUG_PRINT("All threads finished");
 
     writeOutputFile(outputFileName, inputFileName);
 }

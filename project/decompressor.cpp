@@ -2,8 +2,6 @@
 
 using namespace std;
 
-#define ALLOW_AVX 1
-
 Decompressor::Decompressor(int32_t numberOfThreads)
     : HuffmanRLECompression(false, false, 0, numberOfThreads) { }
 
@@ -12,6 +10,11 @@ Decompressor::~Decompressor()
     if (_decompressionBuffer != nullptr)
     {
         free(_decompressionBuffer);
+    }
+
+    if (_compressedData != nullptr)
+    {
+        free(_compressedData);
     }
 }
 
@@ -59,14 +62,6 @@ bool Decompressor::readInputFile(string inputFileName, string outputFileName)
             {
                 DepthBitmapsHeader &header = reinterpret_cast<DepthBitmapsHeader &>(_headerBuffer);
                 inputFile.read(reinterpret_cast<char *>(&header), sizeof(DepthBitmapsHeader));
-            #ifdef _DEBUG_PRINT_ACTIVE_
-                cerr << "Header: ";
-                for (uint16_t i = 0; i < sizeof(DepthBitmapsHeader); i++)
-                {
-                    cerr << bitset<8>(_headerBuffer[i]) << " ";
-                }
-                cerr << endl;
-            #endif
                 _usedDepths = header.getCodeDepths();
                 bitmapsSize = sizeof(uint64v4_t) * popcount(_usedDepths);
                 inputFile.read(reinterpret_cast<char *>(_rawDepthBitmaps), bitmapsSize);
@@ -79,30 +74,10 @@ bool Decompressor::readInputFile(string inputFileName, string outputFileName)
             {
                 DepthBitmapsMultiThreadedHeader &header = reinterpret_cast<DepthBitmapsMultiThreadedHeader &>(_headerBuffer);
                 inputFile.read(reinterpret_cast<char *>(&header), sizeof(DepthBitmapsMultiThreadedHeader));
-            
-            #ifdef _DEBUG_PRINT_ACTIVE_
-                cerr << "Header: ";
-                for (uint16_t i = 0; i < sizeof(DepthBitmapsMultiThreadedHeader); i++)
-                {
-                    cerr << bitset<8>(_headerBuffer[i]) << " ";
-                }
-                cerr << endl;
-            #endif
-
                 _numberOfCompressedBlocks = header.getNumberOfThreads();
                 _bitsPerCompressedBlockSize = header.getBitsPerBlockSize();
                 _numberOfBytesCompressedBlocks = (_numberOfCompressedBlocks * _bitsPerCompressedBlockSize + 7) / 8;
                 inputFile.read(reinterpret_cast<char *>(_rawBlockSizes), _numberOfBytesCompressedBlocks);
-            
-            #ifdef _DEBUG_PRINT_ACTIVE_
-                cerr << "Compressed sizes: ";
-                for (uint16_t i = 0; i < _numberOfBytesCompressedBlocks; i++)
-                {
-                    cerr << bitset<8>(reinterpret_cast<char *>(_rawBlockSizes)[i]) << " ";
-                }
-                cerr << endl;
-            #endif
-
                 _usedDepths = header.getCodeDepths();
                 bitmapsSize = sizeof(uint64v4_t) * popcount(_usedDepths);
                 inputFile.read(reinterpret_cast<char *>(_rawDepthBitmaps), bitmapsSize);
@@ -116,7 +91,7 @@ bool Decompressor::readInputFile(string inputFileName, string outputFileName)
             exit(1);
     }
 
-    parseBitmapHuffmanTree(bitmapsSize);
+    parseHuffmanTree(bitmapsSize);
     alreadyReadBytes += bitmapsSize;
     fileSize -= alreadyReadBytes;
     inputFile.seekg(alreadyReadBytes, ios::beg);
@@ -159,14 +134,6 @@ bool Decompressor::readInputFile(string inputFileName, string outputFileName)
         uint32_t packedBlockCount = (_blockCount * BITS_PER_BLOCK_TYPE + 7) / 8;
         inputFile.read(reinterpret_cast<char *>(_decompressionBuffer), packedBlockCount);
         fileSize -= packedBlockCount;
-    #ifdef _DEBUG_PRINT_ACTIVE_
-        cerr << "Block types: ";
-        for (uint16_t i = 0; i < packedBlockCount; i++)
-        {
-            cerr << bitset<8>(_decompressionBuffer[i]) << " ";
-        }
-        cerr << endl;
-    #endif
 
         for (uint32_t i = 0, j = 0; i < packedBlockCount; i++, j += 4)
         {
@@ -181,28 +148,17 @@ bool Decompressor::readInputFile(string inputFileName, string outputFileName)
     inputFile.read(reinterpret_cast<char *>(_compressedData), fileSize);
     inputFile.close();
 
-#ifdef _DEBUG_PRINT_ACTIVE_
-    cerr << "Compressed data: ";
-    for (uint32_t i = 0; i < 10; i++)
-    {
-        cerr << bitset<16>(_compressedData[i]) << " ";
-    }
-    cerr << endl;
-#endif
-    
     return true;
 }
 
-void Decompressor::parseBitmapHuffmanTree(uint16_t &readBytes)
+void Decompressor::parseHuffmanTree(uint16_t &readBytes)
 {
-    DEBUG_PRINT("Parsing bitmap Huffman tree");
+    DEBUG_PRINT("Parsing Huffman tree");
 
     uint8_t depthIdx = 0;
     uint16_t lastCode = -1;
 
     uint8_t missingDepth = _rawDepthBitmaps[0];
-    DEBUG_PRINT("Missing depth: " << (int)missingDepth);
-    DEBUG_PRINT("Used depths: " << bitset<32>(_usedDepths));
     uint16_t rawDepthBitmapsIdx = 1;
     uint8_t recoverDepthIdx = 0;
 
@@ -213,7 +169,6 @@ void Decompressor::parseBitmapHuffmanTree(uint16_t &readBytes)
             if (i == missingDepth)
             {
                 recoverDepthIdx = depthIdx;
-                DEBUG_PRINT("Recover depth idx: " << (int)recoverDepthIdx);
             }
             else
             {
@@ -222,7 +177,7 @@ void Decompressor::parseBitmapHuffmanTree(uint16_t &readBytes)
                 mask |= _rawDepthBitmaps[rawDepthBitmapsIdx++] << 8;
                 mask |= _rawDepthBitmaps[rawDepthBitmapsIdx++];
 
-            #if __AVX2__ && ALLOW_AVX
+            #if __AVX2__
                 _symbolsAtDepths[depthIdx] = _mm256_setzero_si256();
                 uint8_t *depthBytes = reinterpret_cast<uint8_t *>(_symbolsAtDepths + depthIdx);
             #else
@@ -253,7 +208,7 @@ void Decompressor::parseBitmapHuffmanTree(uint16_t &readBytes)
             mask |= _rawDepthBitmaps[rawDepthBitmapsIdx++] << 8;
             mask |= _rawDepthBitmaps[rawDepthBitmapsIdx++];
 
-            #if __AVX2__ && ALLOW_AVX
+            #if __AVX2__
                 _symbolsAtDepths[depthIdx] = _mm256_setzero_si256();
                 uint8_t *depthBytes = reinterpret_cast<uint8_t *>(_symbolsAtDepths + depthIdx);
             #else
@@ -275,7 +230,7 @@ void Decompressor::parseBitmapHuffmanTree(uint16_t &readBytes)
 
     if (missingDepth != 0)
     {
-    #if __AVX2__ && ALLOW_AVX
+    #if __AVX2__
         _symbolsAtDepths[recoverDepthIdx] = _mm256_set1_epi32(0xffff'ffff);
     #else
         uint64_t *bits = reinterpret_cast<uint64_t *>(_symbolsAtDepths + recoverDepthIdx);
@@ -288,7 +243,7 @@ void Decompressor::parseBitmapHuffmanTree(uint16_t &readBytes)
         {
             if (i != recoverDepthIdx)
             {
-            #if __AVX2__ && ALLOW_AVX
+            #if __AVX2__
                 _symbolsAtDepths[recoverDepthIdx] = _mm256_xor_si256(_symbolsAtDepths[recoverDepthIdx], _symbolsAtDepths[i]);
             #else
                 uint64_t *bits = reinterpret_cast<uint64_t *>(_symbolsAtDepths + recoverDepthIdx);
@@ -302,24 +257,7 @@ void Decompressor::parseBitmapHuffmanTree(uint16_t &readBytes)
         }
     }
 
-#ifdef _DEBUG_PRINT_ACTIVE_
-    DEBUG_PRINT("Used depths: " << bitset<32>(_usedDepths));
-    uint16_t codes = popcount(_usedDepths);
-    DEBUG_PRINT("Number of code depths: " << codes);
-    cerr << "Symbols at depths: ";
-    for (uint16_t i = 0; i < codes + 1; i++)
-    {
-        cerr << "\n" << i << ": ";
-        uint64_t *bits = reinterpret_cast<uint64_t *>(_symbolsAtDepths + i);
-        cerr << bitset<64>(bits[0]) << " ";
-        cerr << bitset<64>(bits[1]) << " ";
-        cerr << bitset<64>(bits[2]) << " ";
-        cerr << bitset<64>(bits[3]) << " ";
-    }
-    cerr << endl;
-#endif
-
-#if __AVX512BW__ && __AVX512VL__ && ALLOW_AVX
+#if __AVX512BW__ && __AVX512VL__
     uint8_t lastDepth = 0;
     uint8_t masksIdx = 0;
     depthIdx = 0;
@@ -327,7 +265,7 @@ void Decompressor::parseBitmapHuffmanTree(uint16_t &readBytes)
     {
         if (_usedDepths & (1UL << i))
         {
-        #if __AVX512VPOPCNTDQ__ && ALLOW_AVX
+        #if __AVX512VPOPCNTDQ__
             uint64v4_t popCounts = _mm256_popcnt_epi64(_symbolsAtDepths[depthIdx]);
             uint64_t *bits = reinterpret_cast<uint64_t *>(&popCounts);
             uint16_t sum1 = bits[0] + bits[1];
@@ -403,13 +341,6 @@ void Decompressor::parseBitmapHuffmanTree(uint16_t &readBytes)
         }
         lastCode += symbolIdx - lastSymbolIdx - 1;
     }
-    
-    for (uint16_t i = 0; i < MAX_NUMBER_OF_PREFIXES; i++)
-    {
-        bitset<16> prefix(_codePrefixes[i]);
-        bitset<16> mask(_codeMasks[i]);
-        DEBUG_PRINT(i << ": " << prefix << " " << mask << " " << (int)_indexShiftsCodeLengths[i].prefixShift << " " << (int)_indexShiftsCodeLengths[i].suffixShift << " " << (int)_indexShiftsCodeLengths[i].codeLength << " " << (int)_indexShiftsCodeLengths[i].prefixIndex);
-    }
 #else
     lastCode = -1;
     depthIdx = 0;
@@ -445,16 +376,13 @@ void Decompressor::parseBitmapHuffmanTree(uint16_t &readBytes)
         }
         delta++;
     }
-
-    for (uint16_t i = 0; i < MAX_NUMBER_OF_CODES; i++)
-    {
-        DEBUG_PRINT(i << ": " << (int)_indexShiftsCodeLengths[i].prefixShift << " " << (int)_indexShiftsCodeLengths[i].suffixShift << " " << (int)_indexShiftsCodeLengths[i].codeLength << " " << (int)_indexShiftsCodeLengths[i].prefixIndex);
-    }
 #endif
+    DEBUG_PRINT("Huffman tree parsed");
 }
 
 void Decompressor::parseThreadingInfo()
 {
+    DEBUG_PRINT("Parsing threading info");
     uint8_t packedIdx = 0;
     uint8_t chunkIdx = 0;
 
@@ -486,13 +414,14 @@ void Decompressor::parseThreadingInfo()
     {
         _compressedSizesExScan[i + 1] = _compressedSizesExScan[i] + _compressedSizes[i];
     }
+    DEBUG_PRINT("Threading info parsed");
 }
 
 void Decompressor::transformRLE(uint16_t *compressedData, symbol_t *decompressedData, uint64_t bytesToDecompress)
 {
-    DEBUG_PRINT("Thread: " << omp_get_thread_num() << " bytesToDecompress: " << bytesToDecompress);
+    DEBUG_PRINT("Thread: " << omp_get_thread_num() << " transforming RLE");
     uint64_t decompressedIdx = 0;
-#if __AVX512BW__ && __AVX512VL__ && ALLOW_AVX
+#if __AVX512BW__ && __AVX512VL__
     bool overflow;
     uint32_t currentIdx = 0;
     uint32_t nextIdx = 1;
@@ -579,17 +508,11 @@ void Decompressor::transformRLE(uint16_t *compressedData, symbol_t *decompressed
     uint16_t bitLength = 0;
     uint16_t inverseBitLength = 16;
     uint16_t current = (compressedData[currentIdx] << bitLength) | (compressedData[nextIdx] >> inverseBitLength);
-    DEBUG_PRINT("Current: " << bitset<16>(current));
     uint8_t prefixIdx = countl_one(current);
     IndexShiftsCodeLength codeMatch = _indexShiftsCodeLengths[prefixIdx];
-    DEBUG_PRINT("Current: " << bitset<16>(current) << " PrefixIdx: " << (int)prefixIdx << " CodeMatch: " << (int)codeMatch.prefixShift << " " << (int)codeMatch.suffixShift << " " << (int)codeMatch.codeLength << " " << (int)codeMatch.prefixIndex);
-    DEBUG_PRINT("PrefixIdx: " << (int)prefixIdx);
-    DEBUG_PRINT("PrefixLength: " << (int)codeMatch.prefixShift);
-    DEBUG_PRINT("SuffixShift: " << (int)codeMatch.suffixShift);
     uint8_t suffix = static_cast<uint16_t>(current << codeMatch.prefixShift) >> codeMatch.suffixShift;
     symbol_t symbol = _symbolsTable[codeMatch.prefixIndex + suffix];
     decompressedData[decompressedIdx++] = symbol;
-    DEBUG_PRINT("Symbol: " << (char)symbol << " " << (int)symbol << "\n");
     bitLength += codeMatch.codeLength;
     symbol_t lastSymbol = symbol;
     uint8_t sameSymbolCount = 0;
@@ -643,7 +566,7 @@ void Decompressor::transformRLE(uint16_t *compressedData, symbol_t *decompressed
         }
     }
 #endif
-    DEBUG_PRINT("Thread: " << omp_get_thread_num() << " decompressedIdx: " << decompressedIdx << " block size:" << bytesToDecompress);
+    DEBUG_PRINT("Thread: " << omp_get_thread_num() << " RLE transformed");
 }
 
 void Decompressor::reverseDifferenceModel(symbol_t *source, symbol_t *destination, uint64_t bytesToProcess)

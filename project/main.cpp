@@ -5,6 +5,10 @@ using namespace std;
 
 int main(int argc, char* argv[])
 {
+#if !_OPENMP
+    #warning "Compiling without OpenMP support."
+#endif
+
     Arguments args = parseArguments(argc, argv);
     omp_set_num_threads(args.threads);
     
@@ -32,7 +36,11 @@ Arguments parseArguments(int argc, char* argv[])
     args.width = 0;
     args.inputFileName = "";
     args.outputFileName = "";
-    args.threads = 1; // TODO: change to 4
+#if _OPENMP
+    args.threads = 4;
+#else
+    args.threads = 1;
+#endif
 
     vector<string> arguments(argv, argv + argc);
     for (size_t i = 1; i < arguments.size(); i++) // parse arguments one by one, skipping the program name
@@ -79,7 +87,7 @@ Arguments parseArguments(int argc, char* argv[])
             }
             else
             {
-                cout << "Error: Missing input file name after the switch '-i'." << endl;
+                cerr << "Error: Missing input file name after the switch '-i'." << endl;
                 exit(1);
             }
         }
@@ -92,26 +100,27 @@ Arguments parseArguments(int argc, char* argv[])
             }
             else
             {
-                cout << "Error: Missing output file name after the switch '-o'." << endl;
+                cerr << "Error: Missing output file name after the switch '-o'." << endl;
                 exit(1);
             }
         }
         else if (arguments[i] == "-h")
         {
-            cout << "Usage: " << arguments[0] << " [-c | -d] [-m] [-a] [-w <width>] [-i <input_file>] [-o <output_file>]" << endl;
-            cout << "Options:" << endl;
-            cout << "  -c:               Compress the input file." << endl;
-            cout << "  -d:               Decompress the input file." << endl;
-            cout << "  -m:               Use the model-based compression." << endl;
-            cout << "  -a:               Use the adaptive model-based compression." << endl;
-            cout << "  -w <width>:       Width of the compressed image." << endl;
-            cout << "  -i <input_file>:  Specify the input file." << endl;
-            cout << "  -o <output_file>: Specify the output file." << endl;
-            cout << "  -t <threads>:     Number of threads to use (default is 4), must be a power of 2." << endl;
+            cerr << "Usage: " << arguments[0] << " [-c | -d] [-m] [-a] [-w <width>] [-i <input_file>] [-o <output_file>]" << endl;
+            cerr << "Options:" << endl;
+            cerr << "  -c:               Compress the input file." << endl;
+            cerr << "  -d:               Decompress the input file." << endl;
+            cerr << "  -m:               Use the model-based compression." << endl;
+            cerr << "  -a:               Use the adaptive model-based compression." << endl;
+            cerr << "  -w <width>:       Width of the compressed image." << endl;
+            cerr << "  -i <input_file>:  Specify the input file." << endl;
+            cerr << "  -o <output_file>: Specify the output file." << endl;
+            cerr << "  -t <threads>:     Number of threads to use (default is 4), must be a power of 2." << endl;
             exit(0);
         }
         else if (arguments[i] == "-t")
         {
+        #if _OPENMP
             try
             {
                 uint64_t threads = stoul(arguments[++i]);
@@ -141,10 +150,14 @@ Arguments parseArguments(int argc, char* argv[])
                 cerr << "Error: Specified number of threads is out of range with '" << arguments[i] << "'." << endl;
                 exit(1);
             }
+        #else
+            cerr << "Warning: OpenMP is not supported, number of threads is ignored." << endl;
+            i++;
+        #endif
         }
         else
         {
-            cout << "Warning: Unknown switch '" << arguments[i] << "'." << endl;
+            cerr << "Warning: Unknown switch '" << arguments[i] << "'." << endl;
         }
     }
 
@@ -152,37 +165,37 @@ Arguments parseArguments(int argc, char* argv[])
 
     if (args.compress && args.decompress)
     {
-        cout << "Error: Cannot compress and decompress at the same time." << endl;
+        cerr << "Error: Cannot compress and decompress at the same time." << endl;
         exit(1);
     }
 
     if (!args.compress && !args.decompress)
     {
-        cout << "Error: Either compress or decompress must be specified." << endl;
+        cerr << "Error: Either compress or decompress must be specified." << endl;
         exit(1);
     }
 
     if (args.inputFileName.empty())
     {
-        cout << "Error: Input file name is missing." << endl;
+        cerr << "Error: Input file name is missing." << endl;
         exit(1);
     }
 
     if (args.outputFileName.empty())
     {
-        cout << "Error: Output file name is missing." << endl;
+        cerr << "Error: Output file name is missing." << endl;
         exit(1);
     }
 
     if (args.width == 0 && args.compress)
     {
-        cout << "Error: Width ('-w' switch) is missing." << endl;
+        cerr << "Error: Width ('-w' switch) is missing." << endl;
         exit(1);
     }
 
     if (args.width != 0 && args.decompress)
     {
-        cout << "Warning: Width ('-w' switch) is ignored when decompressing." << endl;
+        cerr << "Warning: Width ('-w' switch) is ignored when decompressing." << endl;
     }
 
     return args;

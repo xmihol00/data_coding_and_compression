@@ -36,9 +36,9 @@ for switch in "" "-a" "-m" "-m -a"; do
             basename=$(basename $file)
             file_size=$(wc -c < $file)
             width=$(echo "sqrt($file_size)" | bc -l | cut -d'.' -f1)
-            echo "compress command: ./huff_codec -c -i $file -o compressed_files/$basename -w $width $switch"
+            echo "compress command: ./huff_codec -c -i $file -o compressed_files/$basename -w $width $switch -t $compress_threads"
             ./huff_codec -c -i $file -o compressed_files/$basename -w $width $switch -t $compress_threads 2>/dev/null
-            echo "decompress command: ./huff_codec -d -i compressed_files/$basename -o decompressed_files/$basename"
+            echo "decompress command: ./huff_codec -d -i compressed_files/$basename -o decompressed_files/$basename -t $decompress_threads"
             ./huff_codec -d -i compressed_files/$basename -o decompressed_files/$basename -t $decompress_threads 2>/dev/null
             diff $file decompressed_files/$basename 2>/dev/null 1>/dev/null
             if [ $? -eq 0 ]; then

@@ -2,28 +2,40 @@ MAKEFILE_DIR = $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 CURRENT_DIR = $(shell pwd)
 PROJECT_DIR = $(MAKEFILE_DIR:$(CURRENT_DIR)/%=%)
 
-# -mavx512vpopcntdq
-AVX512 = $(shell grep avx512 /proc/cpuinfo >/dev/null && echo "-mavx512f -mavx512vl -mavx512bw" || echo "")
-INFO_FLAGS = -fopt-info-vec -fopt-info-vec-optimized
+AVX2 = $(shell grep avx2 /proc/cpuinfo >/dev/null && echo "-mavx2" || echo "")
+AVX512F = $(shell grep avx512f /proc/cpuinfo >/dev/null && echo "-mavx512f" || echo "") 
+AVX512VL = $(shell grep avx512vl /proc/cpuinfo >/dev/null && echo "-mavx512f" || echo "")
+AVX512BW = $(shell grep avx512bw /proc/cpuinfo >/dev/null && echo "-mavx512bw" || echo "")
+AVX512VPOPCNTDQ = $(shell grep avx512vpopcntdq /proc/cpuinfo >/dev/null && echo "-mavx512vpopcntdq" || echo "")
+AVX512FLAGS = $(AVX2) $(AVX512F) $(AVX512VL) $(AVX512BW) $(AVX512VPOPCNTDQ)
 
 CC = g++
-CFLAGS = -Wall -Wextra -std=c++20 -mavx2 -fopenmp -O3 -g $(AVX512) $(INFO_FLAGS)
+CFLAGS = -Wall -Wextra -std=c++20 -O3 -g
+OMPFLAGS = -fopenmp
+PRGAMA_IGNORE = -Wno-unknown-pragmas
+
 CPP_SRC = $(wildcard $(PROJECT_DIR)/*.cpp)
 
 TARGET = $(PROJECT_DIR)/huff_codec
 TARGET_TEST = $(PROJECT_DIR)/huff_codec_test
 TARGET_DEBUG = $(PROJECT_DIR)/huff_codec_debug
 
-.PHONY: all test debug clean
+.PHONY: all plain no_omp no_avx debug clean
 
 all:
-	$(CC) $(CFLAGS) $(CPP_SRC) -o $(TARGET)
+	$(CC) $(CFLAGS) $(OMPFLAGS) $(AVX512FLAGS) $(CPP_SRC) -o $(TARGET)
 
-test:
-	$(CC) $(CFLAGS) $(CPP_SRC) -D_TEST_ -o $(TARGET_TEST)
+plain:
+	$(CC) $(CFLAGS) $(CPP_SRC) $(PRGAMA_IGNORE) -o $(TARGET)
+
+no_omp:
+	$(CC) $(CFLAGS) $(AVX512FLAGS) $(PRGAMA_IGNORE) $(CPP_SRC) -o $(TARGET)
+
+no_avx:
+	$(CC) $(CFLAGS) $(OMPFLAGS) $(CPP_SRC) -o $(TARGET)
 
 debug:
-	$(CC) $(CFLAGS) $(CPP_SRC) -D_DEBUG_ -o $(TARGET_DEBUG)
+	$(CC) $(CFLAGS) $(OMPFLAGS) $(AVX512FLAGS) $(CPP_SRC) -D_DEBUG_PRINT_ACTIVE_ -o $(TARGET)
 
 clean: 
 	rm -f $(TARGET) $(TARGET_TEST)

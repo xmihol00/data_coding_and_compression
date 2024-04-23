@@ -20,7 +20,7 @@ public:
 private:
     bool readInputFile(std::string inputFileName, std::string outputFileName);
     void writeOutputFile(std::string outputFileName);
-    void parseBitmapHuffmanTree(uint16_t &readBytes);
+    void parseHuffmanTree(uint16_t &readBytes);
     void parseThreadingInfo();
     void transformRLE(uint16_t *compressedData, symbol_t *decompressedData, uint64_t bytesToDecompress);
     void reverseDifferenceModel(symbol_t *source, symbol_t *destination, uint64_t bytesToProcess);

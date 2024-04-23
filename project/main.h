@@ -1,7 +1,9 @@
 #ifndef _MAIN_H_
 #define _MAIN_H_
 
-#include "omp.h"
+#if _OPENMP
+    #include "omp.h"
+#endif
 
 #include <iostream>
 #include <string>
