@@ -27,6 +27,7 @@
     #define DEBUG_PRINT(value)
 #endif
 
+// used data types
 using symbol_t = uint8_t;
 using uint16v16_t = __m256i;
 using uint16v32_t = __m512i;
@@ -39,6 +40,9 @@ using uint32v16_t = __m512i;
 using uint64v4_t = __m256i;
 using uint64v8_t = __m512i;
 
+/**
+ * @brief Base class for Huffman RLE compression from which the compressor and decompressor inherit.
+ */
 class HuffmanRLECompression
 {
 public:
@@ -58,12 +62,19 @@ public:
     }
 
 protected:
+
+    /**
+     * @brief Types of image traversal for adaptive compression.
+     */
     enum AdaptiveTraversals
     {
         HORIZONTAL = 0,
         VERTICAL = 1,
     };
 
+    /**
+     * @brief Bit positions of specific header options in the compressed file.
+     */
     enum HeaderOptions
     {
         SERIALIZATION = 0,
@@ -71,6 +82,9 @@ protected:
         THREADS,
     };
 
+    /**
+     * @brief Values of specific header options in the compressed file.
+     */
     enum HeaderValues
     {
         STATIC          = 0 << SERIALIZATION,
@@ -81,41 +95,77 @@ protected:
         MULTI_THREADED  = 1 << THREADS
     };
 
+    /**
+     * @brief Maximum number of symbols that can be compressed (values from 0 to 255, i.e. 1 byte of information).
+     */
     static constexpr uint16_t NUMBER_OF_SYMBOLS{256};
+
+    /**
+     * @brief Maximum length of a huffman code.
+     */
     static constexpr uint16_t MAX_CODE_LENGTH{15};
+
+    /**
+     * @brief Maximum number of huffman code lengths.
+     */
     static constexpr uint16_t MAX_NUMBER_OF_CODES{16};
+
+    /**
+     * @brief Maximum number of prefixes for codes at different depths of the huffman tree.
+     */
     static constexpr uint16_t MAX_NUMBER_OF_PREFIXES{32};
+
+    /**
+     * @brief Block size for traversals during adaptive compression.
+     */
     static constexpr uint16_t BLOCK_SIZE{16};
+
+    /**
+     * @brief Maximum number of threads that can be used for multi-threaded compression.
+     */
     static constexpr uint16_t MAX_NUM_THREADS{32};
+
+    /**
+     * @brief Number of bits (size of a repetition chunk) used to encode repetitions of a character, the MSB is used to determine if the next chunk of bits is 
+     *        the continuation of the number of repetitions (MSB is set), or the number of repetitions ends by this chunk (MSB is not set).
+     */
     static constexpr uint16_t BITS_PER_REPETITION_NUMBER{4};
+
+    /**
+     * @brief Number of bits used to encode the type of a block (horizontal or vertical traversal) during adaptive compression.
+     */
     static constexpr uint16_t BITS_PER_BLOCK_TYPE{2};
 
-    bool _model;
-    bool _adaptive;
-    uint64_t _width;
-    uint64_t _height;
-    uint64_t _size;
+    bool _model;       ///< Flag indicating if the compression is model-based.
+    bool _adaptive;    ///< Flag indicating if the compression is adaptive.
+    uint64_t _width;   ///< Width of the image to be compressed/decompressed.
+    uint64_t _height;  ///< Height of the image to be compressed/decompressed.
+    uint64_t _size;    ///< Overall size of the image to be compressed/decompressed.
 
-    uint32_t _blockCount;
-    uint32_t _blocksPerRow;
-    uint32_t _blocksPerColumn;
+    uint32_t _blockCount;       ///< Total number of blocks in an image.
+    uint32_t _blocksPerRow;     ///< Number of blocks in a row of an image.
+    uint32_t _blocksPerColumn;  ///< Number of blocks in a column of an image.
 
-    int32_t _numberOfThreads;
+    int32_t _numberOfThreads;   ///< Number of active threads used for multi-threaded compression.
 
-    uint32_t _compressedSizes[MAX_NUM_THREADS];
-    uint32_t _compressedSizesExScan[MAX_NUM_THREADS + 1];
+    uint32_t _compressedSizes[MAX_NUM_THREADS];             ///< Sizes of compressed data by each thread.
+    uint32_t _compressedSizesExScan[MAX_NUM_THREADS + 1];   ///< Exclusive scan of compressed sizes by each thread.
 
-    uint8_t _symbolsPerDepth[MAX_NUMBER_OF_CODES * 2];
-    uint32_t _usedDepths;
-    uint64v4_t _symbolsAtDepths[MAX_NUMBER_OF_CODES * 2] __attribute__((aligned(64)));
+    uint8_t _symbolsPerDepth[MAX_NUMBER_OF_CODES * 2];      ///< Number of symbols at each depth of the huffman tree.
+    uint32_t _usedDepths;                                   ///< Bitmap of used depths in the final huffman tree (rebalanced if needed).
+    uint64v4_t _symbolsAtDepths[MAX_NUMBER_OF_CODES * 2] __attribute__((aligned(64))); ///< NUmber of symbols at each depth of the final huffman tree.
 
-    uint8_t _headerBuffer[32];
+    uint8_t _headerBuffer[32];  ///< Memory buffer to store a specific header depending on the type of the compression and number of threads.
 
-    AdaptiveTraversals *_bestBlockTraversals{nullptr};
+    AdaptiveTraversals *_bestBlockTraversals{nullptr}; ///< Dynamically allocated array with the best traversal option for each block during adaptive compression.
 
-    uint8_t *_blockTypes{nullptr};
-    uint32_t _blockTypesByteSize{0};
+    uint8_t *_blockTypes{nullptr};   ///< Dynamically allocated array with packed best traversal options for each block during adaptive compression.
+    uint32_t _blockTypesByteSize{0}; ///< Size of the packed block types array in bytes.
     
+    /**
+     * @brief Structure representing the first byte of the compressed file header.
+     *        Based on this byte, different headers are used for the rest of the header.
+     */
     struct FirstByteHeader
     {
     public:
