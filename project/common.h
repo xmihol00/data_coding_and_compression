@@ -46,6 +46,12 @@ using uint64v8_t = __m512i;
 class HuffmanRLECompression
 {
 public:
+    /**
+     * @param model Flag indicating if the compression is model-based, unused for decompression.
+     * @param adaptive Flag indicating if the compression is adaptive, unused for decompression.
+     * @param width Width of the image to be compressed, unused for decompression.
+     * @param numberOfThreads Number of threads used for multi-threaded compression/decompression.
+     */
     HuffmanRLECompression(bool model = false, bool adaptive = false, uint64_t width = 0, int32_t numberOfThreads = 1) 
         : _model{model}, _adaptive{adaptive}, _width{width}, _numberOfThreads{numberOfThreads} { };
     ~HuffmanRLECompression()
@@ -164,26 +170,60 @@ protected:
     
     /**
      * @brief Structure representing the first byte of the compressed file header.
-     *        Based on this byte, different headers are used for the rest of the header.
+     *        Based on this byte, the correct header type can be determined and loaded.
      */
     struct FirstByteHeader
     {
     public:
+        /**
+         * @brief Checks whether the compressed data is compressed or not. When false, the data is not compressed and all the following bytes are raw data
+         *        of the original file.
+         */
         inline constexpr bool getCompressed() const { return _data & 0b1000'0000; }
+
+        /**
+         * @brief Gets the version of the used compression. The version is currently not used and is always set to 0.
+         */
         inline constexpr uint8_t getVersion() const { return (_data & 0b0110'0000) >> 5; }
+
+        /**
+         * @brief Gets the type of the header that follows the first byte.
+         */
         inline constexpr uint8_t getHeaderType() const { return _data & 0b0000'1111; }
 
+        /**
+         * @brief Clears the first byte of the header.
+         */
         inline constexpr void clearFirstByte() { _data = 0; }
+
+        /**
+         * @brief Sets the not compressed flag to true, i.e. the data is not compressed.
+         */
         inline constexpr void setNotCompressed() { _data |= 1 << 7; }
+
+        /**
+         * @brief Sets the version of the used compression.
+         */
         inline constexpr void setVersion(uint8_t version) { _data = (_data & 0b1001'1111) | (version << 6) >> 1; }
+
+        /**
+         * @brief Inserts the type of the header that follows the first byte. Note, this function does not clear previously set header types.
+         * @param headerType Only the lower 4 bits should be set.
+         */
         inline constexpr void insertHeaderType(uint8_t headerType) { _data |= headerType; }
     private:
         uint8_t _data;
     } __attribute__((packed));
 
+    /**
+     * @brief Base header type, which is inherited to further extend the header of the compressed file.
+     */
     struct BasicHeader : public FirstByteHeader
     {
     public:
+        /**
+         * @brief Sets the size of the original uncompressed data.
+         */
         inline constexpr void setSize(uint64_t size) 
         { 
             _baseWidth = size;
@@ -191,6 +231,10 @@ protected:
             _extraWidth = size >> 32;
             _extraHeight = size >> 40;
         }
+
+        /**
+         * @brief Gets the size of the original uncompressed data.
+         */
         inline constexpr uint64_t getSize() 
         { 
             return (static_cast<uint64_t>(_extraHeight) << 40) |
@@ -199,21 +243,35 @@ protected:
                    _baseWidth; 
         }
 
+        /**
+         * @brief Sets the width of the original uncompressed image.
+         */
         inline constexpr void setWidth(uint32_t width) 
         { 
             _baseWidth = width; 
             _extraWidth = width >> 16;
         }
+
+        /**
+         * @brief Gets the width of the original uncompressed image.
+         */
         inline constexpr uint32_t getWidth() 
         { 
             return (static_cast<uint64_t>(_extraWidth) << 16) | _baseWidth; 
         }
 
+        /**
+         * @brief Sets the height of the original uncompressed image.
+         */
         inline constexpr void setHeight(uint32_t height) 
         { 
             _baseHeight = height; 
             _extraHeight = height >> 16;
         }
+
+        /**
+         * @brief Gets the height of the original uncompressed image.
+         */
         inline constexpr uint32_t getHeight() 
         { 
             return (static_cast<uint64_t>(_extraHeight) << 16) | _baseHeight; 
@@ -226,13 +284,30 @@ protected:
         uint16_t _baseHeight;
     } __attribute__((packed));
 
+    /**
+     * @brief Base header for multi-threaded compression.
+     */
     struct MultiThreadedHeader : public BasicHeader
     {
     public:
+        /**
+         * @brief Gets the number of threads used for multi-threaded compression.
+         */
         inline constexpr uint8_t getNumberOfThreads() const { return _numberOfThreads; }
+
+        /**
+         * @brief Sets the number of threads used for multi-threaded compression.
+         */
         inline constexpr void setNumberOfThreads(uint8_t numberOfThreads) { _numberOfThreads = numberOfThreads; }
 
+        /**
+         * @brief Sets the number of bits used for storing the size of compressed data by each thread.
+         */
         inline constexpr void setBitsPerBlockSize(uint8_t bitsPerBlockSize) { _bitsPerBlockSize = bitsPerBlockSize;}
+
+        /**
+         * @brief Gets the number of bits used for storing the size of compressed data by each thread.
+         */
         inline constexpr uint8_t getBitsPerBlockSize() { return _bitsPerBlockSize; }
     
     private:
@@ -240,6 +315,9 @@ protected:
         uint8_t _bitsPerBlockSize;
     } __attribute__((packed));
 
+    /**
+     * @brief Final header used for single-threaded compression, where the Huffman tree is stored as a depth bitmaps. 
+     */
     struct DepthBitmapsHeader : public BasicHeader
     {
     public:
@@ -250,16 +328,30 @@ protected:
         uint16_t _codeDepths;
     } __attribute__((packed));
 
+    /**
+     * @brief Final header used for multi-threaded compression, where the Huffman tree is stored as a depth bitmaps.
+     *        Compressed depth bitmaps follow after the header.
+     */
     struct DepthBitmapsMultiThreadedHeader : public MultiThreadedHeader
     {
     public:
+        /**
+         * @brief Gets a bitmap of used depths in the final huffman tree to decompress the following depth bitmaps.
+         */
         inline constexpr uint16_t getCodeDepths() const { return _codeDepths; }
+
+        /**
+         * @brief Sets a bitmap of used depths in the final huffman tree to be able to decompress the following depth bitmaps.
+         */
         inline constexpr void setCodeDepths(uint16_t codeDepths) { _codeDepths = codeDepths; }
 
     private:
         uint16_t _codeDepths;
     } __attribute__((packed));
 
+    /**
+     * @brief Initializes memory and variables necessary to store information about block traversals during adaptive compression/decompression.
+     */
     inline constexpr void initializeBlockTypes()
     {
         _blocksPerRow = (_width + BLOCK_SIZE - 1) / BLOCK_SIZE;
@@ -269,6 +361,13 @@ protected:
         reinterpret_cast<uint32_t *>(_bestBlockTraversals + _blockCount)[0] = 0; // clear the last 4 bytes (padding)
     }
 
+    /**
+     * @brief Transposes a block of symbols and serializes it row by row into a destination buffer.
+     * @param source Source buffer.
+     * @param destination Destination buffer.
+     * @param blockRow Starting row index of the block to be transposed and serialized in the source buffer.
+     * @param blockColumn Starting column index of the block to be transposed and serialized in the source buffer.
+     */
     inline constexpr void transposeSerializeBlock(symbol_t *source, symbol_t *destination, uint32_t blockRow, uint32_t blockColumn)
     {
         uint32_t sourceStartingIdx = blockRow * BLOCK_SIZE * _width + blockColumn * BLOCK_SIZE;
@@ -282,6 +381,13 @@ protected:
         }
     }
 
+    /**
+     * @brief Deserializes a block from contiguous memory and transposes it back to the original form.
+     * @param source Source buffer.
+     * @param destination Destination buffer.
+     * @param blockRow Starting row index of the block to be transposed and deserialized in the source buffer.
+     * @param blockColumn Starting column index of the block to be transposed and deserialized in the source buffer.
+     */
     inline constexpr void transposeDeserializeBlock(symbol_t *source, symbol_t *destination, uint32_t blockRow, uint32_t blockColumn)
     {
         uint32_t sourceStartingIdx = blockRow * BLOCK_SIZE * _width + blockColumn * BLOCK_SIZE * BLOCK_SIZE;
@@ -295,6 +401,13 @@ protected:
         }
     }
 
+    /**
+     * @brief Serializes a block of symbols row by row into a destination buffer.
+     * @param source Source buffer.
+     * @param destination Destination buffer.
+     * @param blockRow Starting row index of the block to be serialized in the source buffer.
+     * @param blockColumn Starting column index of the block to be serialized in the source buffer.
+     */
     inline constexpr void serializeBlock(symbol_t *source, symbol_t *destination, uint32_t blockRow, uint32_t blockColumn)
     {
         uint32_t sourceStartingIdx = blockRow * BLOCK_SIZE * _width + blockColumn * BLOCK_SIZE;
@@ -323,6 +436,13 @@ protected:
         }
     }
 
+    /**
+     * @brief Deserializes a block from contiguous memory.
+     * @param source Source buffer.
+     * @param destination Destination buffer.
+     * @param blockRow Starting row index of the block to be deserialized in the source buffer.
+     * @param blockColumn Starting column index of the block to be deserialized in the source buffer.
+     */
     inline constexpr void deserializeBlock(symbol_t *source, symbol_t *destination, uint32_t blockRow, uint32_t blockColumn)
     {
         uint32_t sourceStartingIdx = blockRow * BLOCK_SIZE * _width + blockColumn * BLOCK_SIZE * BLOCK_SIZE;
