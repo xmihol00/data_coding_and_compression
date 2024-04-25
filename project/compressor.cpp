@@ -1,3 +1,12 @@
+/* =======================================================================================================================================================
+ * Project:         Huffman RLE compression and decompression
+ * Author:          David Mihola (xmihol00)
+ * E-mail:          xmihol00@stud.fit.vutbr.cz
+ * Date:            12. 5. 2024
+ * Description:     A parallel implementation of a compression algorithm based on Huffman coding and RLE transformation. 
+ *                  This file contains the implementation of the compressor.
+ * ======================================================================================================================================================= */
+
 #include "compressor.h"
 
 using namespace std;

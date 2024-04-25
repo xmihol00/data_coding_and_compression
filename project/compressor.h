@@ -1,8 +1,20 @@
+/* =======================================================================================================================================================
+ * Project:         Huffman RLE compression and decompression
+ * Author:          David Mihola (xmihol00)
+ * E-mail:          xmihol00@stud.fit.vutbr.cz
+ * Date:            12. 5. 2024
+ * Description:     A parallel implementation of a compression algorithm based on Huffman coding and RLE transformation. 
+ *                  This file contains the compressor definitions.
+ * ======================================================================================================================================================= */
+
 #ifndef _COMPRESSOR_H_
 #define _COMPRESSOR_H_
 
 #include "common.h"
 
+/**
+ * @brief A class implementing the compression of an input file using Huffman coding and RLE transformation.
+ */
 class Compressor : public HuffmanRLECompression
 {
 public:
@@ -24,7 +36,7 @@ public:
 
 private:
     /**
-     * Structure representing the frequency of a symbol in the input data, packed to 64 bits for SIMD processing.
+     * Represents the frequency of a symbol in the input data, packed to 64 bits for SIMD processing.
      */
     struct FrequencySymbolIndex
     {
@@ -35,7 +47,7 @@ private:
     } __attribute__((packed));
 
     /**
-     * Structure representing the parent and depth of a symbol in the Huffman tree.
+     * Represents the parent and depth of a symbol in the Huffman tree.
      */
     struct SymbolParentDepth
     {
@@ -45,7 +57,7 @@ private:
     } __attribute__((packed));
 
     /**
-     * Structure representing a symbol in the Huffman code table.
+     * Represents a symbol in the Huffman code table.
      */
     struct HuffmanCode
     {
@@ -81,7 +93,7 @@ private:
     void populateCodeTable();
 
     /**
-     * @brief Transforms the input data considering repetitions and encodes them with the Huffman codes.
+     * @brief Transforms the input data considering repetitions (RLE) and encodes them with the Huffman codes.
      */
     void transformRLE(symbol_t *sourceData, uint16_t *compressedData, uint32_t &compressedSize, uint64_t &startingIdx);
 

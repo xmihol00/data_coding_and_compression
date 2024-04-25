@@ -1,9 +1,19 @@
+/* =======================================================================================================================================================
+ * Project:         Huffman RLE compression and decompression
+ * Author:          David Mihola (xmihol00)
+ * E-mail:          xmihol00@stud.fit.vutbr.cz
+ * Date:            12. 5. 2024
+ * Description:     A parallel implementation of a compression algorithm based on Huffman coding and RLE transformation. 
+ *                  This file contains base class with definitions inherited by both the compressor and decompressor.
+ * ======================================================================================================================================================= */
+
 #ifndef _COMMON_H_
 #define _COMMON_H_
 
 #if _OPENMP
     #include "omp.h"
 #else
+    /* dummy functions when OpenMP is not available */
     constexpr int omp_get_thread_num() { return 0; }
     constexpr int omp_get_num_threads() { return 1; }
     constexpr void omp_set_num_threads(int) { }
