@@ -215,7 +215,7 @@ void Compressor::buildHuffmanTree()
     }
     _numberOfSymbols = symbolsDepthsIdx;
 
-#if __AVX512BW__ && __AVX512VL__ || 1
+#if __AVX512BW__ && __AVX512VL__
     // tree balancing to reduce the depth to maximum of 16 and the number of prefixes to maximum of 32
     uint16_t lastCode = -1;
     uint8_t lastDepth = 0;
