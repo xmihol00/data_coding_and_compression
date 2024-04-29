@@ -221,22 +221,26 @@ void Compressor::buildHuffmanTree()
     _numberOfSymbols = symbolsDepthsIdx;
 
 #if __AVX512BW__ && __AVX512VL__
+    // tree balancing to reduce the depth to maximum of 16 and the number of prefixes to maximum of 32
     uint16_t lastCode = -1;
     uint8_t lastDepth = 0;
     uint16_t numberOfPrefixes = 33;
     uint16_t addedSymbols = 0;
-    uint8_t roundingShift = 0;
+    uint8_t roundingShift = 0;      // increased by 1 after each iteration
     int16_t processedSymbols = 0;
     uint8_t maxDepth = _depths[symbolsDepthsIdx - 1];
     uint8_t adjustedDepthIdx = 0;
     while (numberOfPrefixes > 32 || maxDepth > MAX_CODE_LENGTH)
     {
+        // reset the state
         numberOfPrefixes = 0;
         addedSymbols = 0;
         lastCode = -1;
         lastDepth = 0;
-        processedSymbols = symbolsDepthsIdx;
+        processedSymbols = _numberOfSymbols;
         adjustedDepthIdx = 0;
+
+        // build a new huffman tree
         for (uint16_t i = 0; i < MAX_NUMBER_OF_CODES * 2 && processedSymbols; i++)
         {
             uint16_t adjustedSymbols = symbolsPerDepth[i];
@@ -245,15 +249,16 @@ void Compressor::buildHuffmanTree()
             {
                 adjustedSymbols += addedSymbols;
                 adjustedSymbols = processedSymbols < adjustedSymbols ? processedSymbols : adjustedSymbols;
-                lastCode = (lastCode + 1) << (i - lastDepth);
+                lastCode = (lastCode + 1) << (i - lastDepth); // get the next canonical Huffman code
                 lastDepth = i;
                 uint16_t symbolsToInsert = adjustedSymbols;
                 if (symbolsToInsert != processedSymbols)
                 {
+                    // remove the last 'roundingShift' least significant bits
                     symbolsToInsert >>= roundingShift;
                     symbolsToInsert <<= roundingShift;
                 }
-                addedSymbols = adjustedSymbols - symbolsToInsert;
+                addedSymbols = adjustedSymbols - symbolsToInsert; // save the symbols that were excluded by the rounding
                 
                 while (symbolsToInsert)
                 {
@@ -272,25 +277,26 @@ void Compressor::buildHuffmanTree()
                 }
                 lastCode--;
             }
+            // multiply the number of symbols that were excluded at the current depth by 2, meaning that this many additional symbols can be added at the next depth
             addedSymbols <<= 1;
             maxDepth = i;
         }
         roundingShift++;
     }
 #else
+    // reduce the depth to maximum of 15 (one less to adjust for possible overflow in the next step)
     symbolsDepthsIdx--;
-
     uint8_t maxDepth = _depths[symbolsDepthsIdx];
     constexpr uint16_t decreasedMaxCodeLength = MAX_CODE_LENGTH - 1;
     if (maxDepth > decreasedMaxCodeLength)
     {
         int16_t depthIdx = symbolsDepthsIdx;
         uint8_t maxDepthShift = maxDepth - decreasedMaxCodeLength;
-        int32_t debt = 0;
+        int32_t debt = 0; // the debt corresponds to the number of symbols that need to be moved to the next depth
         while (_depths[depthIdx] > decreasedMaxCodeLength)
         {
             uint8_t maxDepthDifference = _depths[depthIdx] - decreasedMaxCodeLength;
-            debt += ((1 << (maxDepthDifference)) - 1) << (maxDepthShift - maxDepthDifference);
+            debt += ((1 << (maxDepthDifference)) - 1) << (maxDepthShift - maxDepthDifference); // deeper symbols are more expensive to move
             _depths[depthIdx] = decreasedMaxCodeLength;
             depthIdx--;
         }
@@ -303,30 +309,31 @@ void Compressor::buildHuffmanTree()
         // repay the debt
         while (debt > 0)
         {
-            debt -= 1 << (maxDepth - _depths[depthIdx] - 1);
-            _depths[depthIdx]++;
+            debt -= 1 << (maxDepth - _depths[depthIdx] - 1); // symbols higher in the tree repay more debt when moved lower
+            _depths[depthIdx]++; // move symbol deeper 
             depthIdx--;
         }     
     }
     
-    // rebalance the tree
+    // rebalance the tree, set the number of symbols at each depth to a power of 2 and increasing with the depth
     uint16_t depthIdx = 0;
-    uint16_t nodesToRebalance = 1 << (_depths[0] - 1);
+    uint16_t nodesToRebalance = 1 << (_depths[0] - 1); // number of nodes that fits at a given depth
     uint8_t depth = _depths[0];
     while (depthIdx < _numberOfSymbols)
     {
+        // minimum between remaining nodes to be balanced and the number of nodes that fits at the current depth
         nodesToRebalance = depthIdx + nodesToRebalance < _numberOfSymbols ? nodesToRebalance : _numberOfSymbols - depthIdx;
         for (uint16_t i = 0; i < nodesToRebalance; i++)
         {
-            _depths[depthIdx++] = depth;
+            _depths[depthIdx++] = depth; // set the depth of the symbols
         }
 
-        if (depth < _depths[depthIdx])
+        if (depth < _depths[depthIdx]) // fist yet unbalanced symbols is at a deeper depth than the last balanced one
         {
-            nodesToRebalance <<= _depths[depthIdx] - depth;
+            nodesToRebalance <<= _depths[depthIdx] - depth; // increase the number of nodes that fits at the next depth
             depth = _depths[depthIdx];
         }
-        else if (depth == _depths[depthIdx])
+        else if (depth == _depths[depthIdx]) // the depth of unbalanced and balanced nodes is the same, increase the depth of the unbalanced nodes
         {
             nodesToRebalance <<= 1;
             depth += 1;
@@ -360,11 +367,13 @@ void Compressor::populateCodeTable()
         symbolsAtDepths[i] = 0;
     }
 
-    // sort symbols at depths
+    // sort symbols at depths using bitmaps, each depth has a 256-bit bitmap, where each bit represents a symbol 
+    // (correspondng set bit means the symbol is at the depth)
     _usedDepths = 0;
     for (uint16_t i = 0; i < _numberOfSymbols; i++)
     {
         uint64_t bits[4];
+        // clear the bitmap
     #if __AVX2__
         reinterpret_cast<uint64v4_t *>(bits)[0] = _mm256_setzero_si256();
     #else
@@ -373,12 +382,16 @@ void Compressor::populateCodeTable()
         bits[2] = 0;
         bits[3] = 0;
     #endif
+
+        // place the symbol to a correct 64-bit part of the bitmap
         _usedDepths |= 1U << _adjustedDepths[i];
         uint8_t symbol = 255 - _symbols[i];
         bits[3] = (uint64_t)(symbol < 64) << symbol;
         bits[2] = (uint64_t)(symbol < 128 && symbol >= 64) << (symbol - 64);
         bits[1] = (uint64_t)(symbol < 192 && symbol >= 128) << (symbol - 128);
         bits[0] = (uint64_t)(symbol >= 192) << (symbol - 192);
+
+        // or the bitmap of the current symbol with the bitmap of all the other symbols at the current depth
     #if __AVX2__
         _symbolsAtDepths[_adjustedDepths[i]] = _mm256_or_si256(_symbolsAtDepths[_adjustedDepths[i]], reinterpret_cast<uint64v4_t *>(bits)[0]);
     #else
@@ -411,28 +424,28 @@ void Compressor::populateCodeTable()
             bits[2] = reinterpret_cast<uint64_t *>(_symbolsAtDepths + i)[2];
             bits[3] = reinterpret_cast<uint64_t *>(_symbolsAtDepths + i)[3];
         #endif
-            lastCode = (lastCode + 1) << delta;
-            lastCode--;
+            lastCode = (lastCode + 1) << delta; // get the next canonical Huffman code for the 1st symbol at a given depth
+            lastCode--; // move one code back for easier processing in the following loop
             uint16_t oldCode = lastCode;
 
-            for (uint8_t j = 0; j < 4; j++)
+            for (uint8_t j = 0; j < 4; j++) // for the 4 64-bit parts of the bitmap
             {
-                uint8_t symbol = j << 6;
+                uint8_t symbol = j << 6; // offset of the current 64-bit part of the bitmap in the 256-bit bitmap
                 uint8_t leadingZeros;
-                while ((leadingZeros = countl_zero(bits[j])) < 64)
+                while ((leadingZeros = countl_zero(bits[j])) < 64) // until the 64-bit part of the bitmap is not empty
                 {
-                    uint8_t adjustedSymbol = symbol + leadingZeros;
+                    uint8_t adjustedSymbol = symbol + leadingZeros; // value of the symbol
                     lastCode++;
                     bits[j] ^= 1UL << (63 - leadingZeros); // remove the current symbol from the bitmap
                     _codeTable[adjustedSymbol].code = lastCode;
-                    _codeTable[adjustedSymbol].length = i;
+                    _codeTable[adjustedSymbol].length = i; // length of the symbols is equal to its depth
                 }
             }
             delta = 0;
 
-            uint16_t codeCount = lastCode - oldCode;
+            uint16_t codeCount = lastCode - oldCode; // number of symbols added at the current depth
             _maxSymbolsPerDepth = max(_maxSymbolsPerDepth, codeCount);
-            if (_maxSymbolsPerDepth == codeCount)
+            if (_maxSymbolsPerDepth == codeCount) // continuously update the most populated depth
             {
                 _mostPopulatedDepthIdx = depthIndex - 1;
                 _mostPopulatedDepth = i;
@@ -484,40 +497,51 @@ void Compressor::transformRLE(symbol_t *sourceData, uint16_t *compressedData, ui
     uint8_t chunkIdx = 0;
 
     uint64_t shortsToCompress = (bytesToCompress + _threadPadding - 2) >> 1;
+    // until there is something to compress or space for the compressed is not exhausted, in the latter case no compression is achieved
     while (sourceDataIdx <= bytesToCompress && nextCompressedIdx < shortsToCompress)
     {
-        if (sourceData[sourceDataIdx] == current)
+        if (sourceData[sourceDataIdx] == current) // repeating symbol
         {
             sameSymbolCount++;
         }
         else
         {
+            // retrieve the corresponding Huffman code and its length for the current symbol
             uint16_t codeLength = _codeTable[current].length;
             uint16_t code = _codeTable[current].code << (16 - codeLength);
 
+            // store the Huffman code in the compressed data up to 3 times
             for (uint32_t i = 0; i < sameSymbolCount && i < 3; i++)
             {
+                // separate the code to two parts, that are stored in two 16-bit parts of the compressed data
                 uint16_t downShiftedCode = code >> chunkIdx;
                 uint16_t upShiftedCode = code << (16 - chunkIdx);
+
+                // store the two parts of the code in the compressed data
                 compressedData[currentCompressedIdx] |= downShiftedCode;
-                compressedData[nextCompressedIdx] = 0;
+                compressedData[nextCompressedIdx] = 0; // clear the next 16-bit part first
                 compressedData[nextCompressedIdx] |= upShiftedCode;
+
                 chunkIdx += codeLength;
-                bool moveChunk = chunkIdx >= 16;
-                chunkIdx &= 15;
-                currentCompressedIdx += moveChunk;
-                nextCompressedIdx += moveChunk;
+                bool moveChunk = chunkIdx >= 16;   // move to the next 16-bit part of the compressed data
+                chunkIdx &= 15;                    // modulo 16
+                currentCompressedIdx += moveChunk; // the next 16-bit part of the compressed data becomes the current part
+                nextCompressedIdx += moveChunk;    // new next 16-bit part of the compressed data will be used in the next iteration
             }
 
             bool repeating = sameSymbolCount >= 3;
-            sameSymbolCount -= 3;
+            sameSymbolCount -= 3; // the first 3 symbols were already compressed
             while (repeating)
             {
+                // mask the lower bits of the number of repetitions and retrieve a partial number of repetitions
                 uint16_t count = sameSymbolCount & ((~0U) >> (16 - BITS_PER_REPETITION_NUMBER));
+                // decrease the number of repetitions by the number of repetitions already stored in 'count'
                 sameSymbolCount >>= (BITS_PER_REPETITION_NUMBER - 1);
-                repeating = sameSymbolCount > 0;
-                count |= repeating << (BITS_PER_REPETITION_NUMBER - 1);
-                count <<= (16 - BITS_PER_REPETITION_NUMBER);
+                repeating = sameSymbolCount > 0;                        // check if there are more to be stored
+                count |= repeating << (BITS_PER_REPETITION_NUMBER - 1); // indicate to the decompressor that there are/aren't more repetitions
+                count <<= (16 - BITS_PER_REPETITION_NUMBER);            // align the count to MSB
+
+                // perform the same operation as for the Huffman code
                 uint16_t downShiftedCount = count >> chunkIdx;
                 uint16_t upShiftedCount = count << (16 - chunkIdx);
                 compressedData[currentCompressedIdx] |= downShiftedCount;
@@ -530,14 +554,14 @@ void Compressor::transformRLE(symbol_t *sourceData, uint16_t *compressedData, ui
                 nextCompressedIdx += moveChunk;
             }
 
-            sameSymbolCount = 1;
+            sameSymbolCount = 1; // reset the same symbol counter
             current = sourceData[sourceDataIdx];
         }
         sourceDataIdx++;
     }
     
-    _compressionUnsuccessful = sourceDataIdx <= bytesToCompress;
-    compressedSize = nextCompressedIdx * 2;
+    _compressionUnsuccessful = sourceDataIdx <= bytesToCompress; // there is still something to compress
+    compressedSize = nextCompressedIdx * 2; // size in bytes
     DEBUG_PRINT("Thread " << threadNumber << ": RLE transformed");
 }
 
@@ -545,7 +569,7 @@ void Compressor::createHeader()
 {
     DEBUG_PRINT("Creating header");
 
-    compressDepthMaps();
+    compressDepthMaps(); // compress the depth maps, that is the Huffman tree
 
     #if __AVX2__
         reinterpret_cast<uint16v16_t *>(_headerBuffer)[0] = _mm256_setzero_si256(); // clear the buffer
@@ -556,22 +580,24 @@ void Compressor::createHeader()
         reinterpret_cast<uint64_t *>(_headerBuffer)[3] = 0;
     #endif
 
-    if (_numberOfThreads > 1)
+    if (_numberOfThreads > 1) // multi-threaded compression
     {
         uint16_t maxBitsCompressedSizes;
         packCompressedSizes(maxBitsCompressedSizes);
     
         DepthBitmapsMultiThreadedHeader &header = reinterpret_cast<DepthBitmapsMultiThreadedHeader &>(_headerBuffer);
+        // compose the header
         header.clearFirstByte();
         header.insertHeaderType(MULTI_THREADED);
         header.setVersion(0);
         header.setNumberOfThreads(_numberOfThreads);
+        // retrieve the number of bits needed to store block sizes of compressed data by each thread
         header.setBitsPerBlockSize(maxBitsCompressedSizes);
-        header.setCodeDepths(_usedDepths);
+        header.setCodeDepths(_usedDepths); // bitmap of used depths in the Huffman tree
         _headerSize = sizeof(DepthBitmapsMultiThreadedHeader);
-        _threadBlocksSizesSize = (_numberOfThreads * maxBitsCompressedSizes + 7) / 8;
+        _threadBlocksSizesSize = (_numberOfThreads * maxBitsCompressedSizes + 7) / 8; // round to bytes
     }
-    else
+    else // single-threaded compression
     {
         DepthBitmapsHeader &header = reinterpret_cast<DepthBitmapsHeader &>(_headerBuffer);
         header.clearFirstByte();
@@ -583,17 +609,19 @@ void Compressor::createHeader()
     }
 
     BasicHeader &header = reinterpret_cast<BasicHeader &>(_headerBuffer);
-    if (_adaptive)
+    if (_adaptive) // adaptive compression
     {
         header.insertHeaderType(ADAPTIVE);
+        // use 2D description of the size of the compressed data
         header.setWidth(_width);
         header.setHeight(_height);
 
-        _blockTypesByteSize = (_blockCount * BITS_PER_BLOCK_TYPE + 7) / 8;
+        _blockTypesByteSize = (_blockCount * BITS_PER_BLOCK_TYPE + 7) / 8; // round to bytes
         _blockTypes = new uint8_t[_blockTypesByteSize];
 
         for (uint32_t i = 0, j = 0; j < _blockCount; i++, j += 4)
         {
+            // pack the block types into bytes, 2 bits per block type
             _blockTypes[i] = 0;
             _blockTypes[i] |= _bestBlockTraversals[j] << 6;
             _blockTypes[i] |= _bestBlockTraversals[j + 1] << 4;
@@ -604,10 +632,10 @@ void Compressor::createHeader()
     else
     {
         header.insertHeaderType(STATIC);
-        header.setSize(_size);
+        header.setSize(_size); // use 1D description of the size of the compressed data
     }
     
-    if (_model)
+    if (_model) // model was applied to the data before compression
     {
         header.insertHeaderType(MODEL);
     }
@@ -623,38 +651,37 @@ void Compressor::packCompressedSizes(uint16_t &maxBitsCompressedSizes)
 {
     DEBUG_PRINT("Packing compressed sizes");
 
-    maxBitsCompressedSizes = 0;
-    for (uint8_t i = 0; i < _numberOfThreads; i++)
-    {
-        uint16_t bits = 32 - countl_zero(_compressedSizes[i]);
-        maxBitsCompressedSizes = max(maxBitsCompressedSizes, bits);
-    }
+    // get the maximum number of bits needed to store the size of the compressed data by each thread
+    uint32_t max = max_element(_compressedSizes, _compressedSizes + _numberOfThreads)[0];
+    maxBitsCompressedSizes = 32 - countl_zero(max);
 
-    uint8_t *packedCompressedSizes = reinterpret_cast<uint8_t *>(_compressedSizes);
+    uint8_t *packedCompressedSizes = reinterpret_cast<uint8_t *>(_compressedSizes); // store the packed sizes in the same buffer
     uint16_t idx = 0;
     uint8_t chunkIdx = 0;
+    uint32_t compressedSize = _compressedSizes[0];
+    _compressedSizes[0] = 0; // clear the first size
     for (uint8_t i = 0; i < _numberOfThreads; i++)
     {
-        uint32_t compressedSize = _compressedSizes[i];
         uint8_t bits = maxBitsCompressedSizes;
-        compressedSize <<= 32 - maxBitsCompressedSizes;
-        packedCompressedSizes[idx] = i == 0 ? 0 : packedCompressedSizes[idx];
+        compressedSize <<= 32 - maxBitsCompressedSizes; // align the size to MSB
 
-        do
+        do // distribute the size to the 8-bit parts of the buffer
         {
-            packedCompressedSizes[idx] |= compressedSize >> (24 + chunkIdx);
-            uint8_t storedBits = bits < 8 - chunkIdx ? bits : 8 - chunkIdx;
+            packedCompressedSizes[idx] |= compressedSize >> (24 + chunkIdx); // store the current part of the size
+            uint8_t storedBits = bits < 8 - chunkIdx ? bits : 8 - chunkIdx;  // number of bits stored in the current byte
             compressedSize <<= storedBits;
-            bits -= storedBits;
+            bits -= storedBits;     // decrease the number of bits left to be stored
             chunkIdx += storedBits;
-            if (chunkIdx >= 8)
+            if (chunkIdx >= 8) // move to the next byte
             {
                 chunkIdx &= 0x7;
-                packedCompressedSizes[++idx] = 0;
+                packedCompressedSizes[++idx] = 0; // clear the next byte
             }
         } 
         while (bits);
+        compressedSize = _compressedSizes[i + 1];
     }
+    
     DEBUG_PRINT("Compressed sizes packed");
 }
 

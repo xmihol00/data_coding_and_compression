@@ -164,7 +164,7 @@ protected:
 
     int32_t _numberOfThreads;   ///< Number of active threads used for multi-threaded compression.
 
-    uint32_t _compressedSizes[MAX_NUM_THREADS];             ///< Sizes of compressed data by each thread.
+    uint32_t _compressedSizes[MAX_NUM_THREADS + 1];         ///< Sizes of compressed data by each thread.
     uint32_t _compressedSizesExScan[MAX_NUM_THREADS + 1];   ///< Exclusive scan of compressed sizes by each thread.
 
     uint8_t _symbolsPerDepth[MAX_NUMBER_OF_CODES * 2];      ///< Number of symbols at each depth of the huffman tree.
