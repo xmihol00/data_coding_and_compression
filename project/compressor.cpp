@@ -690,8 +690,10 @@ void Compressor::compressDepthMaps()
     DEBUG_PRINT("Compressing depth maps");
 
     uint16_t numberOfMaps = popcount(_usedDepths);
-    if (_numberOfSymbols < 256) // put the unseen symbols at the 0th depth, which is going to be the last one
+    // put the unseen symbols at the 0th depth, which is going to be the last one (at the last index in the compressed depth maps array)
+    if (_numberOfSymbols < 256)
     {
+        // the unseen symbols can be obtained by XORing all the seen symbols with fully populated 256-bit bitmap
     #if __AVX2__
         _symbolsAtDepths[numberOfMaps] = _mm256_set1_epi32(0xffff'ffff);
         for (uint16_t i = 0; i < numberOfMaps; i++)
@@ -715,23 +717,27 @@ void Compressor::compressDepthMaps()
     #endif
 
         uint16_t numberOfUnseenSymbols = 256 - _numberOfSymbols;
+        // update the depth with maximum number of symbols if there are more unseen symbols than seen at any depth
         if (numberOfUnseenSymbols > _maxSymbolsPerDepth)
         {
             _mostPopulatedDepth = 0;
             _mostPopulatedDepthIdx = numberOfMaps;
         }
 
+        // mark the 0th depth as used
         _usedDepths |= 0b1;
         numberOfMaps++;
     }
 
+    // first byte indicates the most populated depth, which is not compressed (it can be retrieved by XORing all the other depths)
     _compressedDepthMaps[0] = _mostPopulatedDepth;
     uint16_t compressedIdx = 1;
 
     for (uint16_t i = 0; i < numberOfMaps; i++)
     {
         if (i != _mostPopulatedDepthIdx)
-        {    
+        {   
+            // use 32-bit mask to indicate 0 bytes in the 256-bit bitmap and store only the non-zero bytes
             uint8_t *depthBytes = reinterpret_cast<uint8_t *>(_symbolsAtDepths + i);
         #if __AVX512BW__ && __AVX512VL__
             uint32_t mask = _mm256_cmp_epi8_mask(_symbolsAtDepths[i], _mm256_setzero_si256(), _MM_CMPINT_NE);
@@ -748,15 +754,15 @@ void Compressor::compressDepthMaps()
             _compressedDepthMaps[compressedIdx++] = mask >> 8;
             _compressedDepthMaps[compressedIdx++] = mask;
 
-            while (mask)
+            while (mask) // there are non-zero bytes in the bitmap
             {
                 uint8_t firstSetBit = 31 - countl_zero(mask);
-                mask ^= 1 << firstSetBit;
-                _compressedDepthMaps[compressedIdx++] = depthBytes[firstSetBit];
+                mask ^= 1 << firstSetBit; // mark the non-zero byte as stored
+                _compressedDepthMaps[compressedIdx++] = depthBytes[firstSetBit]; // store the non-zero byte
             }
         }
     }
-    _compressedDepthMapsSize = compressedIdx;
+    _compressedDepthMapsSize = compressedIdx; // store the size of the compressed depth maps in bytes
 
     DEBUG_PRINT("Depth maps compressed");
 }
@@ -773,13 +779,15 @@ void Compressor::writeOutputFile(string outputFileName, string inputFileName)
     }
     
     if ((_size < _headerSize + _threadBlocksSizesSize + sizeof(uint64v4_t) * popcount(_usedDepths) + _compressedSizesExScan[_numberOfThreads]) ||
-        _compressionUnsuccessful) // data not compressed
+        _compressionUnsuccessful) // the compressed size is larger than the original size or compression was unsuccessful (some thread run out of space)
     {
+        // use the first byte to store the information about the unsuccessful compression
         FirstByteHeader &header = reinterpret_cast<FirstByteHeader &>(_headerBuffer);
         header.clearFirstByte();
         header.setNotCompressed();
         outputFile.write(reinterpret_cast<char *>(&_headerBuffer), sizeof(FirstByteHeader));
 
+        // copy the input file to the output file
         ifstream inputFile(inputFileName, ios::binary);
         if (!inputFile.is_open())
         {
@@ -793,10 +801,15 @@ void Compressor::writeOutputFile(string outputFileName, string inputFileName)
     }
     else // data successfully compressed
     {
+        // write the header
         outputFile.write(reinterpret_cast<char *>(_headerBuffer), _headerSize);
+        // write the sizes of the compressed data by each thread (if multi-threaded compression)
         outputFile.write(reinterpret_cast<char *>(_compressedSizes), _threadBlocksSizesSize);
+        // write the compressed depth maps
         outputFile.write(reinterpret_cast<char *>(_compressedDepthMaps), _compressedDepthMapsSize);
+        // write the block types (if adaptive compression)
         outputFile.write(reinterpret_cast<char *>(_blockTypes), _blockTypesByteSize);
+        // write the compressed data
         outputFile.write(reinterpret_cast<char *>(_destinationBuffer), _compressedSizesExScan[_numberOfThreads]); 
     }
     outputFile.close();
@@ -819,12 +832,7 @@ void Compressor::readInputFile(string inputFileName)
     _size = inputFile.tellg();
     inputFile.seekg(0, ios::beg);
 
-    if (_size > UINT32_MAX) // TODO: possibly allow larger files
-    {
-        cerr << "Error: The input file is too large." << endl;
-        exit(1);
-    }
-    else if (_size == 0) // TODO: possibly allow empty files
+    if (_size == 0) // TODO: possibly allow empty files
     {
         cerr << "Error: The input file is empty. Nothing to compress here." << endl;
         exit(1);
@@ -841,7 +849,7 @@ void Compressor::readInputFile(string inputFileName)
     {
         cerr << "Warning: The input file width and height is not divisible by a built in adaptive granularity of " << BLOCK_SIZE << "." << endl;
         cerr << "         Static compression will be used instead." << endl;
-        _adaptive = false;
+        _adaptive = false; // disable adaptive compression 
     }
 
     uint64_t roundedSize = ((_size + _numberOfThreads - 1) / _numberOfThreads) * _numberOfThreads + 1;
@@ -865,7 +873,7 @@ void Compressor::readInputFile(string inputFileName)
 void Compressor::compressStatic()
 {
     int threadNumber = omp_get_thread_num();
-    computeHistogram();
+    computeHistogram(); // compute the histogram of frequencies of symbols in the input data
 
     #pragma omp single
     {
@@ -895,6 +903,7 @@ void Compressor::compressStatic()
         DEBUG_PRINT("Total compressed size: " << _compressedSizesExScan[_numberOfThreads]);
     } // implicit barrier
 
+    // TODO: disable if single threaded
     // all threads pack the compressed data back into the initial buffer
     {
         copy(_destinationBuffer + startingIdx, _destinationBuffer + startingIdx + _compressedSizes[threadNumber], _sourceBuffer + _compressedSizesExScan[threadNumber]);
@@ -921,33 +930,30 @@ void Compressor::analyzeImageAdaptive()
             int32_t *rleCounts = _rlePerBlockCounts[sectionId];
 
             uint32_t blockIdx = 0;
-            for (uint32_t i = 0; i < _width; i += BLOCK_SIZE) // TODO: solve not divisible by BLOCK_SIZE
+            for (uint32_t i = 0; i < _width; i += BLOCK_SIZE)
             {
                 uint32_t firstRow = i * _width;
                 for (uint32_t j = 0; j < _height; j += BLOCK_SIZE)
                 {
                     uint32_t firstColumn = firstRow + j;
                     uint16_t lastSymbol = -1;
-                    int32_t sameSymbolCount = -3;
+                    int32_t sameSymbolCount = -3; // symbol will be compressed only if it repeats more than 3 times
                     int32_t rleCount = 0;
+                    // count the number of repetitions of symbols in the block, traverse it in horizontal lines
                     for (uint32_t k = 0; k < BLOCK_SIZE; k++)
                     {
                         for (uint32_t l = 0; l < BLOCK_SIZE; l++)
                         {
                             bool sameSymbol = _sourceBuffer[firstColumn + l] == lastSymbol;
                             lastSymbol = _sourceBuffer[firstColumn + l];
-                        #if 0
-                            rleCount += sameSymbolCount * (!sameSymbol && sameSymbolCount >= -1);
-                            sameSymbolCount = (sameSymbolCount + sameSymbol) * sameSymbol + (-3 * !sameSymbol);
-                        #endif
-                            rleCount += !sameSymbol && sameSymbolCount >= -1 ? sameSymbolCount : 0;
+                            rleCount += !sameSymbol && sameSymbolCount >= -1 ? sameSymbolCount : 0; // punish symbols that repeat exactly 3 times
                             sameSymbolCount++;
                             sameSymbolCount = sameSymbol ? sameSymbolCount : -3;
                         }
 
                         firstColumn += _width;
                     }
-                    rleCounts[blockIdx++] = rleCount;
+                    rleCounts[blockIdx++] = rleCount; // store the count of repetitions and move to the next block
                 }
             }
         }
@@ -959,7 +965,7 @@ void Compressor::analyzeImageAdaptive()
             int32_t *rleCounts = _rlePerBlockCounts[sectionId];
             
             int32_t blockIdx = 0;
-            for (uint32_t i = 0; i < _width; i += BLOCK_SIZE) // TODO: solve not divisible by BLOCK_SIZE
+            for (uint32_t i = 0; i < _width; i += BLOCK_SIZE)
             {
                 uint32_t firstRow = i * _width;
                 for (uint32_t j = 0; j < _height; j += BLOCK_SIZE)
@@ -971,14 +977,11 @@ void Compressor::analyzeImageAdaptive()
                     for (uint32_t k = 0; k < BLOCK_SIZE; k++)
                     {
                         uint32_t column = firstColumn + k;
+                        // traverse the block in vertical lines
                         for (uint32_t l = 0; l < BLOCK_SIZE; l++)
                         {
                             bool sameSymbol = _sourceBuffer[column] == lastSymbol;
                             lastSymbol = _sourceBuffer[column];
-                        #if 0
-                            rleCount += sameSymbolCount * (!sameSymbol && sameSymbolCount >= -1);
-                            sameSymbolCount = (sameSymbolCount + sameSymbol) * sameSymbol + (-3 * !sameSymbol);
-                        #endif
                             rleCount += !sameSymbol && sameSymbolCount >= -1 ? sameSymbolCount : 0;
                             sameSymbolCount++;
                             sameSymbolCount = sameSymbol ? sameSymbolCount : -3;
@@ -990,6 +993,8 @@ void Compressor::analyzeImageAdaptive()
                 }
             }
         }
+
+        // TODO: add diagonal traversal
     }
 }
 
@@ -999,7 +1004,7 @@ void Compressor::applyDiferenceModel(symbol_t *source, symbol_t *destination)
     uint64_t bytesToProcess = (_size + _numberOfThreads - 1) / _numberOfThreads;
     bytesToProcess += bytesToProcess & 0x1; // ensure even number of bytes per thread, TODO solve single thread case
     uint64_t startingIdx = bytesToProcess * threadNumber;
-    if (threadNumber == _numberOfThreads - 1 && _numberOfThreads > 1) // last thread
+    if (threadNumber == _numberOfThreads - 1) // last thread
     {
         bytesToProcess -= bytesToProcess * _numberOfThreads - _size; // ensure last thread does not run out of bounds
     }
@@ -1011,7 +1016,7 @@ void Compressor::applyDiferenceModel(symbol_t *source, symbol_t *destination)
     #pragma omp simd aligned(source, destination: 64) simdlen(64)
     for (uint32_t i = 1; i < bytesToProcess; i++)
     {
-        destination[i] = source[i] - source[i - 1];
+        destination[i] = source[i] - source[i - 1]; // subtract the previous symbol from the current one
     }
 }
 
@@ -1031,11 +1036,12 @@ void Compressor::compressAdaptive()
     
     #pragma omp single
     {
+        // determine the best traversal for each block
         for (uint32_t i = 0; i < _blockCount; i++)
         {
             AdaptiveTraversals bestTraversal = HORIZONTAL;
             int32_t bestRleCount = INT32_MIN;
-            for (uint8_t j = 0; j < 2; j++)
+            for (uint8_t j = 0; j < NUMBER_OF_TRAVERSALS; j++)
             {
                 if (_rlePerBlockCounts[j][i] > bestRleCount)
                 {
@@ -1048,7 +1054,8 @@ void Compressor::compressAdaptive()
     }
     // implicit barrier
 
-    #pragma omp for schedule(dynamic, 1)
+    // serialize the blocks into 1D memory
+    #pragma omp for schedule(dynamic, 1) // schedule the work dynamically, transposition is more difficult than simple serialization
     for (uint32_t i = 0; i < _blocksPerColumn; i++)
     {
         for (uint32_t j = 0; j < _blocksPerRow; j++)
@@ -1062,11 +1069,15 @@ void Compressor::compressAdaptive()
             case VERTICAL:
                 transposeSerializeBlock(_sourceBuffer, _destinationBuffer, j, i);
                 break;
+            
+            case NUMBER_OF_TRAVERSALS:
+                // this is a dummy
+                break;
             }
         }
     }
 
-    computeHistogram();
+    computeHistogram(); // compute the histogram of frequencies of symbols in the adapted input data
     #pragma omp single
     {
         buildHuffmanTree();
@@ -1110,6 +1121,7 @@ void Compressor::compressAdaptive()
 void Compressor::compressStaticModel()
 {
     {
+        // just apply the difference model
         applyDiferenceModel(_sourceBuffer, _destinationBuffer);
     }
     #pragma omp barrier
@@ -1120,12 +1132,14 @@ void Compressor::compressStaticModel()
     }
     // implicit barrier
 
+    // then use the static compression as it would be used without the model
     compressStatic();
 }
 
 void Compressor::compressAdaptiveModel()
 {
     {
+        // just apply the difference model
         applyDiferenceModel(_sourceBuffer, _destinationBuffer);
     }
     #pragma omp barrier
@@ -1136,6 +1150,7 @@ void Compressor::compressAdaptiveModel()
     }
     // implicit barrier
 
+    // then use the adaptive compression as it would be used without the model
     compressAdaptive();
 }
 
@@ -1143,14 +1158,16 @@ void Compressor::compress(string inputFileName, string outputFileName)
 {
     readInputFile(inputFileName);
     
-    if (_adaptive)
+    if (_adaptive) // adaptive compression
     {
+        // memory for traversal block types must be allocated
         initializeBlockTypes();
     }
     
     #pragma omp parallel
     {
         DEBUG_PRINT("Thread " << omp_get_thread_num() << " started");
+        // select the compression method based on the passed parameters
         if (_model)
         {
             if (_adaptive)

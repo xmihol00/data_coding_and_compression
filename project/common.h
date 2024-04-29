@@ -86,6 +86,7 @@ protected:
     {
         HORIZONTAL = 0,
         VERTICAL = 1,
+        NUMBER_OF_TRAVERSALS
     };
 
     /**
