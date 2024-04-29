@@ -5,12 +5,28 @@ using namespace std;
 
 int main(int argc, char* argv[])
 {
+#if __AVX2__
+    DEBUG_PRINT("AVX2 available");
+#endif
+#if __AVX512BW__
+    DEBUG_PRINT("AVX512BW available");
+#endif
+#if __AVX512F__
+    DEBUG_PRINT("AVX512F available");
+#endif
+#if __AVX512VL__
+    DEBUG_PRINT("AVX512VL available");
+#endif
+#if __AVX512VPOPCNTDQ__
+    DEBUG_PRINT("AVX512VPOPCNTDQ available");
+#endif
+
 #if !_OPENMP
     #warning "Compiling without OpenMP support."
 #endif
 
-    Arguments args = parseArguments(argc, argv);
-    omp_set_num_threads(args.threads);
+    Arguments args = parseArguments(argc, argv); // parse command line arguments
+    omp_set_num_threads(args.threads);           // set number of used threads 
     
     if (args.compress)
     {
@@ -28,6 +44,8 @@ int main(int argc, char* argv[])
 
 Arguments parseArguments(int argc, char* argv[])
 {
+    constexpr uint16_t DEFAULT_NUMBER_OF_THREADS = 4;
+
     Arguments args;
     args.compress = false;
     args.decompress = false;
@@ -37,9 +55,9 @@ Arguments parseArguments(int argc, char* argv[])
     args.inputFileName = "";
     args.outputFileName = "";
 #if _OPENMP
-    args.threads = 4;
+    args.threads = DEFAULT_NUMBER_OF_THREADS;
 #else
-    args.threads = 1;
+    args.threads = 1; // no OpenMP support, only one thread
 #endif
 
     vector<string> arguments(argv, argv + argc);
@@ -69,7 +87,7 @@ Arguments parseArguments(int argc, char* argv[])
             }
             catch (const invalid_argument& e)
             {
-                cerr << "Error: Unsigned integral expected after the '-w' switch, got '" << arguments[i] << "'." << endl;
+                cerr << "Error: Unsigned integer expected after the '-w' switch, got '" << arguments[i] << "'." << endl;
                 exit(1);
             }
             catch (const out_of_range& e)
@@ -115,7 +133,7 @@ Arguments parseArguments(int argc, char* argv[])
             cerr << "  -w <width>:       Width of the compressed image." << endl;
             cerr << "  -i <input_file>:  Specify the input file." << endl;
             cerr << "  -o <output_file>: Specify the output file." << endl;
-            cerr << "  -t <threads>:     Number of threads to use (default is 4), must be a power of 2." << endl;
+            cerr << "  -t <threads>:     Number of threads to use (default is " << DEFAULT_NUMBER_OF_THREADS << "), must be a power of 2." << endl;
             exit(0);
         }
         else if (arguments[i] == "-t")
@@ -130,25 +148,25 @@ Arguments parseArguments(int argc, char* argv[])
                     if (popcount(threads) != 1)
                     {
                         uint64_t leadingZeros = 63 - countl_zero(threads);
-                        args.threads = 1 << leadingZeros;
+                        args.threads = 1 << leadingZeros; // round to the nearest smaller power of 2
                         cerr << "Warning: Number of threads must be a power of 2, adjusted to " << args.threads << "." << endl;
                     }
                 }
                 else
                 {
-                    cerr << "Warning: Number of threads must be even number between 1 and 32, got '" << arguments[i] << "', adjusted to 16." << endl;
-                    args.threads = 16;
+                    cerr << "Warning: Number of threads must be a power of 2 between 1 and 32 inclusive, got '" << arguments[i] << "'" << endl;
+                    cerr << "         Number of threads is set to the default value of " << DEFAULT_NUMBER_OF_THREADS << "." << endl;
                 }
             }
             catch (const invalid_argument& e)
             {
-                cerr << "Error: Unsigned integral expected after the '-t' switch, got '" << arguments[i] << "'." << endl;
-                exit(1);
+                cerr << "Warning: Unsigned integer expected after the '-t' switch, got '" << arguments[i] << "'." << endl;
+                cerr << "         Number of threads is set to the default value of " << DEFAULT_NUMBER_OF_THREADS << "." << endl;
             }
             catch (const out_of_range& e)
             {
-                cerr << "Error: Specified number of threads is out of range with '" << arguments[i] << "'." << endl;
-                exit(1);
+                cerr << "Warning: Specified number of threads is out of range with '" << arguments[i] << "'." << endl;
+                cerr << "         Number of threads is set to the default value of " << DEFAULT_NUMBER_OF_THREADS << "." << endl;
             }
         #else
             cerr << "Warning: OpenMP is not supported, number of threads is ignored." << endl;
@@ -162,7 +180,6 @@ Arguments parseArguments(int argc, char* argv[])
     }
 
     // check validity of arguments
-
     if (args.compress && args.decompress)
     {
         cerr << "Error: Cannot compress and decompress at the same time." << endl;

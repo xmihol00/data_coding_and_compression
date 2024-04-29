@@ -1164,7 +1164,7 @@ void Compressor::compress(string inputFileName, string outputFileName)
         initializeBlockTypes();
     }
     
-    #pragma omp parallel
+    #pragma omp parallel // launch threads, i.e. create a parallel region
     {
         DEBUG_PRINT("Thread " << omp_get_thread_num() << " started");
         // select the compression method based on the passed parameters
