@@ -84,23 +84,18 @@ void Compressor::computeHistogram()
             }
         }
 
-        FrequencySymbolIndex *structHistogram = _structHistogram;
-        #pragma omp simd aligned(structHistogram, intHistogram: 64) simdlen(8)
+        uint32_t *structHistogram = reinterpret_cast<uint32_t *>(_structHistogram);
+        #pragma omp simd aligned(structHistogram, intHistogram: 64) simdlen(16)
         for (uint32_t i = 0; i < NUMBER_OF_SYMBOLS; i++)
         {
-            reinterpret_cast<uint64_t *>(structHistogram)[i] = intHistogram[i] << 8;
-            structHistogram[i].index = i;
-            structHistogram[i] = intHistogram[i] == 0 ? MAX_FREQUENCY_SYMBOL_INDEX : structHistogram[i];
+            // clip the frequency to the maximum value
+            intHistogram[i] = intHistogram[i] >= (1UL << MAX_BITS_FOR_FREQUENCY) ? (1UL << MAX_BITS_FOR_FREQUENCY) - 2 : intHistogram[i];
+            structHistogram[i] = intHistogram[i] << 8; // store the frequency in the struct at the 24 MSBs
+            structHistogram[i] |= i;
+            structHistogram[i] = intHistogram[i] == 0 ? UINT32_MAX : structHistogram[i];
         }
     }
     // implicit barrier
-
-    /*uint64_t maxFrequency = max_element(histogram, histogram + NUMBER_OF_SYMBOLS)[0];
-    if (maxFrequency >= 1UL << 40) // this will likely never happen 
-    {
-        cerr << "Error: Input file is too large." << endl;
-        exit(1);
-    }*/
 
     DEBUG_PRINT("Thread " << threadId << ": histogram computed");
 }
@@ -111,6 +106,7 @@ void Compressor::buildHuffmanTree()
     uint32_t *symbolsParentsDepths = reinterpret_cast<uint32_t *>(_symbolsParentsDepths);
     uint16_t *parentsSortedIndices = _parentsSortedIndices;
 
+    // clear the arrays
     #pragma omp simd aligned(symbolsParentsDepths: 64) simdlen(16)
     for (uint16_t i = 0; i < NUMBER_OF_SYMBOLS; i++)
     {
@@ -125,48 +121,47 @@ void Compressor::buildHuffmanTree()
     uint16_t sortedIdx = 0;
     union Minimum
     {
-        uint64_t intMin;
+        uint32_t intMin;
         FrequencySymbolIndex structMin;
     };
-    
     Minimum firstMin;
     Minimum secondMin;
-    
+
     while (true)
     {
     #if __AVX512F__
-        uint64v8_t min1 = _vectorHistogram[0];
-        uint64v8_t min2 = _vectorHistogram[1];
-        #pragma GCC unroll (NUMBER_OF_SYMBOLS / 16)
-        for (uint8_t i = 2; i < NUMBER_OF_SYMBOLS / 8 ; i += 2)
+        uint32v16_t min1 = _vectorHistogram[0];
+        uint32v16_t min2 = _vectorHistogram[1];
+        #pragma GCC unroll (NUMBER_OF_SYMBOLS / 32 - 1)
+        for (uint8_t i = 2; i < NUMBER_OF_SYMBOLS / 16 ; i += 2)
         {
-            uint64v8_t current1 = _vectorHistogram[i];
-            uint64v8_t current2 = _vectorHistogram[i + 1];
+            uint32v16_t current1 = _vectorHistogram[i];
+            uint32v16_t current2 = _vectorHistogram[i + 1];
             
-            min1 = _mm512_min_epu64(min1, current1);
-            min2 = _mm512_min_epu64(min2, current2);
+            min1 = _mm512_min_epu32(min1, current1);
+            min2 = _mm512_min_epu32(min2, current2);
         }
-        min1 = _mm512_min_epu64(min1, min2);
-        firstMin.intMin = _mm512_reduce_min_epu64(min1);
+        min1 = _mm512_min_epu32(min1, min2);
+        firstMin.intMin = _mm512_reduce_min_epu32(min1);
         _structHistogram[firstMin.structMin.index] = MAX_FREQUENCY_SYMBOL_INDEX;
         
         min1 = _vectorHistogram[0];
         min2 = _vectorHistogram[1];
-        #pragma GCC unroll (NUMBER_OF_SYMBOLS / 16)
-        for (uint8_t i = 2; i < NUMBER_OF_SYMBOLS / 8 ; i += 2)
+        #pragma GCC unroll (NUMBER_OF_SYMBOLS / 32 - 1)
+        for (uint8_t i = 2; i < NUMBER_OF_SYMBOLS / 16 ; i += 2)
         {
-            uint64v8_t current1 = _vectorHistogram[i];
-            uint64v8_t current2 = _vectorHistogram[i + 1];
-            min1 = _mm512_min_epu64(min1, current1);
-            min2 = _mm512_min_epu64(min2, current2);
+            uint32v16_t current1 = _vectorHistogram[i];
+            uint32v16_t current2 = _vectorHistogram[i + 1];
+            min1 = _mm512_min_epu32(min1, current1);
+            min2 = _mm512_min_epu32(min2, current2);
         }
-        min1 = _mm512_min_epu64(min1, min2);
+        min1 = _mm512_min_epu32(min1, min2);
         
-        secondMin.intMin = _mm512_reduce_min_epu64(min1);
+        secondMin.intMin = _mm512_reduce_min_epu32(min1);
     #else
-        firstMin.intMin = min_element(reinterpret_cast<uint64_t *>(_structHistogram), reinterpret_cast<uint64_t *>(_structHistogram) + NUMBER_OF_SYMBOLS)[0];
+        firstMin.intMin = min_element(reinterpret_cast<uint32_t *>(_structHistogram), reinterpret_cast<uint32_t *>(_structHistogram) + NUMBER_OF_SYMBOLS)[0];
         _structHistogram[firstMin.structMin.index] = MAX_FREQUENCY_SYMBOL_INDEX;
-        secondMin.intMin = min_element(reinterpret_cast<uint64_t *>(_structHistogram), reinterpret_cast<uint64_t *>(_structHistogram) + NUMBER_OF_SYMBOLS)[0];
+        secondMin.intMin = min_element(reinterpret_cast<uint32_t *>(_structHistogram), reinterpret_cast<uint32_t *>(_structHistogram) + NUMBER_OF_SYMBOLS)[0];
     #endif
 
         uint16_t firstIndex = _parentsSortedIndices[firstMin.structMin.index];
@@ -184,7 +179,7 @@ void Compressor::buildHuffmanTree()
         _symbolsParentsDepths[firstIndex].symbol = firstMin.structMin.index;
         firstMin.structMin.index = 0;
 
-        if (secondMin.intMin == UINT64_MAX)
+        if (secondMin.intMin == UINT32_MAX)
         {
             _symbolsParentsDepths[sortedIdx].depth = 0;
             sortedIdx -= 2;
@@ -204,7 +199,7 @@ void Compressor::buildHuffmanTree()
         _parentsSortedIndices[secondIndex] = sortedIdx;
     }
 
-    uint16_t symbolsPerDepth[MAX_NUMBER_OF_CODES * 2] = {0};
+    uint16_t symbolsPerDepth[MAX_NUMBER_OF_CODES * 2] = {0}; // TODO
     int16_t symbolsDepthsIdx = 0;
     for (uint16_t i = sortedIdx; i > 0; i--)
     {
@@ -220,17 +215,17 @@ void Compressor::buildHuffmanTree()
     }
     _numberOfSymbols = symbolsDepthsIdx;
 
-#if __AVX512BW__ && __AVX512VL__
+#if __AVX512BW__ && __AVX512VL__ || 1
     // tree balancing to reduce the depth to maximum of 16 and the number of prefixes to maximum of 32
     uint16_t lastCode = -1;
     uint8_t lastDepth = 0;
-    uint16_t numberOfPrefixes = 33;
+    uint16_t numberOfPrefixes = MAX_NUMBER_OF_PREFIXES + 1;
     uint16_t addedSymbols = 0;
     uint8_t roundingShift = 0;      // increased by 1 after each iteration
     int16_t processedSymbols = 0;
     uint8_t maxDepth = _depths[symbolsDepthsIdx - 1];
     uint8_t adjustedDepthIdx = 0;
-    while (numberOfPrefixes > 32 || maxDepth > MAX_CODE_LENGTH)
+    while (numberOfPrefixes > MAX_NUMBER_OF_PREFIXES || maxDepth > MAX_CODE_LENGTH)
     {
         // reset the state
         numberOfPrefixes = 0;
@@ -263,7 +258,7 @@ void Compressor::buildHuffmanTree()
                 while (symbolsToInsert)
                 {
                     uint8_t trailingZeros = countr_zero(lastCode);
-                    uint64_t fits = 1 << trailingZeros;
+                    uint32_t fits = 1 << trailingZeros;
                     fits = symbolsToInsert < fits ? symbolsToInsert : fits;
                     lastCode += fits;
                     symbolsToInsert -= fits;
@@ -845,6 +840,19 @@ void Compressor::readInputFile(string inputFileName)
         exit(1);
     }
 
+    if (_adaptive && _height >= (1UL << MAX_BITS_PER_FILE_DIMENSION)) // verify that he height is within the allowed range
+    {
+        cerr << "Error: Input file is too large, height out of range, maximum allowed height is " 
+                     << (1UL << MAX_BITS_PER_FILE_DIMENSION) - 1 << " (2^" << MAX_BITS_PER_FILE_DIMENSION << "-1)." << endl;
+                exit(1);
+    }
+    else if (!_adaptive && _size >= (1UL << MAX_BITS_FOR_FILE_SIZE)) // verify that the file size is within the allowed range
+    {
+        cerr << "Error: Input file is too large, maximum allowed size is " 
+                     << (1UL << MAX_BITS_FOR_FILE_SIZE) - 1 << " (2^" << MAX_BITS_FOR_FILE_SIZE << "-1)." << endl;
+                exit(1);
+    }
+
     if ((_width % BLOCK_SIZE || _height % BLOCK_SIZE) && _adaptive) // verify that file is divisible by block size
     {
         cerr << "Warning: The input file width and height is not divisible by a built in adaptive granularity of " << BLOCK_SIZE << "." << endl;
@@ -880,7 +888,6 @@ void Compressor::compressStatic()
         DEBUG_PRINT("Static compression started");
       
         buildHuffmanTree();
-
         populateCodeTable();
     } // implicit barrier
 

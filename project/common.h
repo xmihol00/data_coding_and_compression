@@ -57,6 +57,16 @@ class HuffmanRLECompression
 {
 public:
     /**
+     * @brief Maximum number of bits used to encode the width and height of the input file.
+     */
+    static constexpr uint16_t MAX_BITS_PER_FILE_DIMENSION{24};
+
+    /**
+     * @brief Maximum number of bits used to encode the size of the input file.
+     */
+    static constexpr uint16_t MAX_BITS_FOR_FILE_SIZE{48};
+
+    /**
      * @param model Flag indicating if the compression is model-based, unused for decompression.
      * @param adaptive Flag indicating if the compression is adaptive, unused for decompression.
      * @param width Width of the image to be compressed, unused for decompression.
@@ -170,7 +180,7 @@ protected:
 
     uint8_t _symbolsPerDepth[MAX_NUMBER_OF_CODES * 2];      ///< Number of symbols at each depth of the huffman tree.
     uint32_t _usedDepths;                                   ///< Bitmap of used depths in the final huffman tree (rebalanced if needed).
-    uint64v4_t _symbolsAtDepths[MAX_NUMBER_OF_CODES * 2] __attribute__((aligned(64))); ///< NUmber of symbols at each depth of the final huffman tree.
+    uint64v4_t _symbolsAtDepths[MAX_NUMBER_OF_CODES * 2] __attribute__((aligned(64))); ///< Number of symbols at each depth of the final huffman tree.
 
     uint8_t _headerBuffer[32];  ///< Memory buffer to store a specific header depending on the type of the compression and number of threads.
 

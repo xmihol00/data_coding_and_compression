@@ -28,7 +28,7 @@ public:
     ~Compressor();
 
     /**
-     * Compresses the input file and writes the compressed data to the output file.
+     * @brief Compresses the input file and writes the compressed data to the output file.
      * @param inputFileName Name of the input file.
      * @param outputFileName Name of the output file.
      */
@@ -36,18 +36,17 @@ public:
 
 private:
     /**
-     * Represents the frequency of a symbol in the input data, packed to 64 bits for SIMD processing.
+     * @brief Represents the frequency of a symbol in the input data, packed to 32 bits for SIMD processing.
      */
     struct FrequencySymbolIndex
     {
         uint8_t index;                  ///< LSB: Index of the symbol, i.e. its value.
         uint8_t frequencyLowBits;       ///< Lower 8 bits of the frequency of the symbol.
-        uint16_t frequencyMidBits;      ///< Middle 16 bits of the frequency of the symbol.
-        uint32_t frequencyHighBits;     ///< MSB: Higher 32 bits of the frequency of the symbol.
+        uint16_t frequencyHighBits;     ///< MSB: Higher 16 bits of the frequency of the symbol.
     } __attribute__((packed));
 
     /**
-     * Represents the parent and depth of a symbol in the Huffman tree.
+     * @brief Represents the parent and depth of a symbol in the Huffman tree.
      */
     struct SymbolParentDepth
     {
@@ -57,7 +56,7 @@ private:
     } __attribute__((packed));
 
     /**
-     * Represents a symbol in the Huffman code table.
+     * @brief Represents a symbol in the Huffman code table.
      */
     struct HuffmanCode
     {
@@ -66,10 +65,19 @@ private:
     } __attribute__((packed));
 
     /**
-     * Symbol with highest frequency (UINT64_MAX) to represent unused symbols or already processed symbols.
+     * @brief Symbol with highest frequency (UINT32_MAX) to represent unused symbols or already processed symbols.
      */
-    static constexpr FrequencySymbolIndex MAX_FREQUENCY_SYMBOL_INDEX = { .index = 0xff, .frequencyLowBits = 0xff, .frequencyMidBits = 0xffff, .frequencyHighBits = 0xffff'ffff };
-    static constexpr uint8_t MAX_HISTOGRAM_THREADS = 8; ///< Maximum number of threads used for histogram computation.
+
+    static constexpr FrequencySymbolIndex MAX_FREQUENCY_SYMBOL_INDEX = { .index = 0xff, .frequencyLowBits = 0xff, .frequencyHighBits = 0xffff };
+    /**
+     * @brief Maximum number of bits used for frequency representation.
+     */
+
+    static constexpr uint8_t MAX_BITS_FOR_FREQUENCY = 16;
+    /**
+     * @brief Maximum number of threads used for histogram computation.
+     */
+    static constexpr uint8_t MAX_HISTOGRAM_THREADS = 8;
 
     /**
      * @brief Reads the input file into a memory buffer and computes its height based on the file size and width passed by the user.
@@ -152,10 +160,10 @@ private:
      */
     uint8_t _memoryPool[10 * NUMBER_OF_SYMBOLS * sizeof(uint64_t)] __attribute__((aligned(64)));
     FrequencySymbolIndex *_structHistogram{reinterpret_cast<FrequencySymbolIndex *>(_memoryPool)};
-    uint64v8_t *_vectorHistogram{reinterpret_cast<uint64v8_t *>(_memoryPool)};
-    uint64_t *_intHistogram{reinterpret_cast<uint64_t *>(_memoryPool + NUMBER_OF_SYMBOLS * sizeof(FrequencySymbolIndex))};
-    SymbolParentDepth *_symbolsParentsDepths{reinterpret_cast<SymbolParentDepth *>(_memoryPool + NUMBER_OF_SYMBOLS * sizeof(FrequencySymbolIndex))};
-    uint16_t *_parentsSortedIndices{reinterpret_cast<uint16_t *>(_memoryPool + 3 * NUMBER_OF_SYMBOLS * sizeof(FrequencySymbolIndex))};
+    uint32v16_t *_vectorHistogram{reinterpret_cast<uint32v16_t *>(_memoryPool)};
+    uint64_t *_intHistogram{reinterpret_cast<uint64_t *>(_memoryPool + NUMBER_OF_SYMBOLS * sizeof(uint64_t))};
+    SymbolParentDepth *_symbolsParentsDepths{reinterpret_cast<SymbolParentDepth *>(_memoryPool + NUMBER_OF_SYMBOLS * sizeof(uint64_t))};
+    uint16_t *_parentsSortedIndices{reinterpret_cast<uint16_t *>(_memoryPool + 3 * NUMBER_OF_SYMBOLS * sizeof(uint64_t))};
     HuffmanCode *_codeTable{reinterpret_cast<HuffmanCode *>(_memoryPool)};
     symbol_t *_symbols{reinterpret_cast<symbol_t *>(_memoryPool + NUMBER_OF_SYMBOLS * sizeof(HuffmanCode))};
     uint8_t *_depths{reinterpret_cast<uint8_t *>(_memoryPool + NUMBER_OF_SYMBOLS * sizeof(HuffmanCode) + NUMBER_OF_SYMBOLS * sizeof(symbol_t))};

@@ -95,6 +95,13 @@ Arguments parseArguments(int argc, char* argv[])
                 cerr << "Error: Specified width is out of range with '" << arguments[i] << "'." << endl;
                 exit(1);
             }
+
+            if (args.width >= (1UL << HuffmanRLECompression::MAX_BITS_PER_FILE_DIMENSION))
+            {
+                cerr << "Error: Specified width is too large, maximum allowed width is " 
+                     << (1UL << HuffmanRLECompression::MAX_BITS_PER_FILE_DIMENSION) - 1 << " (2^" << HuffmanRLECompression::MAX_BITS_PER_FILE_DIMENSION << "-1)." << endl;
+                exit(1);
+            }
         }
         else if (arguments[i] == "-i")
         {
