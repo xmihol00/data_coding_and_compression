@@ -66,9 +66,9 @@ private:
     } __attribute__((packed));
 
     /**
-     * Symbol with highest frequency to represent unused symbols or already processed symbols.
+     * Symbol with highest frequency (UINT64_MAX) to represent unused symbols or already processed symbols.
      */
-    static constexpr FrequencySymbolIndex MAX_FREQUENCY_SYMBOL_INDEX = { .index = 0xff, .frequencyLowBits = 0xff, .frequencyMidBits = 0xffff, .frequencyHighBits = 0x7fff'ffff };
+    static constexpr FrequencySymbolIndex MAX_FREQUENCY_SYMBOL_INDEX = { .index = 0xff, .frequencyLowBits = 0xff, .frequencyMidBits = 0xffff, .frequencyHighBits = 0xffff'ffff };
     static constexpr uint8_t MAX_HISTOGRAM_THREADS = 8; ///< Maximum number of threads used for histogram computation.
 
     /**

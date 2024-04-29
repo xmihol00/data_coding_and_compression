@@ -143,11 +143,11 @@ void Compressor::buildHuffmanTree()
             uint64v8_t current1 = _vectorHistogram[i];
             uint64v8_t current2 = _vectorHistogram[i + 1];
             
-            min1 = _mm512_min_epi64(min1, current1);
-            min2 = _mm512_min_epi64(min2, current2);
+            min1 = _mm512_min_epu64(min1, current1);
+            min2 = _mm512_min_epu64(min2, current2);
         }
-        min1 = _mm512_min_epi64(min1, min2);
-        firstMin.intMin = _mm512_reduce_min_epi64(min1);
+        min1 = _mm512_min_epu64(min1, min2);
+        firstMin.intMin = _mm512_reduce_min_epu64(min1);
         _structHistogram[firstMin.structMin.index] = MAX_FREQUENCY_SYMBOL_INDEX;
         
         min1 = _vectorHistogram[0];
@@ -157,16 +157,16 @@ void Compressor::buildHuffmanTree()
         {
             uint64v8_t current1 = _vectorHistogram[i];
             uint64v8_t current2 = _vectorHistogram[i + 1];
-            min1 = _mm512_min_epi64(min1, current1);
-            min2 = _mm512_min_epi64(min2, current2);
+            min1 = _mm512_min_epu64(min1, current1);
+            min2 = _mm512_min_epu64(min2, current2);
         }
-        min1 = _mm512_min_epi64(min1, min2);
+        min1 = _mm512_min_epu64(min1, min2);
         
-        secondMin.intMin = _mm512_reduce_min_epi64(min1);
+        secondMin.intMin = _mm512_reduce_min_epu64(min1);
     #else
-        firstMin.intMin = min_element(reinterpret_cast<int64_t *>(_structHistogram), reinterpret_cast<int64_t *>(_structHistogram) + NUMBER_OF_SYMBOLS)[0];
+        firstMin.intMin = min_element(reinterpret_cast<uint64_t *>(_structHistogram), reinterpret_cast<uint64_t *>(_structHistogram) + NUMBER_OF_SYMBOLS)[0];
         _structHistogram[firstMin.structMin.index] = MAX_FREQUENCY_SYMBOL_INDEX;
-        secondMin.intMin = min_element(reinterpret_cast<int64_t *>(_structHistogram), reinterpret_cast<int64_t *>(_structHistogram) + NUMBER_OF_SYMBOLS)[0];
+        secondMin.intMin = min_element(reinterpret_cast<uint64_t *>(_structHistogram), reinterpret_cast<uint64_t *>(_structHistogram) + NUMBER_OF_SYMBOLS)[0];
     #endif
 
         uint16_t firstIndex = _parentsSortedIndices[firstMin.structMin.index];
@@ -184,7 +184,7 @@ void Compressor::buildHuffmanTree()
         _symbolsParentsDepths[firstIndex].symbol = firstMin.structMin.index;
         firstMin.structMin.index = 0;
 
-        if (secondMin.intMin == INT64_MAX)
+        if (secondMin.intMin == UINT64_MAX)
         {
             _symbolsParentsDepths[sortedIdx].depth = 0;
             sortedIdx -= 2;
