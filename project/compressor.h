@@ -67,13 +67,18 @@ private:
     /**
      * @brief Symbol with highest frequency (UINT32_MAX) to represent unused symbols or already processed symbols.
      */
+    static constexpr FrequencySymbolIndex EMPTY_FREQUENCY_SYMBOL_INDEX = { .index = 0xff, .frequencyLowBits = 0xff, .frequencyHighBits = 0xffff };
 
-    static constexpr FrequencySymbolIndex MAX_FREQUENCY_SYMBOL_INDEX = { .index = 0xff, .frequencyLowBits = 0xff, .frequencyHighBits = 0xffff };
+    /**
+     * @brief Highest valid symbol frequency, all higher frequencies will be clamped to it (last significant byte is reserved for the index).
+     */
+    static constexpr uint32_t MAX_VALID_FREQUENCY_SYMBOL_INDEX = 0xfffe'00;
+
     /**
      * @brief Maximum number of bits used for frequency representation.
      */
+    static constexpr uint8_t MAX_BITS_FOR_FREQUENCY = 24;
 
-    static constexpr uint8_t MAX_BITS_FOR_FREQUENCY = 16;
     /**
      * @brief Maximum number of threads used for histogram computation.
      */

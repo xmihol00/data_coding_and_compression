@@ -665,6 +665,7 @@ void Decompressor::decompressStaticModel()
         
         // distribute the work
         uint64_t bytesPerBlock = (_size + _numberOfCompressedBlocks - 1) / _numberOfCompressedBlocks; // round up
+        bytesPerBlock += bytesPerBlock & 0b1; // ensure that the number of bytes is even
         uint64_t bytesPerLastBlock = _size - bytesPerBlock * (_numberOfCompressedBlocks - 1); 
 
         symbol_t *source = _decompressedData;
@@ -681,7 +682,8 @@ void Decompressor::decompressStaticModel()
 
         #pragma omp task // last block may be smaller
         {
-            reverseDifferenceModel(source + (_numberOfCompressedBlocks - 1) * bytesPerBlock, destination + (_numberOfCompressedBlocks - 1) * bytesPerBlock, bytesPerLastBlock);
+            reverseDifferenceModel(source + (_numberOfCompressedBlocks - 1) * bytesPerBlock, 
+                                   destination + (_numberOfCompressedBlocks - 1) * bytesPerBlock, bytesPerLastBlock);
         }
 
         _decompressedData = destination;
@@ -701,6 +703,7 @@ void Decompressor::decompressAdaptiveModel()
 
         // distribute the work
         uint64_t bytesPerBlock = (_size + _numberOfCompressedBlocks - 1) / _numberOfCompressedBlocks;
+        bytesPerBlock += bytesPerBlock & 0b1; // ensure that the number of bytes is even
         uint64_t bytesPerLastBlock = _size - bytesPerBlock * (_numberOfCompressedBlocks - 1);
 
         symbol_t *source = _decompressedData;
@@ -735,6 +738,7 @@ void Decompressor::decompressStatic()
 
         // distribute the work
         uint64_t bytesPerBlock = (_size + _numberOfCompressedBlocks - 1) / _numberOfCompressedBlocks;
+        bytesPerBlock += bytesPerBlock & 0b1; // ensure that the number of bytes is even
         uint64_t bytesPerLastBlock = _size - bytesPerBlock * (_numberOfCompressedBlocks - 1);
 
         // schedule the decompression of each block as a task

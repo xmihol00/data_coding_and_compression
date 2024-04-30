@@ -233,7 +233,7 @@ void Compressor::buildHuffmanTree()
         }
         min1 = _mm512_min_epu32(min1, min2);
         firstMin.intMin = _mm512_reduce_min_epu32(min1);
-        _structHistogram[firstMin.structMin.index] = MAX_FREQUENCY_SYMBOL_INDEX;
+        _structHistogram[firstMin.structMin.index] = EMPTY_FREQUENCY_SYMBOL_INDEX;
         
         min1 = _vectorHistogram[0];
         min2 = _vectorHistogram[1];
@@ -250,7 +250,7 @@ void Compressor::buildHuffmanTree()
         secondMin.intMin = _mm512_reduce_min_epu32(min1);
     #else
         firstMin.intMin = min_element(reinterpret_cast<uint32_t *>(_structHistogram), reinterpret_cast<uint32_t *>(_structHistogram) + NUMBER_OF_SYMBOLS)[0];
-        _structHistogram[firstMin.structMin.index] = MAX_FREQUENCY_SYMBOL_INDEX;
+        _structHistogram[firstMin.structMin.index] = EMPTY_FREQUENCY_SYMBOL_INDEX;
         secondMin.intMin = min_element(reinterpret_cast<uint32_t *>(_structHistogram), reinterpret_cast<uint32_t *>(_structHistogram) + NUMBER_OF_SYMBOLS)[0];
     #endif
 
@@ -283,7 +283,8 @@ void Compressor::buildHuffmanTree()
         secondMin.structMin.index = 0;
 
         Minimum nextNode;
-        nextNode.intMin = firstMin.intMin + secondMin.intMin;
+        uint64_t nextMin = firstMin.intMin + secondMin.intMin;
+        nextNode.intMin = nextMin >= UINT32_MAX ? MAX_VALID_FREQUENCY_SYMBOL_INDEX : nextMin;
         nextNode.structMin.index = secondIndex;
         _structHistogram[secondIndex] = nextNode.structMin;
         _parentsSortedIndices[secondIndex] = sortedIdx;
@@ -553,30 +554,19 @@ void Compressor::transformRLE(symbol_t *sourceData, uint16_t *compressedData, ui
     DEBUG_PRINT("Thread " << threadNumber << ": transforming RLE");
 
     uint64_t bytesToCompress = (_size + _numberOfThreads - 1) / _numberOfThreads;
-    bytesToCompress += bytesToCompress & 0x1; // ensure even number of bytes per thread, TODO solve single thread case
+    bytesToCompress += bytesToCompress & 0b1; // ensure the number of bytes to compress is even
     startingIdx = bytesToCompress * threadNumber;
     symbol_t firstSymbol = sourceData[startingIdx];
-    if (threadNumber == _numberOfThreads - 1 && _numberOfThreads > 1) // last thread
-    {
-        // ensure last symbol in a block is different from the first in next block
-        sourceData[startingIdx] = ~sourceData[startingIdx - 1];
-        sourceData[_size] = ~sourceData[_size - 1];
+    #pragma omp barrier // wait for all threads to get the first symbol
 
-        bytesToCompress -= bytesToCompress * _numberOfThreads - _size; // ensure last thread does not run out of bounds
-    }
-    else if (threadNumber != 0) // remaining threads apart from the first one
-    {
-        sourceData[startingIdx] = ~sourceData[startingIdx - 1];
-    }
-    else // single threaded execution
-    {
-        sourceData[_size] = ~sourceData[_size - 1];
-    }
+    // ensure last thread does not run out of bounds
+    bytesToCompress = (threadNumber == _numberOfThreads - 1) ? _size - bytesToCompress * (_numberOfThreads - 1) : bytesToCompress; 
+    // ensure last symbol in a block is different from the first in next block
+    sourceData[startingIdx + bytesToCompress] = ~sourceData[startingIdx + bytesToCompress - 1];
+
     sourceData += startingIdx;
     startingIdx += _threadPadding * threadNumber;
     compressedData += startingIdx >> 1;
-
-    #pragma omp barrier // synchronize
 
     compressedData[0] = 0;
     uint64_t currentCompressedIdx = 0;
@@ -649,7 +639,7 @@ void Compressor::transformRLE(symbol_t *sourceData, uint16_t *compressedData, ui
         }
         sourceDataIdx++;
     }
-    
+
     _compressionUnsuccessful = sourceDataIdx <= bytesToCompress; // there is still something to compress
     compressedSize = nextCompressedIdx * 2; // size in bytes
     DEBUG_PRINT("Thread " << threadNumber << ": RLE transformed");
