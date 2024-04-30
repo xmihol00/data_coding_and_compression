@@ -76,6 +76,8 @@ bool Decompressor::readInputFile(string inputFileName, string outputFileName)
                 // read the compressed depth bitmaps (the compressed Huffman tree)
                 _usedDepths = header.getCodeDepths();
                 bitmapsSize = sizeof(uint64v4_t) * popcount(_usedDepths);
+                // ensure that the bitmaps size is not larger than the remaining file size
+                bitmapsSize = min(static_cast<uint64_t>(bitmapsSize), fileSize - sizeof(DepthBitmapsHeader) - 1);
                 inputFile.read(reinterpret_cast<char *>(_rawDepthBitmaps), bitmapsSize);
                 
                 alreadyReadBytes += sizeof(DepthBitmapsHeader);
@@ -98,6 +100,8 @@ bool Decompressor::readInputFile(string inputFileName, string outputFileName)
                 // read the compressed depth bitmaps (the compressed Huffman tree)
                 _usedDepths = header.getCodeDepths();
                 bitmapsSize = sizeof(uint64v4_t) * popcount(_usedDepths);
+                // ensure that the bitmaps size is not larger than the remaining file size
+                bitmapsSize = min(static_cast<uint64_t>(bitmapsSize), fileSize - sizeof(DepthBitmapsMultiThreadedHeader) - _numberOfBytesCompressedBlocks - 1);
                 inputFile.read(reinterpret_cast<char *>(_rawDepthBitmaps), bitmapsSize);
 
                 alreadyReadBytes += sizeof(DepthBitmapsMultiThreadedHeader) + _numberOfBytesCompressedBlocks;
@@ -327,8 +331,8 @@ void Decompressor::parseHuffmanTree(uint16_t &readBytes)
                 _depthsIndices[masksIdx].prefixLength = prefixLength;
                 _depthsIndices[masksIdx].symbolsAtDepthIndex = depthIdx;
                 // create a dictionary between prefix length and index in the depthsIndices array
-                _indexPrefixLengths[masksIdx].index = masksIdx;
-                _indexPrefixLengths[masksIdx].prefixLength = _depthsIndices[masksIdx].prefixLength;
+                _prefixIndexLengths[masksIdx].index = masksIdx;
+                _prefixIndexLengths[masksIdx].length = _depthsIndices[masksIdx].prefixLength;
 
                 masksIdx++;
             }
@@ -338,12 +342,12 @@ void Decompressor::parseHuffmanTree(uint16_t &readBytes)
         }
     }
     // sort the prefixes by their length in descending order (longest prefix first)
-    sort(_indexPrefixLengths, _indexPrefixLengths + masksIdx, 
-            [](const IndexPrefixLength &a, const IndexPrefixLength &b) { return a.prefixLength > b.prefixLength; });
+    sort(_prefixIndexLengths, _prefixIndexLengths + masksIdx, 
+            [](const PrefixIndexLength &a, const PrefixIndexLength &b) { return a.length > b.length; });
     for (uint8_t i = 0; i < masksIdx; i++)
     {
         // ensure that prefixes and masks at different depths are stored in descending order to the final vectors
-        _depthsIndices[_indexPrefixLengths[i].index].masksIndex = i;
+        _depthsIndices[_prefixIndexLengths[i].index].masksIndex = i;
     }
     
     lastDepth = 0;
@@ -531,12 +535,12 @@ void Decompressor::transformRLE(uint16_t *compressedData, symbol_t *decompressed
             sameSymbolCount = 0;
             bool repeat;
             uint8_t multiplier = 0;
-            uint32_t totalRepetitions = 0;
+            uint64_t totalRepetitions = 0;
             do
             {
                 current = (compressedData[currentIdx] << bitLength) | (compressedData[nextIdx] >> inverseBitLength);
                 repeat = current & 0x8000; // set MSB indicates if the repetition continues
-                uint32_t repetitions = ((current & 0x7FFF) >> (16 - BITS_PER_REPETITION_NUMBER)); // align the repetitions to LSB
+                uint64_t repetitions = ((current & 0x7FFF) >> (16 - BITS_PER_REPETITION_NUMBER)); // align the repetitions to LSB
                 repetitions <<= multiplier;
                 totalRepetitions += repetitions;
 
@@ -552,7 +556,7 @@ void Decompressor::transformRLE(uint16_t *compressedData, symbol_t *decompressed
             while (repeat); // still more repetitions of the same symbol
 
             #pragma omp simd aligned(decompressedData: 64) simdlen(64)
-            for (uint32_t i = 0; i < totalRepetitions; i++) // store the repeated symbol in the decompressed data
+            for (uint64_t i = 0; i < totalRepetitions; i++) // store the repeated symbol in the decompressed data
             {
                 decompressedData[decompressedIdx++] = symbol;
             }
@@ -609,12 +613,12 @@ void Decompressor::transformRLE(uint16_t *compressedData, symbol_t *decompressed
             sameSymbolCount = 0;
             bool repeat;
             uint8_t multiplier = 0;
-            uint32_t totalRepetitions = 0;
+            uint64_t totalRepetitions = 0;
             do
             {
                 current = (compressedData[currentIdx] << bitLength) | (compressedData[nextIdx] >> inverseBitLength);
                 repeat = current & 0x8000; // set MSB indicates if the repetition continues
-                uint32_t repetitions = ((current & 0x7FFF) >> (16 - BITS_PER_REPETITION_NUMBER)); // align the repetitions to LSB
+                uint64_t repetitions = ((current & 0x7FFF) >> (16 - BITS_PER_REPETITION_NUMBER)); // align the repetitions to LSB
                 repetitions <<= multiplier;
                 totalRepetitions += repetitions;
 
@@ -630,7 +634,7 @@ void Decompressor::transformRLE(uint16_t *compressedData, symbol_t *decompressed
             while (repeat); // still more repetitions of the same symbol
 
             #pragma omp simd aligned(decompressedData: 64) simdlen(64)
-            for (uint32_t i = 0; i < totalRepetitions; i++) // store the repeated symbol in the decompressed data
+            for (uint64_t i = 0; i < totalRepetitions; i++) // store the repeated symbol in the decompressed data
             {
                 decompressedData[decompressedIdx++] = symbol;
             }
@@ -644,7 +648,7 @@ void Decompressor::reverseDifferenceModel(symbol_t *source, symbol_t *destinatio
 {
     destination[0] = source[0];
     #pragma omp simd aligned(source, destination: 64) simdlen(64)
-    for (uint32_t i = 1; i < bytesToProcess; i++)
+    for (uint64_t i = 1; i < bytesToProcess; i++)
     {
         destination[i] = source[i] + destination[i - 1]; // get the current symbol by adding the previous symbol to the decompressed current symbol
     }
@@ -773,16 +777,16 @@ void Decompressor::decompressAdaptive()
                 switch (_bestBlockTraversals[i * _blocksPerRow + j])
                 {
                 case HORIZONTAL:
-                    #pragma omp task firstprivate(j, i)
+                    #pragma omp task firstprivate(i, j)
                     {
-                        deserializeBlock(source, destination, j, i);
+                        deserializeBlock(source, destination, i, j);
                     }
                     break;
                 
                 case VERTICAL:
-                    #pragma omp task firstprivate(j, i)
+                    #pragma omp task firstprivate(i, j)
                     {
-                        transposeDeserializeBlock(source, destination, j, i);
+                        transposeDeserializeBlock(source, destination, i, j);
                     }
                     break;
 

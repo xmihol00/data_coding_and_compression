@@ -114,11 +114,11 @@ private:
     /**
      * @brief Represent a dictionary between prefix lengths of a Huffman code and its index in an array of vectors of prefixes and masks. 
      */
-    struct IndexPrefixLength
+    struct PrefixIndexLength
     {
-        uint16_t index;        ///< The index to the array of vectors of prefixes and masks  //TODO: rename
-        int16_t prefixLength;  ///< The prefix length of the associated Huffman code.
-    } _indexPrefixLengths[MAX_NUMBER_OF_PREFIXES] __attribute__((aligned(64)));
+        uint16_t index;     ///< The index to the array of vectors of prefixes and masks
+        int16_t length;     ///< The prefix length of the associated Huffman code.
+    } _prefixIndexLengths[MAX_NUMBER_OF_PREFIXES] __attribute__((aligned(64)));
 
     /**
      * @brief Represents a batch of symbols encoded with the same prefix in the same depth of a Huffman tree.

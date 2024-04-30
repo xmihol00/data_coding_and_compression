@@ -57,6 +57,22 @@ class HuffmanRLECompression
 {
 public:
     /**
+     * @brief Exit codes of the compressor/decompressor.
+     */
+    enum ExitCodes // TODO: use them actually
+    {
+        SUCCESS = 0,
+        INVALID_ARGUMENTS = 1,
+        FILE_OPEN_ERROR = 2,
+        FILE_READ_ERROR = 3,
+        FILE_WRITE_ERROR = 4,
+        FILE_FORMAT_ERROR = 5,
+        MEMORY_ALLOCATION_ERROR = 6,
+        THREAD_ERROR = 7,
+        DECOMPRESSION_ERROR = 8
+    };
+
+    /**
      * @brief Maximum number of bits used to encode the width and height of the input file.
      */
     static constexpr uint16_t MAX_BITS_PER_FILE_DIMENSION{24};
@@ -169,14 +185,14 @@ protected:
     uint64_t _height;  ///< Height of the image to be compressed/decompressed.
     uint64_t _size;    ///< Overall size of the image to be compressed/decompressed.
 
-    uint32_t _blockCount;       ///< Total number of blocks in an image.
+    uint64_t _blockCount;       ///< Total number of blocks in an image.
     uint32_t _blocksPerRow;     ///< Number of blocks in a row of an image.
     uint32_t _blocksPerColumn;  ///< Number of blocks in a column of an image.
 
     int32_t _numberOfThreads;   ///< Number of active threads used for multi-threaded compression.
 
-    uint32_t _compressedSizes[MAX_NUM_THREADS + 1];         ///< Sizes of compressed data by each thread.
-    uint32_t _compressedSizesExScan[MAX_NUM_THREADS + 1];   ///< Exclusive scan of compressed sizes by each thread.
+    uint64_t _compressedSizes[MAX_NUM_THREADS + 1];         ///< Sizes of compressed data by each thread.
+    uint64_t _compressedSizesExScan[MAX_NUM_THREADS + 1];   ///< Exclusive scan of compressed sizes by each thread.
 
     uint8_t _symbolsPerDepth[MAX_NUMBER_OF_CODES * 2];      ///< Number of symbols at each depth of the huffman tree.
     uint32_t _usedDepths;                                   ///< Bitmap of used depths in the final huffman tree (rebalanced if needed).
@@ -379,7 +395,12 @@ protected:
         _blocksPerColumn = (_height + BLOCK_SIZE - 1) / BLOCK_SIZE;
         _blockCount = _blocksPerRow * _blocksPerColumn;
         _bestBlockTraversals = new AdaptiveTraversals[_blockCount + 4];
-        reinterpret_cast<uint32_t *>(_bestBlockTraversals + _blockCount)[0] = 0; // clear the last 4 bytes (padding)
+        
+        // clear the last 4 bytes (padding)
+        _bestBlockTraversals[_blockCount] = HORIZONTAL;
+        _bestBlockTraversals[_blockCount + 1] = HORIZONTAL;
+        _bestBlockTraversals[_blockCount + 2] = HORIZONTAL;
+        _bestBlockTraversals[_blockCount + 3] = HORIZONTAL;
     }
 
     /**

@@ -82,8 +82,10 @@ private:
     /**
      * @brief Reads the input file into a memory buffer and computes its height based on the file size and width passed by the user.
      *        Checks weather the input file is rectangular.
+     * @param inputFileName Name of the input file.
+     * @param outputFileName Name of the output file.
      */
-    void readInputFile(std::string inputFileName);
+    void readInputFile(std::string inputFileName, std::string outputFileName);
 
     /**
      * @brief Computes a histogram of the input data with repetitions considered.
@@ -103,7 +105,7 @@ private:
     /**
      * @brief Transforms the input data considering repetitions (RLE) and encodes them with the Huffman codes.
      */
-    void transformRLE(symbol_t *sourceData, uint16_t *compressedData, uint32_t &compressedSize, uint64_t &startingIdx);
+    void transformRLE(symbol_t *sourceData, uint16_t *compressedData, uint64_t &compressedSize, uint64_t &startingIdx);
 
     /**
      * @brief Creates a header for the compressed file.
@@ -164,6 +166,7 @@ private:
     uint64_t *_intHistogram{reinterpret_cast<uint64_t *>(_memoryPool + NUMBER_OF_SYMBOLS * sizeof(uint64_t))};
     SymbolParentDepth *_symbolsParentsDepths{reinterpret_cast<SymbolParentDepth *>(_memoryPool + NUMBER_OF_SYMBOLS * sizeof(uint64_t))};
     uint16_t *_parentsSortedIndices{reinterpret_cast<uint16_t *>(_memoryPool + 3 * NUMBER_OF_SYMBOLS * sizeof(uint64_t))};
+    uint16_t * _symbolsPerDepth{reinterpret_cast<uint16_t *>(_memoryPool + 3 * NUMBER_OF_SYMBOLS * sizeof(uint64_t) + NUMBER_OF_SYMBOLS * sizeof(uint16_t))};
     HuffmanCode *_codeTable{reinterpret_cast<HuffmanCode *>(_memoryPool)};
     symbol_t *_symbols{reinterpret_cast<symbol_t *>(_memoryPool + NUMBER_OF_SYMBOLS * sizeof(HuffmanCode))};
     uint8_t *_depths{reinterpret_cast<uint8_t *>(_memoryPool + NUMBER_OF_SYMBOLS * sizeof(HuffmanCode) + NUMBER_OF_SYMBOLS * sizeof(symbol_t))};

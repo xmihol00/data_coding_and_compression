@@ -35,6 +35,90 @@ Compressor::~Compressor()
     }
 }
 
+void Compressor::readInputFile(string inputFileName, string outputFileName)
+{
+    DEBUG_PRINT("Reading input file");
+    ifstream inputFile(inputFileName, ios::binary);
+    if (!inputFile.is_open())
+    {
+        cerr << "Error: Unable to open input file '" << inputFileName << "'." << endl;
+        exit(1);
+    }
+
+    // get the size of the input file
+    inputFile.seekg(0, ios::end);
+    _size = inputFile.tellg();
+    inputFile.seekg(0, ios::beg);
+
+    if (_size == 0)
+    {
+        cerr << "Warning: Compressing an empty file." << endl;
+        if (_width != 0)
+        {
+            cerr << "         Specified width does not match the file size." << endl;
+        }
+
+        ofstream outputFile(outputFileName, ios::binary);
+        if (!outputFile.is_open())
+        {
+            cerr << "Error: Unable to open output file '" << outputFileName << "'." << endl;
+            exit(1);
+        }
+
+        FirstByteHeader &header = reinterpret_cast<FirstByteHeader &>(_headerBuffer);
+        header.clearFirstByte();
+        header.setNotCompressed();
+        outputFile.write(reinterpret_cast<char *>(&_headerBuffer), sizeof(FirstByteHeader));
+        outputFile.close();
+
+        exit(0);
+    }
+
+    _height = _size / _width;
+    if (_height * _width != _size) // verify that file is rectangular
+    {
+        cerr << "Error: The input file size is not a multiple of the specified width." << endl;
+        exit(1);
+    }
+
+    if (_adaptive && _height >= (1UL << MAX_BITS_PER_FILE_DIMENSION)) // verify that he height is within the allowed range
+    {
+        cerr << "Error: Input file is too large, height out of range, maximum allowed height is " 
+                     << (1UL << MAX_BITS_PER_FILE_DIMENSION) - 1 << " (2^" << MAX_BITS_PER_FILE_DIMENSION << "-1)." << endl;
+                exit(1);
+    }
+    else if (!_adaptive && _size >= (1UL << MAX_BITS_FOR_FILE_SIZE)) // verify that the file size is within the allowed range
+    {
+        cerr << "Error: Input file is too large, maximum allowed size is " 
+                     << (1UL << MAX_BITS_FOR_FILE_SIZE) - 1 << " (2^" << MAX_BITS_FOR_FILE_SIZE << "-1)." << endl;
+                exit(1);
+    }
+
+    if ((_width % BLOCK_SIZE || _height % BLOCK_SIZE) && _adaptive) // verify that file is divisible by block size
+    {
+        cerr << "Warning: The input file width and height is not divisible by a built in adaptive granularity of " << BLOCK_SIZE << "." << endl;
+        cerr << "         Static compression will be used instead." << endl;
+        _adaptive = false; // disable adaptive compression 
+    }
+
+    uint64_t roundedSize = ((_size + _numberOfThreads - 1) / _numberOfThreads) * _numberOfThreads + 1;
+    _threadPadding = roundedSize >> 4; // ensure there is some spare space if compressed block is larger than the original block
+    roundedSize += _threadPadding * _numberOfThreads;
+
+    // these buffers will be used in a ping-pong fashion
+    _sourceBuffer = static_cast<symbol_t *>(aligned_alloc(64, roundedSize * sizeof(symbol_t)));
+    _destinationBuffer = static_cast<symbol_t *>(aligned_alloc(64, roundedSize * sizeof(symbol_t)));
+    if (_sourceBuffer == nullptr || _destinationBuffer == nullptr)
+    {
+        cerr << "Error: Unable to allocate memory for the input file." << endl;
+        exit(1);
+    }
+
+    inputFile.read(reinterpret_cast<char *>(_sourceBuffer), _size);
+    inputFile.close();
+    DEBUG_PRINT("Input file read");
+}
+
 void Compressor::computeHistogram()
 {
     int threadId = omp_get_thread_num();
@@ -46,7 +130,7 @@ void Compressor::computeHistogram()
 
     if (threadId < MAX_HISTOGRAM_THREADS)
     {
-        uint64_t symbolsToProcess = (_size + 7) / numberOfThreads;
+        uint64_t symbolsToProcess = (_size + MAX_HISTOGRAM_THREADS - 1) / numberOfThreads;
         intHistogram += threadId * NUMBER_OF_SYMBOLS;
         buffer += threadId * symbolsToProcess;
         if (threadId == _numberOfThreads - 1)
@@ -105,6 +189,7 @@ void Compressor::buildHuffmanTree()
     DEBUG_PRINT("Building Huffman tree");
     uint32_t *symbolsParentsDepths = reinterpret_cast<uint32_t *>(_symbolsParentsDepths);
     uint16_t *parentsSortedIndices = _parentsSortedIndices;
+    uint16_t *symbolsPerDepth = _symbolsPerDepth;
 
     // clear the arrays
     #pragma omp simd aligned(symbolsParentsDepths: 64) simdlen(16)
@@ -116,6 +201,11 @@ void Compressor::buildHuffmanTree()
     for (uint16_t i = 0; i < NUMBER_OF_SYMBOLS; i++)
     {
         parentsSortedIndices[i] = 0;
+    }
+    #pragma omp simd aligned(symbolsPerDepth: 64) simdlen(16)
+    for (uint16_t i = 0; i < MAX_NUMBER_OF_CODES * 2; i++)
+    {
+        symbolsPerDepth[i] = 0;
     }
     
     uint16_t sortedIdx = 0;
@@ -199,7 +289,6 @@ void Compressor::buildHuffmanTree()
         _parentsSortedIndices[secondIndex] = sortedIdx;
     }
 
-    uint16_t symbolsPerDepth[MAX_NUMBER_OF_CODES * 2] = {0}; // TODO
     int16_t symbolsDepthsIdx = 0;
     for (uint16_t i = sortedIdx; i > 0; i--)
     {
@@ -214,6 +303,13 @@ void Compressor::buildHuffmanTree()
         _symbolsParentsDepths[i].depth = nextDepth;
     }
     _numberOfSymbols = symbolsDepthsIdx;
+
+    if (_numberOfSymbols == 1)
+    {
+        _adjustedDepths[0] = 1;
+        DEBUG_PRINT("Huffman tree built with only one symbol");
+        return;
+    }
 
 #if __AVX512BW__ && __AVX512VL__
     // tree balancing to reduce the depth to maximum of 16 and the number of prefixes to maximum of 32
@@ -346,18 +442,17 @@ void Compressor::populateCodeTable()
 {
     DEBUG_PRINT("Populating code table");
 
-    // clear the code table
     uint32_t *codeTable = reinterpret_cast<uint32_t *>(_codeTable);
+    uint32_t *symbolsAtDepths = reinterpret_cast<uint32_t *>(_symbolsAtDepths);
+
+    // clear the arrays
     #pragma omp simd aligned(codeTable: 64) simdlen(16)
     for (uint16_t i = 0; i < NUMBER_OF_SYMBOLS; i++)
     {
         codeTable[i] = 0;
     }
-
-    // clear symbols depth bitmaps
-    uint32_t *symbolsAtDepths = reinterpret_cast<uint32_t *>(_symbolsAtDepths);
     #pragma omp simd aligned(symbolsAtDepths: 64) simdlen(16)
-    for (uint16_t i = 0; i < MAX_CODE_LENGTH * 8; i++)
+    for (uint16_t i = 0; i < MAX_NUMBER_OF_CODES * 8; i++)
     {
         symbolsAtDepths[i] = 0;
     }
@@ -452,12 +547,12 @@ void Compressor::populateCodeTable()
     DEBUG_PRINT("Code table populated");
 }
 
-void Compressor::transformRLE(symbol_t *sourceData, uint16_t *compressedData, uint32_t &compressedSize, uint64_t &startingIdx)
+void Compressor::transformRLE(symbol_t *sourceData, uint16_t *compressedData, uint64_t &compressedSize, uint64_t &startingIdx)
 {
     int threadNumber = omp_get_thread_num();
     DEBUG_PRINT("Thread " << threadNumber << ": transforming RLE");
 
-    uint32_t bytesToCompress = (_size + _numberOfThreads - 1) / _numberOfThreads;
+    uint64_t bytesToCompress = (_size + _numberOfThreads - 1) / _numberOfThreads;
     bytesToCompress += bytesToCompress & 0x1; // ensure even number of bytes per thread, TODO solve single thread case
     startingIdx = bytesToCompress * threadNumber;
     symbol_t firstSymbol = sourceData[startingIdx];
@@ -484,10 +579,10 @@ void Compressor::transformRLE(symbol_t *sourceData, uint16_t *compressedData, ui
     #pragma omp barrier // synchronize
 
     compressedData[0] = 0;
-    uint32_t currentCompressedIdx = 0;
-    uint32_t nextCompressedIdx = 1;
-    uint32_t sourceDataIdx = 1;
-    uint32_t sameSymbolCount = 1;
+    uint64_t currentCompressedIdx = 0;
+    uint64_t nextCompressedIdx = 1;
+    uint64_t sourceDataIdx = 1;
+    uint64_t sameSymbolCount = 1;
     symbol_t current = firstSymbol;
     uint8_t chunkIdx = 0;
 
@@ -506,7 +601,7 @@ void Compressor::transformRLE(symbol_t *sourceData, uint16_t *compressedData, ui
             uint16_t code = _codeTable[current].code << (16 - codeLength);
 
             // store the Huffman code in the compressed data up to 3 times
-            for (uint32_t i = 0; i < sameSymbolCount && i < 3; i++)
+            for (uint64_t i = 0; i < sameSymbolCount && i < 3; i++)
             {
                 // separate the code to two parts, that are stored in two 16-bit parts of the compressed data
                 uint16_t downShiftedCode = code >> chunkIdx;
@@ -613,8 +708,7 @@ void Compressor::createHeader()
 
         _blockTypesByteSize = (_blockCount * BITS_PER_BLOCK_TYPE + 7) / 8; // round to bytes
         _blockTypes = new uint8_t[_blockTypesByteSize];
-
-        for (uint32_t i = 0, j = 0; j < _blockCount; i++, j += 4)
+        for (uint32_t i = 0, j = 0; i < _blockTypesByteSize; i++, j += 4)
         {
             // pack the block types into bytes, 2 bits per block type
             _blockTypes[i] = 0;
@@ -798,84 +892,27 @@ void Compressor::writeOutputFile(string outputFileName, string inputFileName)
     {
         // write the header
         outputFile.write(reinterpret_cast<char *>(_headerBuffer), _headerSize);
+        DEBUG_PRINT("Header size: " << _headerSize);
+
         // write the sizes of the compressed data by each thread (if multi-threaded compression)
         outputFile.write(reinterpret_cast<char *>(_compressedSizes), _threadBlocksSizesSize);
+        DEBUG_PRINT("Compressed block sizes size: " << _threadBlocksSizesSize);
+
         // write the compressed depth maps
         outputFile.write(reinterpret_cast<char *>(_compressedDepthMaps), _compressedDepthMapsSize);
+        DEBUG_PRINT("Compressed depth maps size: " << _compressedDepthMapsSize);
+
         // write the block types (if adaptive compression)
         outputFile.write(reinterpret_cast<char *>(_blockTypes), _blockTypesByteSize);
+        DEBUG_PRINT("Block types size: " << _blockTypesByteSize);
+
         // write the compressed data
-        outputFile.write(reinterpret_cast<char *>(_destinationBuffer), _compressedSizesExScan[_numberOfThreads]); 
+        outputFile.write(reinterpret_cast<char *>(_destinationBuffer), _compressedSizesExScan[_numberOfThreads]);
+        DEBUG_PRINT("Compressed data size: " << _compressedSizesExScan[_numberOfThreads]);
     }
     outputFile.close();
 
     DEBUG_PRINT("Output file written");
-}
-
-void Compressor::readInputFile(string inputFileName)
-{
-    DEBUG_PRINT("Reading input file");
-    ifstream inputFile(inputFileName, ios::binary);
-    if (!inputFile.is_open())
-    {
-        cerr << "Error: Unable to open input file '" << inputFileName << "'." << endl;
-        exit(1);
-    }
-
-    // get the size of the input file
-    inputFile.seekg(0, ios::end);
-    _size = inputFile.tellg();
-    inputFile.seekg(0, ios::beg);
-
-    if (_size == 0) // TODO: possibly allow empty files
-    {
-        cerr << "Error: The input file is empty. Nothing to compress here." << endl;
-        exit(1);
-    }
-
-    _height = _size / _width;
-    if (_height * _width != _size) // verify that file is rectangular
-    {
-        cerr << "Error: The input file size is not a multiple of the specified width." << endl;
-        exit(1);
-    }
-
-    if (_adaptive && _height >= (1UL << MAX_BITS_PER_FILE_DIMENSION)) // verify that he height is within the allowed range
-    {
-        cerr << "Error: Input file is too large, height out of range, maximum allowed height is " 
-                     << (1UL << MAX_BITS_PER_FILE_DIMENSION) - 1 << " (2^" << MAX_BITS_PER_FILE_DIMENSION << "-1)." << endl;
-                exit(1);
-    }
-    else if (!_adaptive && _size >= (1UL << MAX_BITS_FOR_FILE_SIZE)) // verify that the file size is within the allowed range
-    {
-        cerr << "Error: Input file is too large, maximum allowed size is " 
-                     << (1UL << MAX_BITS_FOR_FILE_SIZE) - 1 << " (2^" << MAX_BITS_FOR_FILE_SIZE << "-1)." << endl;
-                exit(1);
-    }
-
-    if ((_width % BLOCK_SIZE || _height % BLOCK_SIZE) && _adaptive) // verify that file is divisible by block size
-    {
-        cerr << "Warning: The input file width and height is not divisible by a built in adaptive granularity of " << BLOCK_SIZE << "." << endl;
-        cerr << "         Static compression will be used instead." << endl;
-        _adaptive = false; // disable adaptive compression 
-    }
-
-    uint64_t roundedSize = ((_size + _numberOfThreads - 1) / _numberOfThreads) * _numberOfThreads + 1;
-    _threadPadding = roundedSize >> 4; // ensure there is some spare space if compressed block is larger than the original block
-    roundedSize += _threadPadding * _numberOfThreads;
-
-    // these buffers will be used in a ping-pong fashion
-    _sourceBuffer = static_cast<symbol_t *>(aligned_alloc(64, roundedSize * sizeof(symbol_t)));
-    _destinationBuffer = static_cast<symbol_t *>(aligned_alloc(64, roundedSize * sizeof(symbol_t)));
-    if (_sourceBuffer == nullptr || _destinationBuffer == nullptr)
-    {
-        cerr << "Error: Unable to allocate memory for the input file." << endl;
-        exit(1);
-    }
-
-    inputFile.read(reinterpret_cast<char *>(_sourceBuffer), _size);
-    inputFile.close();
-    DEBUG_PRINT("Input file read");
 }
 
 void Compressor::compressStatic()
@@ -937,10 +974,10 @@ void Compressor::analyzeImageAdaptive()
             int32_t *rleCounts = _rlePerBlockCounts[sectionId];
 
             uint32_t blockIdx = 0;
-            for (uint32_t i = 0; i < _width; i += BLOCK_SIZE)
+            for (uint32_t i = 0; i < _height; i += BLOCK_SIZE)
             {
                 uint32_t firstRow = i * _width;
-                for (uint32_t j = 0; j < _height; j += BLOCK_SIZE)
+                for (uint32_t j = 0; j < _width; j += BLOCK_SIZE)
                 {
                     uint32_t firstColumn = firstRow + j;
                     uint16_t lastSymbol = -1;
@@ -972,10 +1009,10 @@ void Compressor::analyzeImageAdaptive()
             int32_t *rleCounts = _rlePerBlockCounts[sectionId];
             
             int32_t blockIdx = 0;
-            for (uint32_t i = 0; i < _width; i += BLOCK_SIZE)
+            for (uint32_t i = 0; i < _height; i += BLOCK_SIZE)
             {
                 uint32_t firstRow = i * _width;
-                for (uint32_t j = 0; j < _height; j += BLOCK_SIZE)
+                for (uint32_t j = 0; j < _width; j += BLOCK_SIZE)
                 {
                     uint32_t firstColumn = firstRow + j;
                     uint16_t lastSymbol = -1;
@@ -1007,9 +1044,11 @@ void Compressor::analyzeImageAdaptive()
 
 void Compressor::applyDiferenceModel(symbol_t *source, symbol_t *destination)
 {
+    DEBUG_PRINT("Thread: " << omp_get_thread_num() << " applying difference model");
+
     int threadNumber = omp_get_thread_num();
     uint64_t bytesToProcess = (_size + _numberOfThreads - 1) / _numberOfThreads;
-    bytesToProcess += bytesToProcess & 0x1; // ensure even number of bytes per thread, TODO solve single thread case
+    bytesToProcess += bytesToProcess & 0b1; // ensure even number of bytes per thread, TODO: align to 64 bytes
     uint64_t startingIdx = bytesToProcess * threadNumber;
     if (threadNumber == _numberOfThreads - 1) // last thread
     {
@@ -1020,11 +1059,13 @@ void Compressor::applyDiferenceModel(symbol_t *source, symbol_t *destination)
 
     destination[0] = source[0];
 
-    #pragma omp simd aligned(source, destination: 64) simdlen(64)
-    for (uint32_t i = 1; i < bytesToProcess; i++)
+    #pragma omp simd simdlen(64)
+    for (uint64_t i = 1; i < bytesToProcess; i++)
     {
         destination[i] = source[i] - source[i - 1]; // subtract the previous symbol from the current one
     }
+
+    DEBUG_PRINT("Thread: " << omp_get_thread_num() << " difference model applied");
 }
 
 void Compressor::compressAdaptive()
@@ -1055,8 +1096,8 @@ void Compressor::compressAdaptive()
                     bestRleCount = _rlePerBlockCounts[j][i];
                     bestTraversal = static_cast<AdaptiveTraversals>(j);
                 }
-                _bestBlockTraversals[i] = bestTraversal;
             }
+            _bestBlockTraversals[i] = bestTraversal;
         }
     }
     // implicit barrier
@@ -1070,11 +1111,11 @@ void Compressor::compressAdaptive()
             switch (_bestBlockTraversals[i * _blocksPerRow + j])
             {
             case HORIZONTAL:
-                serializeBlock(_sourceBuffer, _destinationBuffer, j, i);
+                serializeBlock(_sourceBuffer, _destinationBuffer, i, j);
                 break;
             
             case VERTICAL:
-                transposeSerializeBlock(_sourceBuffer, _destinationBuffer, j, i);
+                transposeSerializeBlock(_sourceBuffer, _destinationBuffer, i, j);
                 break;
             
             case NUMBER_OF_TRAVERSALS:
@@ -1163,7 +1204,7 @@ void Compressor::compressAdaptiveModel()
 
 void Compressor::compress(string inputFileName, string outputFileName)
 {
-    readInputFile(inputFileName);
+    readInputFile(inputFileName, outputFileName);
     
     if (_adaptive) // adaptive compression
     {
@@ -1171,6 +1212,7 @@ void Compressor::compress(string inputFileName, string outputFileName)
         initializeBlockTypes();
     }
     
+    DEBUG_PRINT("Starting compression with " << _numberOfThreads << " threads");
     #pragma omp parallel // launch threads, i.e. create a parallel region
     {
         DEBUG_PRINT("Thread " << omp_get_thread_num() << " started");

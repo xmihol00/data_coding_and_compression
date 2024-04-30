@@ -1,5 +1,5 @@
 
-data_dir="data"
+data_dir="data_edge_case"
 if [ ! -d $data_dir ]; then
     data_dir="../$data_dir"
 fi 
@@ -20,6 +20,9 @@ thread_combinations=(
     "8 1"
 )
 
+mkdir -p compressed_files
+mkdir -p decompressed_files
+
 for switch in "" "-a" "-m" "-m -a"; do
     echo ""
     echo -e "\e[0;35mTesting with switch $switch\e[0m"
@@ -31,11 +34,10 @@ for switch in "" "-a" "-m" "-m -a"; do
 
         rm -f compressed_files/*
         rm -f decompressed_files/*
-        for file in $data_dir/*.raw; do
+        for file in $data_dir/*; do
             echo "Testing $file"
             basename=$(basename $file)
-            file_size=$(wc -c < $file)
-            width=$(echo "sqrt($file_size)" | bc -l | cut -d'.' -f1)
+            width=$(echo "$basename" | sed -n 's/.*x\([0-9]*\)\..*/\1/p')
             echo "compress command: ./huff_codec -c -i $file -o compressed_files/$basename -w $width $switch -t $compress_threads"
             ./huff_codec -c -i $file -o compressed_files/$basename -w $width $switch -t $compress_threads 2>/dev/null
             echo "decompress command: ./huff_codec -d -i compressed_files/$basename -o decompressed_files/$basename -t $decompress_threads"

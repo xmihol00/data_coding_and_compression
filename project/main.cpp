@@ -60,6 +60,8 @@ Arguments parseArguments(int argc, char* argv[])
     args.threads = 1; // no OpenMP support, only one thread
 #endif
 
+    bool widthSet = false;
+
     vector<string> arguments(argv, argv + argc);
     for (size_t i = 1; i < arguments.size(); i++) // parse arguments one by one, skipping the program name
     {
@@ -102,6 +104,8 @@ Arguments parseArguments(int argc, char* argv[])
                      << (1UL << HuffmanRLECompression::MAX_BITS_PER_FILE_DIMENSION) - 1 << " (2^" << HuffmanRLECompression::MAX_BITS_PER_FILE_DIMENSION << "-1)." << endl;
                 exit(1);
             }
+
+            widthSet = true;
         }
         else if (arguments[i] == "-i")
         {
@@ -131,16 +135,16 @@ Arguments parseArguments(int argc, char* argv[])
         }
         else if (arguments[i] == "-h")
         {
-            cerr << "Usage: " << arguments[0] << " [-c | -d] [-m] [-a] [-w <width>] [-i <input_file>] [-o <output_file>]" << endl;
-            cerr << "Options:" << endl;
-            cerr << "  -c:               Compress the input file." << endl;
-            cerr << "  -d:               Decompress the input file." << endl;
-            cerr << "  -m:               Use the model-based compression." << endl;
-            cerr << "  -a:               Use the adaptive model-based compression." << endl;
-            cerr << "  -w <width>:       Width of the compressed image." << endl;
-            cerr << "  -i <input_file>:  Specify the input file." << endl;
-            cerr << "  -o <output_file>: Specify the output file." << endl;
-            cerr << "  -t <threads>:     Number of threads to use (default is " << DEFAULT_NUMBER_OF_THREADS << "), must be a power of 2." << endl;
+            cout << "Usage: " << arguments[0] << " [-c | -d] [-m] [-a] [-w <width>] [-i <input_file>] [-o <output_file>]" << endl;
+            cout << "Options:" << endl;
+            cout << "  -c:               Compress the input file." << endl;
+            cout << "  -d:               Decompress the input file." << endl;
+            cout << "  -m:               Use the model-based compression." << endl;
+            cout << "  -a:               Use the adaptive model-based compression." << endl;
+            cout << "  -w <width>:       Width of the compressed image." << endl;
+            cout << "  -i <input_file>:  Specify the input file." << endl;
+            cout << "  -o <output_file>: Specify the output file." << endl;
+            cout << "  -t <threads>:     Number of threads to use (default is " << DEFAULT_NUMBER_OF_THREADS << "), must be a power of 2." << endl;
             exit(0);
         }
         else if (arguments[i] == "-t")
@@ -211,13 +215,13 @@ Arguments parseArguments(int argc, char* argv[])
         exit(1);
     }
 
-    if (args.width == 0 && args.compress)
+    if (!widthSet && args.compress)
     {
         cerr << "Error: Width ('-w' switch) is missing." << endl;
         exit(1);
     }
 
-    if (args.width != 0 && args.decompress)
+    if (widthSet && args.decompress)
     {
         cerr << "Warning: Width ('-w' switch) is ignored when decompressing." << endl;
     }
