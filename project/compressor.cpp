@@ -103,6 +103,7 @@ void Compressor::readInputFile(string inputFileName, string outputFileName)
 
     uint64_t roundedSize = ((_size + _numberOfThreads - 1) / _numberOfThreads) * _numberOfThreads + 1;
     _threadPadding = roundedSize >> 4; // ensure there is some spare space if compressed block is larger than the original block
+    _threadPadding += _threadPadding & 0b1; // ensure the padding is even
     roundedSize += _threadPadding * _numberOfThreads;
 
     // these buffers will be used in a ping-pong fashion
@@ -589,6 +590,10 @@ void Compressor::transformRLE(symbol_t *sourceData, uint16_t *compressedData, ui
             // retrieve the corresponding Huffman code and its length for the current symbol
             uint16_t codeLength = _codeTable[current].length;
             uint16_t code = _codeTable[current].code << (16 - codeLength);
+            /*if (!currentCompressedIdx) // TODO: remove
+            {
+                cerr << omp_get_thread_num() << " " << bitset<16>(code) << " " << codeLength << " " << current << " " << sameSymbolCount << endl;
+            }*/
 
             // store the Huffman code in the compressed data up to 3 times
             for (uint64_t i = 0; i < sameSymbolCount && i < 3; i++)
@@ -642,7 +647,7 @@ void Compressor::transformRLE(symbol_t *sourceData, uint16_t *compressedData, ui
 
     _compressionUnsuccessful = sourceDataIdx <= bytesToCompress; // there is still something to compress
     compressedSize = nextCompressedIdx * 2; // size in bytes
-    DEBUG_PRINT("Thread " << threadNumber << ": RLE transformed");
+    DEBUG_PRINT("Thread " << threadNumber << ": RLE transformed, compressed size: " << compressedSize);
 }
 
 void Compressor::createHeader()

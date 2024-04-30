@@ -172,7 +172,7 @@ bool Decompressor::readInputFile(string inputFileName, string outputFileName)
 
     inputFile.read(reinterpret_cast<char *>(_compressedData), fileSize); // read the remaining compressed data
     inputFile.close();
-
+    
     return true;
 }
 
@@ -641,7 +641,7 @@ void Decompressor::transformRLE(uint16_t *compressedData, symbol_t *decompressed
         }
     }
 #endif
-    DEBUG_PRINT("Thread: " << omp_get_thread_num() << " RLE transformed");
+    DEBUG_PRINT("Thread: " << omp_get_thread_num() << " RLE transformed, " << decompressedIdx << " bytes decompressed");
 }
 
 void Decompressor::reverseDifferenceModel(symbol_t *source, symbol_t *destination, uint64_t bytesToProcess)

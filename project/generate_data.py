@@ -84,7 +84,7 @@ if False:
     print(f'Length: {length}')
 
 if True:
-    def fibonaci(n):
+    def fibonacci(n):
         a, b = 0, 1
         for _ in range(n):
             a, b = b, a + b
@@ -92,8 +92,8 @@ if True:
     
     RANGE_LOW = ord('A')
     RANGE_HIGH = ord('Z') + 1
-    with open('test_files/fibonaci_A-Z.txt', 'wb') as f:
-        for i, char in zip(fibonaci(RANGE_HIGH - RANGE_LOW), range(RANGE_LOW, RANGE_HIGH)):
+    with open('test_files/fibonacci_A-Z.txt', 'wb') as f:
+        for i, char in zip(fibonacci(RANGE_HIGH - RANGE_LOW), range(RANGE_LOW, RANGE_HIGH)):
             byte_str = char.to_bytes(1, byteorder='big')
             byte_str = byte_str * i
             f.write(byte_str)

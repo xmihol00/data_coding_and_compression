@@ -170,3 +170,4 @@ tmp.*
 data/
 *.out
 old/
+large_*.bin
