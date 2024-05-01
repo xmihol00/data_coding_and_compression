@@ -20,7 +20,7 @@ TARGET = $(PROJECT_DIR)/huff_codec
 TARGET_TEST = $(PROJECT_DIR)/huff_codec_test
 TARGET_DEBUG = $(PROJECT_DIR)/huff_codec_debug
 
-ADDITIONAL_DEFINES = 
+ADDITIONAL_DEFINES =  # add by running make ADDITIONAL_DEFINES="-D<define name>"
 
 .PHONY: all plain no_omp no_avx debug clean
 

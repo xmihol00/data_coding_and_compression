@@ -777,27 +777,12 @@ void Decompressor::decompressAdaptive()
         {
             for (uint32_t j = 0; j < _blocksPerRow; j++)
             {
+                const uint8_t *rowIndices = ROW_INDICES_LOOKUP_TABLE[_bestBlockTraversals[i * _blocksPerRow + j]];
+                const uint8_t *colIndices = COL_INDICES_LOOKUP_TABLE[_bestBlockTraversals[i * _blocksPerRow + j]];
                 // schedule the decompression of each block as a task
-                switch (_bestBlockTraversals[i * _blocksPerRow + j])
+                #pragma omp task firstprivate(i, j)
                 {
-                case HORIZONTAL:
-                    #pragma omp task firstprivate(i, j)
-                    {
-                        deserializeBlock(source, destination, i, j);
-                    }
-                    break;
-                
-                case VERTICAL:
-                    #pragma omp task firstprivate(i, j)
-                    {
-                        transposeDeserializeBlock(source, destination, i, j);
-                    }
-                    break;
-
-                default:
-                    cerr << "Error: Unsupported traversal type." << endl;
-                    exit(CORRUPTED_FILE_ERROR);
-                    break;
+                    deserializeBlock(source, destination, i, j, rowIndices, colIndices);
                 }
             }
         }

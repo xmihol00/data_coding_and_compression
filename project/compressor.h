@@ -163,57 +163,57 @@ private:
     void applyDiferenceModel(symbol_t *source, symbol_t *destination);
 
     /**
-     * @brief Transposes a block of symbols and serializes it row by row into a destination buffer.
-     * @param source Source buffer.
-     * @param destination Destination buffer.
-     * @param blockRow Starting row index of the block to be transposed and serialized in the source buffer.
-     * @param blockColumn Starting column index of the block to be transposed and serialized in the source buffer.
-     */
-    inline constexpr void transposeSerializeBlock(symbol_t *source, symbol_t *destination, uint32_t blockRow, uint32_t blockColumn)
-    {
-        uint32_t sourceStartingIdx = blockRow * BLOCK_SIZE * _width + blockColumn * BLOCK_SIZE;
-        uint32_t destinationIdx = blockRow * BLOCK_SIZE * _width + blockColumn * BLOCK_SIZE * BLOCK_SIZE;
-        for (uint32_t i = 0; i < BLOCK_SIZE; i++)
-        {   
-            for (uint32_t j = 0; j < BLOCK_SIZE; j++)
-            {
-                destination[destinationIdx++] = source[sourceStartingIdx + j * _width + i];
-            }
-        }
-    }
-    
-    /**
      * @brief Serializes a block of symbols row by row into a destination buffer.
      * @param source Source buffer.
      * @param destination Destination buffer.
      * @param blockRow Starting row index of the block to be serialized in the source buffer.
      * @param blockColumn Starting column index of the block to be serialized in the source buffer.
+     * @param rowIndices Ordered indices of rows in the block to be serialized.
+     * @param colIndices Ordered indices of columns in the block to be serialized.
      */
-    inline constexpr void serializeBlock(symbol_t *source, symbol_t *destination, uint32_t blockRow, uint32_t blockColumn)
+    inline constexpr void serializeBlock(symbol_t *source, symbol_t *destination, uint32_t blockRow, uint32_t blockColumn, 
+                                         const uint8_t rowIndices[BLOCK_SIZE * BLOCK_SIZE], const uint8_t colIndices[BLOCK_SIZE * BLOCK_SIZE])
     {
-        uint32_t sourceStartingIdx = blockRow * BLOCK_SIZE * _width + blockColumn * BLOCK_SIZE;
-        uint32_t destinationIdx = blockRow * BLOCK_SIZE * _width + blockColumn * BLOCK_SIZE * BLOCK_SIZE;
-        #pragma GCC unroll BLOCK_SIZE
-        for (uint32_t i = 0; i < BLOCK_SIZE; i++)
-        {   
-            // copy whole row at once
-            if constexpr (BLOCK_SIZE == 8)
+        uint64_t blockFirstIdx = blockRow * BLOCK_SIZE * _width + blockColumn * BLOCK_SIZE;
+        uint64_t destinationIdx = blockRow * BLOCK_SIZE * _width + blockColumn * BLOCK_SIZE * BLOCK_SIZE;
+
+        #pragma GCC unroll BLOCK_SIZE * BLOCK_SIZE
+        for (uint32_t k = 0; k < BLOCK_SIZE * BLOCK_SIZE; k++)
+        {
+            uint64_t valueIdx = blockFirstIdx + rowIndices[k] * _width + colIndices[k];
+            destination[destinationIdx++] = source[valueIdx];
+        }
+    }
+
+    inline constexpr void countRepetitions(AdaptiveTraversals traversal, 
+                                           const uint8_t rowIndices[BLOCK_SIZE * BLOCK_SIZE], const uint8_t colIndices[BLOCK_SIZE * BLOCK_SIZE])
+    {
+        _rlePerBlockCounts[traversal] = new int16_t[_blockCount];
+        int16_t *rleCounts = _rlePerBlockCounts[traversal];
+
+        int32_t blockIdx = 0;
+        for (uint32_t i = 0; i < _height; i += BLOCK_SIZE)
+        {
+            uint64_t blockRowIdx = i * _width;
+            for (uint32_t j = 0; j < _width; j += BLOCK_SIZE)
             {
-                reinterpret_cast<uint8v8_t *>(destination + destinationIdx)[0] = reinterpret_cast<uint8v8_t *>(source + sourceStartingIdx + i * _width)[0];
+                uint64_t blockFirstIdx = blockRowIdx + j;
+                int32_t sameSymbolCount = -3;
+                int32_t rleCount = 0;
+                uint16_t lastSymbol = -1;
+
+                #pragma GCC unroll BLOCK_SIZE * BLOCK_SIZE
+                for (uint32_t k = 0; k < BLOCK_SIZE * BLOCK_SIZE; k++)
+                {
+                    uint64_t valueIdx = blockFirstIdx + rowIndices[k] * _width + colIndices[k];
+                    bool sameSymbol = _sourceBuffer[valueIdx] == lastSymbol;
+                    lastSymbol = _sourceBuffer[valueIdx];
+                    rleCount += !sameSymbol && sameSymbolCount >= -1 ? sameSymbolCount : 0;
+                    sameSymbolCount++;
+                    sameSymbolCount = sameSymbol ? sameSymbolCount : -3;
+                }
+                rleCounts[blockIdx++] = rleCount;
             }
-            else if constexpr (BLOCK_SIZE == 16)
-            {
-                reinterpret_cast<uint8v16_t *>(destination + destinationIdx)[0] = _mm_load_si128(reinterpret_cast<uint8v16_t*>(source + sourceStartingIdx + i * _width));
-            }
-            else if constexpr (BLOCK_SIZE == 32)
-            {
-                reinterpret_cast<uint8v32_t *>(destination + destinationIdx)[0] = _mm256_load_si256(reinterpret_cast<uint8v32_t*>(source + sourceStartingIdx + i * _width));
-            }
-            else if constexpr (BLOCK_SIZE == 64)
-            {
-                reinterpret_cast<uint8v64_t *>(destination + destinationIdx)[0] = _mm512_load_si512(reinterpret_cast<uint8v64_t*>(source + sourceStartingIdx + i * _width));
-            }
-            destinationIdx += BLOCK_SIZE;
         }
     }
 
@@ -243,7 +243,7 @@ private:
     uint16_t _threadBlocksSizesSize{0};     ///< Sizes of the compressed blocks for each thread.
     uint64_t _threadPadding;                ///< Padding between the compressed blocks for each thread, if the compressed size of any thread is larger than the uncompressed size.
 
-    int32_t *_rlePerBlockCounts[MAX_NUM_THREADS]{nullptr, }; ///< Counts of repetitions of symbols in each block when adaptive compression is used.
+    int16_t *_rlePerBlockCounts[NUMBER_OF_TRAVERSALS]{nullptr, }; ///< Counts of repetitions of symbols in each block when adaptive compression is used.
 
     uint8_t _mostPopulatedDepth;        ///< Depth with the most symbols in the Huffman tree.
     uint8_t _mostPopulatedDepthIdx;     ///< Index of the depth with the most symbols in the Huffman tree in an array of depths.

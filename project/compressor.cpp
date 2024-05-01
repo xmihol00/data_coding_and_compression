@@ -21,7 +21,7 @@ Compressor::~Compressor()
         free(_sourceBuffer);
     }
 
-    for (uint8_t i = 0; i < MAX_NUM_THREADS; i++)
+    for (uint8_t i = 0; i < NUMBER_OF_TRAVERSALS; i++)
     {
         if (_rlePerBlockCounts[i] != nullptr)
         {
@@ -72,6 +72,13 @@ void Compressor::readInputFile(string inputFileName, string outputFileName)
         outputFile.close();
 
         exit(SUCCESS);
+    }
+
+    if (_numberOfThreads > 1 && _size < (static_cast<uint64_t>(_numberOfThreads) << 4)) // size must be at least 16 times the number of threads
+    {
+        omp_set_num_threads(1);
+        _numberOfThreads = 1;
+        cerr << "Warning: Input file is too small for multi-threaded compression. Proceeding with a single thread." << endl;
     }
 
     _height = _size / _width;
@@ -971,79 +978,32 @@ void Compressor::analyzeImageAdaptive()
 {
     #pragma omp sections
     {
-        #pragma omp section // horizontal lines in blocks
+        // example of values in a flattened 3x3 memory block {0, 1, 2, 3, 4, 5, 6, 7, 8}
+        #pragma omp section
         {
-            constexpr AdaptiveTraversals sectionId = HORIZONTAL;
-            _rlePerBlockCounts[sectionId] = new int32_t[_blockCount];
-            int32_t *rleCounts = _rlePerBlockCounts[sectionId];
-
-            uint32_t blockIdx = 0;
-            for (uint32_t i = 0; i < _height; i += BLOCK_SIZE)
-            {
-                uint32_t firstRow = i * _width;
-                for (uint32_t j = 0; j < _width; j += BLOCK_SIZE)
-                {
-                    uint32_t firstColumn = firstRow + j;
-                    uint16_t lastSymbol = -1;
-                    int32_t sameSymbolCount = -3; // symbol will be compressed only if it repeats more than 3 times
-                    int32_t rleCount = 0;
-                    // count the number of repetitions of symbols in the block, traverse it in horizontal lines
-                    for (uint32_t k = 0; k < BLOCK_SIZE; k++)
-                    {
-                        for (uint32_t l = 0; l < BLOCK_SIZE; l++)
-                        {
-                            bool sameSymbol = _sourceBuffer[firstColumn + l] == lastSymbol;
-                            lastSymbol = _sourceBuffer[firstColumn + l];
-                            rleCount += !sameSymbol && sameSymbolCount >= -1 ? sameSymbolCount : 0; // punish symbols that repeat exactly 3 times
-                            sameSymbolCount++;
-                            sameSymbolCount = sameSymbol ? sameSymbolCount : -3;
-                        }
-
-                        firstColumn += _width;
-                    }
-                    rleCounts[blockIdx++] = rleCount; // store the count of repetitions and move to the next block
-                }
-            }
+            // traversed as {0, 1, 2, 5, 4, 3, 6, 7, 8} 
+            countRepetitions(HORIZONTAL_ZIG_ZAG, HORIZONTAL_ZIG_ZAG_ROW_INDICES, HORIZONTAL_ZIG_ZAG_COL_INDICES);
         }
 
-        #pragma omp section // vertical lines in blocks
+        #pragma omp section
         {
-            constexpr AdaptiveTraversals sectionId = VERTICAL;
-            _rlePerBlockCounts[sectionId] = new int32_t[_blockCount];
-            int32_t *rleCounts = _rlePerBlockCounts[sectionId];
-            
-            int32_t blockIdx = 0;
-            for (uint32_t i = 0; i < _height; i += BLOCK_SIZE)
-            {
-                uint32_t firstRow = i * _width;
-                for (uint32_t j = 0; j < _width; j += BLOCK_SIZE)
-                {
-                    uint32_t firstColumn = firstRow + j;
-                    uint16_t lastSymbol = -1;
-                    int32_t sameSymbolCount = -3;
-                    int32_t rleCount = 0;
-                    for (uint32_t k = 0; k < BLOCK_SIZE; k++)
-                    {
-                        uint32_t column = firstColumn + k;
-                        // traverse the block in vertical lines
-                        for (uint32_t l = 0; l < BLOCK_SIZE; l++)
-                        {
-                            bool sameSymbol = _sourceBuffer[column] == lastSymbol;
-                            lastSymbol = _sourceBuffer[column];
-                            rleCount += !sameSymbol && sameSymbolCount >= -1 ? sameSymbolCount : 0;
-                            sameSymbolCount++;
-                            sameSymbolCount = sameSymbol ? sameSymbolCount : -3;
-
-                            column += _width;   
-                        }
-                    }
-                    rleCounts[blockIdx++] = rleCount;
-                }
-            }
+            // traversed as {0, 3, 6, 7, 4, 1, 2, 5, 8}
+            countRepetitions(VERTICAL_ZIG_ZAG, VERTICAL_ZIG_ZAG_ROW_INDICES, VERTICAL_ZIG_ZAG_COL_INDICES);
         }
 
-        // TODO: add diagonal traversal
+        #pragma omp section
+        {
+            // traversed as {2, 1, 5, 8, 4, 0, 3, 7, 6}
+            countRepetitions(MAJOR_DIAGONAL_ZIG_ZAG, MAJOR_DIAGONAL_ZIG_ZAG_ROW_INDICES, MAJOR_DIAGONAL_ZIG_ZAG_COL_INDICES);
+        }
+
+        #pragma omp section
+        {
+            // traversed as {0, 1, 3, 6, 4, 2, 5, 7, 8}
+            countRepetitions(MINOR_DIAGONAL_ZIG_ZAG, MINOR_DIAGONAL_ZIG_ZAG_ROW_INDICES, MINOR_DIAGONAL_ZIG_ZAG_COL_INDICES);
+        }
     }
+    // implicit barrier
 }
 
 void Compressor::applyDiferenceModel(symbol_t *source, symbol_t *destination)
@@ -1091,7 +1051,7 @@ void Compressor::compressAdaptive()
         // determine the best traversal for each block
         for (uint32_t i = 0; i < _blockCount; i++)
         {
-            AdaptiveTraversals bestTraversal = HORIZONTAL;
+            AdaptiveTraversals bestTraversal = HORIZONTAL_ZIG_ZAG;
             int32_t bestRleCount = INT32_MIN;
             for (uint8_t j = 0; j < NUMBER_OF_TRAVERSALS; j++)
             {
@@ -1107,25 +1067,14 @@ void Compressor::compressAdaptive()
     // implicit barrier
 
     // serialize the blocks into 1D memory
-    #pragma omp for schedule(dynamic, 1) // schedule the work dynamically, transposition is more difficult than simple serialization
+    #pragma omp for schedule(static) // each iteration should take approximately the same time
     for (uint32_t i = 0; i < _blocksPerColumn; i++)
     {
         for (uint32_t j = 0; j < _blocksPerRow; j++)
         {
-            switch (_bestBlockTraversals[i * _blocksPerRow + j])
-            {
-            case HORIZONTAL:
-                serializeBlock(_sourceBuffer, _destinationBuffer, i, j);
-                break;
-            
-            case VERTICAL:
-                transposeSerializeBlock(_sourceBuffer, _destinationBuffer, i, j);
-                break;
-            
-            case NUMBER_OF_TRAVERSALS:
-                // this is a dummy
-                break;
-            }
+            const uint8_t *rowIndices = ROW_INDICES_LOOKUP_TABLE[_bestBlockTraversals[i * _blocksPerRow + j]];
+            const uint8_t *colIndices = COL_INDICES_LOOKUP_TABLE[_bestBlockTraversals[i * _blocksPerRow + j]];
+            serializeBlock(_sourceBuffer, _destinationBuffer, i, j, rowIndices, colIndices);
         }
     }
 

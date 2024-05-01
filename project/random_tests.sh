@@ -1,8 +1,8 @@
 
-data_dir="data_edge_case"
-if [ ! -d $data_dir ]; then
-    data_dir="../$data_dir"
-fi 
+executable="./huff_codec"
+if [ ! -f $executable ]; then
+    executable=".$executable"
+fi
 
 all_tests_passed=true
 
@@ -41,10 +41,10 @@ for i in {1..100}; do
             rm -f decompressed_files/$basename
             
             width=$(echo "$basename" | sed -n 's/.*x\([0-9]*\)\..*/\1/p')
-            echo "compress command: ./huff_codec -c -i $file -o compressed_files/$basename -w $width $switch -t $compress_threads"
-            ./huff_codec -c -i $file -o compressed_files/$basename -w $width $switch -t $compress_threads 
-            echo "decompress command: ./huff_codec -d -i compressed_files/$basename -o decompressed_files/$basename -t $decompress_threads"
-            ./huff_codec -d -i compressed_files/$basename -o decompressed_files/$basename -t $decompress_threads
+            echo "compress command: $executable -c -i $file -o compressed_files/$basename -w $width $switch -t $compress_threads"
+            $executable -c -i $file -o compressed_files/$basename -w $width $switch -t $compress_threads 
+            echo "decompress command: $executable -d -i compressed_files/$basename -o decompressed_files/$basename -t $decompress_threads"
+            $executable -d -i compressed_files/$basename -o decompressed_files/$basename -t $decompress_threads
             diff $file decompressed_files/$basename 2>/dev/null 1>/dev/null
             if [ $? -eq 0 ]; then
                 echo -e "\e[0;32mPASSED\e[0m"

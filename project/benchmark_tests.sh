@@ -1,8 +1,13 @@
 
-data_dir="data"
+data_dir="data_benchmark"
 if [ ! -d $data_dir ]; then
     data_dir="../$data_dir"
 fi 
+
+executable="./huff_codec"
+if [ ! -f $executable ]; then
+    executable=".$executable"
+fi
 
 all_tests_passed=true
 
@@ -18,6 +23,11 @@ thread_combinations=(
     "4 8"
     "8 8"
     "8 1"
+    "16 1"
+    "1 16"
+    "16 16"
+    "16 8"
+    "8 16"
 )
 
 mkdir -p compressed_files
@@ -39,10 +49,10 @@ for switch in "" "-a" "-m" "-m -a"; do
             basename=$(basename $file)
             file_size=$(wc -c < $file)
             width=$(echo "sqrt($file_size)" | bc -l | cut -d'.' -f1)
-            echo "compress command: ./huff_codec -c -i $file -o compressed_files/$basename -w $width $switch -t $compress_threads"
-            ./huff_codec -c -i $file -o compressed_files/$basename -w $width $switch -t $compress_threads 2>/dev/null
-            echo "decompress command: ./huff_codec -d -i compressed_files/$basename -o decompressed_files/$basename -t $decompress_threads"
-            ./huff_codec -d -i compressed_files/$basename -o decompressed_files/$basename -t $decompress_threads 2>/dev/null
+            echo "compress command: $executable -c -i $file -o compressed_files/$basename -w $width $switch -t $compress_threads"
+            $executable -c -i $file -o compressed_files/$basename -w $width $switch -t $compress_threads
+            echo "decompress command: $executable -d -i compressed_files/$basename -o decompressed_files/$basename -t $decompress_threads"
+            $executable -d -i compressed_files/$basename -o decompressed_files/$basename -t $decompress_threads
             diff $file decompressed_files/$basename 2>/dev/null 1>/dev/null
             if [ $? -eq 0 ]; then
                 echo -e "\e[0;32mPASSED\e[0m"

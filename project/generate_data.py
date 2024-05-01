@@ -1,7 +1,7 @@
 
 if False:
     length = 0
-    with open('test_files/a-j_increasing.bin', 'wb') as f:
+    with open("test_files/a-j_increasing.bin", "wb") as f:
         for i, j in zip(range(ord('a'), ord('k')), range(0, 256)):
             j = 2 ** j
             byte_str = i.to_bytes(1, byteorder='big')
@@ -14,7 +14,7 @@ if False:
 
 if False:
     length = 0
-    with open('test_files/A-z_increasing.txt', 'wb') as f:
+    with open("test_files/A-z_increasing.txt", "wb") as f:
         for i, j in zip(range(ord('A'), ord('z')+1), range(1, 257)):
             byte_str = i.to_bytes(1, byteorder='big')
             byte_str = byte_str * j
@@ -26,7 +26,7 @@ if False:
 
 if False:
     length = 0
-    with open('test_files/all_same.bin', 'wb') as f:
+    with open("test_files/all_same.bin", "wb") as f:
         for _ in range(0, 2):
             for i in range(0, 256):
                 byte_str = i.to_bytes(1, byteorder='big')
@@ -40,7 +40,7 @@ if False:
     length = 0
     RANGE_LOW = ord('A') - 1
     RANGE_HIGH = ord('Z') + 5
-    with open('../all_A-Z_pow2.bin', 'wb') as f:
+    with open("test_files/all_A-Z_pow2.bin", "wb") as f:
         for i in range(0, 256):
             if i < RANGE_LOW or i > RANGE_HIGH:
                 byte_str = i.to_bytes(1, byteorder='big')
@@ -59,13 +59,13 @@ if False:
         length += len(byte_str)
         f.write(byte_str)
 
-    print(f'Length: {length}')
+    print(f"Length: {length}")
 
 if False:
     length = 0
     RANGE_LOW = ord('A') - 1
     RANGE_HIGH = ord('Z') + 5
-    with open('test_files/4G-1.bin', 'wb') as f:
+    with open("test_files/4G-1.bin", "wb") as f:
         for i in range(RANGE_LOW, RANGE_HIGH + 1):
             print(2 ** (i - RANGE_LOW))
             byte_str = i.to_bytes(1, byteorder='big')
@@ -83,7 +83,7 @@ if False:
 
     print(f'Length: {length}')
 
-if True:
+if False:
     def fibonacci(n):
         a, b = 0, 1
         for _ in range(n):
@@ -92,8 +92,18 @@ if True:
     
     RANGE_LOW = ord('A')
     RANGE_HIGH = ord('Z') + 1
-    with open('test_files/fibonacci_A-Z.txt', 'wb') as f:
+    with open("test_files/fibonacci_A-Z.txt", "wb") as f:
         for i, char in zip(fibonacci(RANGE_HIGH - RANGE_LOW), range(RANGE_LOW, RANGE_HIGH)):
             byte_str = char.to_bytes(1, byteorder='big')
             byte_str = byte_str * i
             f.write(byte_str)
+
+if True:
+    ascii_a = ord('a') - 1
+    for i in range(1, 66):
+        with open(f"data_edge_case/{i}_same_{i}x{1}.txt", 'w') as f:
+            f.write(chr(ascii_a + i) * i)
+        
+        with open(f"data_edge_case/{i}_different_{i}x{1}.txt", 'w') as f:
+            for j in range(1, i + 1):
+                f.write(chr(ascii_a + j))
