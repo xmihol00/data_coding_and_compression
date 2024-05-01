@@ -31,6 +31,9 @@
 #include <bitset>
 #include <bit>
 
+#include <unordered_map>
+#include <chrono>
+
 #ifdef _DEBUG_PRINT_ACTIVE_
     #define DEBUG_PRINT(value) std::cerr << value << std::endl
 #else
@@ -90,6 +93,8 @@ public:
         : _model{model}, _adaptive{adaptive}, _width{width}, _numberOfThreads{numberOfThreads} { };
     ~HuffmanRLECompression()
     {
+        printPerformanceCounters();
+
         if (_blockTypes != nullptr)
         {
             delete[] _blockTypes;
@@ -204,13 +209,13 @@ protected:
         HORIZONTAL_ZIG_ZAG_COL_INDICES, VERTICAL_ZIG_ZAG_COL_INDICES, MAJOR_DIAGONAL_ZIG_ZAG_COL_INDICES, MINOR_DIAGONAL_ZIG_ZAG_COL_INDICES
     };
 
-    bool _model;       ///< Flag indicating if the compression is model-based.
-    bool _adaptive;    ///< Flag indicating if the compression is adaptive.
-    uint64_t _width;   ///< Width of the image to be compressed/decompressed.
-    uint64_t _height;  ///< Height of the image to be compressed/decompressed.
-    uint64_t _size;    ///< Overall size of the image to be compressed/decompressed.
+    bool _model;                  ///< Flag indicating if the compression is model-based.
+    bool _adaptive;               ///< Flag indicating if the compression is adaptive.
+    uint64_t _width;              ///< Width of the image to be compressed/decompressed.
+    uint64_t _height;             ///< Height of the image to be compressed/decompressed.
+    uint64_t _size;               ///< Overall size of the image to be compressed/decompressed.
 
-    uint64_t _blockCount;       ///< Total number of blocks in an image.
+    uint64_t _numberOfTraversalBlocks;       ///< Total number of blocks in an image.
     uint32_t _blocksPerRow;     ///< Number of blocks in a row of an image.
     uint32_t _blocksPerColumn;  ///< Number of blocks in a column of an image.
 
@@ -418,14 +423,28 @@ protected:
     {
         _blocksPerRow = (_width + BLOCK_SIZE - 1) / BLOCK_SIZE;
         _blocksPerColumn = (_height + BLOCK_SIZE - 1) / BLOCK_SIZE;
-        _blockCount = _blocksPerRow * _blocksPerColumn;
-        _bestBlockTraversals = new AdaptiveTraversals[_blockCount + 4];
+        _numberOfTraversalBlocks = _blocksPerRow * _blocksPerColumn;
+        _bestBlockTraversals = new AdaptiveTraversals[_numberOfTraversalBlocks + 4];
         
         // clear the last 4 bytes (padding)
-        _bestBlockTraversals[_blockCount] = HORIZONTAL_ZIG_ZAG;
-        _bestBlockTraversals[_blockCount + 1] = HORIZONTAL_ZIG_ZAG;
-        _bestBlockTraversals[_blockCount + 2] = HORIZONTAL_ZIG_ZAG;
-        _bestBlockTraversals[_blockCount + 3] = HORIZONTAL_ZIG_ZAG;
+        _bestBlockTraversals[_numberOfTraversalBlocks] = HORIZONTAL_ZIG_ZAG;
+        _bestBlockTraversals[_numberOfTraversalBlocks + 1] = HORIZONTAL_ZIG_ZAG;
+        _bestBlockTraversals[_numberOfTraversalBlocks + 2] = HORIZONTAL_ZIG_ZAG;
+        _bestBlockTraversals[_numberOfTraversalBlocks + 3] = HORIZONTAL_ZIG_ZAG;
+    }
+
+    // Section with variables for performance testing
+    std::unordered_map<std::string, uint64_t> _performanceCounters; ///< Map with performance counters for different parts of the compression/decompression process.
+
+    /**
+     * @brief Prints all stored performance counters during the compression/decompression process.
+     */
+    inline void printPerformanceCounters()
+    {
+        for (const auto& [key, value] : _performanceCounters)
+        {
+            std::cout << key << ", " << value << ", " << _numberOfThreads << std::endl;
+        }
     }
 };
 

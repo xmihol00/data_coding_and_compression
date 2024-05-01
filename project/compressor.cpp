@@ -38,6 +38,8 @@ Compressor::~Compressor()
 void Compressor::readInputFile(string inputFileName, string outputFileName)
 {
     DEBUG_PRINT("Reading input file");
+    startReadInputFileTimer(); // NOP if performance measurements are disabled
+
     ifstream inputFile(inputFileName, ios::binary);
     if (!inputFile.is_open())
     {
@@ -130,14 +132,17 @@ void Compressor::readInputFile(string inputFileName, string outputFileName)
 
     inputFile.read(reinterpret_cast<char *>(_sourceBuffer), _size);
     inputFile.close();
+
+    stopReadInputFileTimer(); // NOP if performance measurements are disabled
     DEBUG_PRINT("Input file read");
 }
 
 void Compressor::computeHistogram()
 {
-    int threadId = omp_get_thread_num();
     DEBUG_PRINT("Thread " << threadId << ": computing histogram");
+    startHistogramComputationTimer(); // NOP if performance measurements are disabled
 
+    int threadId = omp_get_thread_num();
     uint64_t *intHistogram = _intHistogram;
     symbol_t *buffer = _sourceBuffer;
     uint16_t numberOfThreads = _numberOfThreads > MAX_HISTOGRAM_THREADS ? MAX_HISTOGRAM_THREADS : _numberOfThreads;
@@ -202,12 +207,15 @@ void Compressor::computeHistogram()
     }
     #pragma omp barrier // wait for all threads to construct the frequency-symbol pairs
 
+    stopHistogramComputationTimer(); // NOP if performance measurements are disabled
     DEBUG_PRINT("Thread " << threadId << ": histogram computed");
 }
 
 void Compressor::buildHuffmanTree()
 {
     DEBUG_PRINT("Building Huffman tree");
+    startHuffmanTreeBuildTimer(); // NOP if performance measurements are disabled
+
     uint32_t *symbolsParentsDepths = reinterpret_cast<uint32_t *>(_symbolsParentsDepths);
     uint16_t *parentsSortedIndices = _parentsSortedIndices;
     uint16_t *symbolsPerDepth = _symbolsPerDepth;
@@ -457,12 +465,14 @@ void Compressor::buildHuffmanTree()
     _adjustedDepths = _depths;
 #endif
 
+    stopHuffmanTreeBuildTimer(); // NOP if performance measurements are disabled
     DEBUG_PRINT("Huffman tree built");
 }
 
 void Compressor::populateCodeTable()
 {
     DEBUG_PRINT("Populating code table");
+    startCodeTablePopulationTimer(); // NOP if performance measurements are disabled
 
     uint32_t *codeTable = reinterpret_cast<uint32_t *>(_codeTable);
     uint32_t *symbolsAtDepths = reinterpret_cast<uint32_t *>(_symbolsAtDepths);
@@ -566,6 +576,7 @@ void Compressor::populateCodeTable()
         delta++;
     }
 
+    stopCodeTablePopulationTimer(); // NOP if performance measurements are disabled
     DEBUG_PRINT("Code table populated");
 }
 
@@ -573,6 +584,7 @@ void Compressor::transformRLE(symbol_t *sourceData, uint16_t *compressedData, ui
 {
     int threadNumber = omp_get_thread_num();
     DEBUG_PRINT("Thread " << threadNumber << ": transforming RLE");
+    startTransformRLETimer(); // NOP if performance measurements are disabled
 
     uint64_t bytesToCompress = (_size + _numberOfThreads - 1) / _numberOfThreads;
     bytesToCompress += bytesToCompress & 0b1; // ensure the number of bytes to compress is even
@@ -663,6 +675,8 @@ void Compressor::transformRLE(symbol_t *sourceData, uint16_t *compressedData, ui
 
     _compressionUnsuccessful = sourceDataIdx <= bytesToCompress; // there is still something to compress
     compressedSize = nextCompressedIdx * 2; // size in bytes
+
+    stopTransformRLETimer(); // NOP if performance measurements are disabled
     DEBUG_PRINT("Thread " << threadNumber << ": RLE transformed, compressed size: " << compressedSize);
 }
 
@@ -717,7 +731,7 @@ void Compressor::createHeader()
         header.setWidth(_width);
         header.setHeight(_height);
 
-        _blockTypesByteSize = (_blockCount * BITS_PER_BLOCK_TYPE + 7) / 8; // round to bytes
+        _blockTypesByteSize = (_numberOfTraversalBlocks * BITS_PER_BLOCK_TYPE + 7) / 8; // round to bytes
         _blockTypes = new uint8_t[_blockTypesByteSize];
         for (uint32_t i = 0, j = 0; i < _blockTypesByteSize; i++, j += 4)
         {
@@ -870,6 +884,7 @@ void Compressor::compressDepthMaps()
 void Compressor::writeOutputFile(string outputFileName, string inputFileName)
 {
     DEBUG_PRINT("Writing output file");
+    startWriteOutputFileTimer(); // NOP if performance measurements are disabled
 
     ofstream outputFile(outputFileName, ios::binary);
     if (!outputFile.is_open())
@@ -923,11 +938,14 @@ void Compressor::writeOutputFile(string outputFileName, string inputFileName)
     }
     outputFile.close();
 
+    stopWriteOutputFileTimer(); // NOP if performance measurements are disabled
     DEBUG_PRINT("Output file written");
 }
 
 void Compressor::compressStatic()
 {
+    startStaticCompressionTimer(); // NOP if performance measurements are disabled
+
     int threadNumber = omp_get_thread_num();
     computeHistogram(); // compute the histogram of frequencies of symbols in the input data
 
@@ -979,11 +997,16 @@ void Compressor::compressStatic()
         createHeader();
         DEBUG_PRINT("Static compression finished");
     }
+
+    stopStaticCompressionTimer(); // NOP if performance measurements are disabled
 }
 
 void Compressor::analyzeImageAdaptive()
 {
-    #pragma omp sections
+    DEBUG_PRINT("Thread: " << omp_get_thread_num() << " analyzing image");
+    startAnalyzeImageAdaptiveTimer(); // NOP if performance measurements are disabled
+
+    #pragma omp sections // NTH: It would be better to use a parallel for loop here and perform all traversals at one block and only then move to the next block
     {
         // example of values in a flattened 3x3 memory block {0, 1, 2, 3, 4, 5, 6, 7, 8}
         #pragma omp section
@@ -1011,11 +1034,34 @@ void Compressor::analyzeImageAdaptive()
         }
     }
     // implicit barrier
+
+    // determine the best traversal for each block
+    #pragma omp for schedule(static) // each iteration should take approximately the same time
+    for (uint32_t i = 0; i < _numberOfTraversalBlocks; i++)
+    {
+        AdaptiveTraversals bestTraversal = HORIZONTAL_ZIG_ZAG;
+        int32_t bestRleCount = INT32_MIN;
+        for (uint8_t j = 0; j < NUMBER_OF_TRAVERSALS; j++)
+        {
+            if (_rlePerBlockCounts[j][i] > bestRleCount)
+            {
+                bestRleCount = _rlePerBlockCounts[j][i];
+                bestTraversal = static_cast<AdaptiveTraversals>(j);
+            }
+        }
+        _bestBlockTraversals[i] = bestTraversal;
+    }
+    // implicit barrier
+
+    stopAnalyzeImageAdaptiveTimer(); // NOP if performance measurements are disabled
+    countTraversalTypes();           // NOP if performance measurements are disabled
+    DEBUG_PRINT("Thread: " << omp_get_thread_num() << " image analyzed");
 }
 
 void Compressor::applyDiferenceModel(symbol_t *source, symbol_t *destination)
 {
     DEBUG_PRINT("Thread: " << omp_get_thread_num() << " applying difference model");
+    startApplyDiferenceModelTimer(); // NOP if performance measurements are disabled
 
     int threadNumber = omp_get_thread_num();
     uint64_t bytesToProcess = (_size + _numberOfThreads - 1) / _numberOfThreads;
@@ -1036,43 +1082,18 @@ void Compressor::applyDiferenceModel(symbol_t *source, symbol_t *destination)
         destination[i] = source[i] - source[i - 1]; // subtract the previous symbol from the current one
     }
 
+    stopApplyDiferenceModelTimer(); // NOP if performance measurements are disabled
     DEBUG_PRINT("Thread: " << omp_get_thread_num() << " difference model applied");
 }
 
 void Compressor::compressAdaptive()
 {   
+    startAdaptiveCompressionTimer();
+
     int threadNumber = omp_get_thread_num();
+    analyzeImageAdaptive();
 
-    #pragma omp master
-    {
-        DEBUG_PRINT("Static adaptive compression started");
-    }
-
-    {
-        analyzeImageAdaptive();
-    }
-    #pragma omp barrier
-    
-    #pragma omp single
-    {
-        // determine the best traversal for each block
-        for (uint32_t i = 0; i < _blockCount; i++)
-        {
-            AdaptiveTraversals bestTraversal = HORIZONTAL_ZIG_ZAG;
-            int32_t bestRleCount = INT32_MIN;
-            for (uint8_t j = 0; j < NUMBER_OF_TRAVERSALS; j++)
-            {
-                if (_rlePerBlockCounts[j][i] > bestRleCount)
-                {
-                    bestRleCount = _rlePerBlockCounts[j][i];
-                    bestTraversal = static_cast<AdaptiveTraversals>(j);
-                }
-            }
-            _bestBlockTraversals[i] = bestTraversal;
-        }
-    }
-    // implicit barrier
-
+    startSerializeTraversalTimer(); // NOP if performance measurements are disabled
     // serialize the blocks into 1D memory
     #pragma omp for schedule(static) // each iteration should take approximately the same time
     for (uint32_t i = 0; i < _blocksPerColumn; i++)
@@ -1084,6 +1105,7 @@ void Compressor::compressAdaptive()
             serializeBlock(_sourceBuffer, _destinationBuffer, i, j, rowIndices, colIndices);
         }
     }
+    stopSerializeTraversalTimer(); // NOP if performance measurements are disabled
 
     computeHistogram(); // compute the histogram of frequencies of symbols in the adapted input data
     #pragma omp single
@@ -1094,9 +1116,7 @@ void Compressor::compressAdaptive()
     // implicit barrier
 
     uint64_t startingIdx;
-    {
-        transformRLE(_destinationBuffer, reinterpret_cast<uint16_t *>(_sourceBuffer), _compressedSizes[threadNumber], startingIdx);
-    }
+    transformRLE(_destinationBuffer, reinterpret_cast<uint16_t *>(_sourceBuffer), _compressedSizes[threadNumber], startingIdx);
     #pragma omp barrier
 
     #pragma omp single
@@ -1132,14 +1152,16 @@ void Compressor::compressAdaptive()
         createHeader();
         DEBUG_PRINT("Static adaptive compression finished");
     }
+
+    stopAdaptiveCompressionTimer();
 }
 
 void Compressor::compressStaticModel()
 {
-    {
-        // just apply the difference model
-        applyDiferenceModel(_sourceBuffer, _destinationBuffer);
-    }
+    startStaticCompressionWithModelTimer();
+
+    // apply the difference model
+    applyDiferenceModel(_sourceBuffer, _destinationBuffer);
     #pragma omp barrier
 
     #pragma omp single
@@ -1150,14 +1172,16 @@ void Compressor::compressStaticModel()
 
     // then use the static compression as it would be used without the model
     compressStatic();
+
+    stopStaticCompressionWithModelTimer();
 }
 
 void Compressor::compressAdaptiveModel()
 {
-    {
-        // just apply the difference model
-        applyDiferenceModel(_sourceBuffer, _destinationBuffer);
-    }
+    startAdaptiveCompressionWithModelTimer();
+
+    // apply the difference model
+    applyDiferenceModel(_sourceBuffer, _destinationBuffer);
     #pragma omp barrier
 
     #pragma omp single
@@ -1168,6 +1192,8 @@ void Compressor::compressAdaptiveModel()
 
     // then use the adaptive compression as it would be used without the model
     compressAdaptive();
+
+    stopAdaptiveCompressionWithModelTimer();
 }
 
 void Compressor::compress(string inputFileName, string outputFileName)

@@ -155,7 +155,7 @@ bool Decompressor::readInputFile(string inputFileName, string outputFileName)
     if (header.getHeaderType() & ADAPTIVE)
     {
         initializeBlockTypes(); // allocate memory for the block types
-        uint32_t packedBlockCount = (_blockCount * BITS_PER_BLOCK_TYPE + 7) / 8; // round to bytes
+        uint32_t packedBlockCount = (_numberOfTraversalBlocks * BITS_PER_BLOCK_TYPE + 7) / 8; // round to bytes
         inputFile.read(reinterpret_cast<char *>(_decompressionBuffer), packedBlockCount); // read the packed block types
         fileSize -= packedBlockCount;
 
