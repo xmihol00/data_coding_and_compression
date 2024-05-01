@@ -84,14 +84,20 @@ void Compressor::readInputFile(string inputFileName, string outputFileName)
     if (_adaptive && _height >= (1UL << MAX_BITS_PER_FILE_DIMENSION)) // verify that he height is within the allowed range
     {
         cerr << "Error: Input file is too large, height out of range, maximum allowed height is " 
-                     << (1UL << MAX_BITS_PER_FILE_DIMENSION) - 1 << " (2^" << MAX_BITS_PER_FILE_DIMENSION << "-1)." << endl;
-                exit(1);
+             << (1UL << MAX_BITS_PER_FILE_DIMENSION) - 1 << " (2^" << MAX_BITS_PER_FILE_DIMENSION << "-1)." << endl;
+        exit(1);
+    }
+    else if (_adaptive && _width >= (1UL << MAX_BITS_PER_FILE_DIMENSION)) // verify that the width is within the allowed range
+    {
+        cerr << "Error: Input file is too large, width out of range, maximum allowed width is " 
+             << (1UL << MAX_BITS_PER_FILE_DIMENSION) - 1 << " (2^" << MAX_BITS_PER_FILE_DIMENSION << "-1)." << endl;
+        exit(1);
     }
     else if (!_adaptive && _size >= (1UL << MAX_BITS_FOR_FILE_SIZE)) // verify that the file size is within the allowed range
     {
         cerr << "Error: Input file is too large, maximum allowed size is " 
-                     << (1UL << MAX_BITS_FOR_FILE_SIZE) - 1 << " (2^" << MAX_BITS_FOR_FILE_SIZE << "-1)." << endl;
-                exit(1);
+             << (1UL << MAX_BITS_FOR_FILE_SIZE) - 1 << " (2^" << MAX_BITS_FOR_FILE_SIZE << "-1)." << endl;
+        exit(1);
     }
 
     if ((_width % BLOCK_SIZE || _height % BLOCK_SIZE) && _adaptive) // verify that file is divisible by block size

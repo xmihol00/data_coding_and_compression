@@ -99,6 +99,61 @@ private:
      */
     void decompressAdaptiveModel();
 
+    /**
+     * @brief Deserializes a block from contiguous memory and transposes it back to the original form.
+     * @param source Source buffer.
+     * @param destination Destination buffer.
+     * @param blockRow Starting row index of the block to be transposed and deserialized in the source buffer.
+     * @param blockColumn Starting column index of the block to be transposed and deserialized in the source buffer.
+     */
+    inline constexpr void transposeDeserializeBlock(symbol_t *source, symbol_t *destination, uint32_t blockRow, uint32_t blockColumn)
+    {
+        uint32_t sourceStartingIdx = blockRow * BLOCK_SIZE * _width + blockColumn * BLOCK_SIZE * BLOCK_SIZE;
+        uint32_t destinationIdx = blockRow * BLOCK_SIZE * _width + blockColumn * BLOCK_SIZE;
+        for (uint32_t i = 0; i < BLOCK_SIZE; i++)
+        {   
+            for (uint32_t j = 0; j < BLOCK_SIZE; j++)
+            {
+                destination[destinationIdx + j * _width + i] = source[sourceStartingIdx++];
+            }
+        }
+    }
+
+    /**
+     * @brief Deserializes a block from contiguous memory.
+     * @param source Source buffer.
+     * @param destination Destination buffer.
+     * @param blockRow Starting row index of the block to be deserialized in the source buffer.
+     * @param blockColumn Starting column index of the block to be deserialized in the source buffer.
+     */
+    inline constexpr void deserializeBlock(symbol_t *source, symbol_t *destination, uint32_t blockRow, uint32_t blockColumn)
+    {
+        uint32_t sourceStartingIdx = blockRow * BLOCK_SIZE * _width + blockColumn * BLOCK_SIZE * BLOCK_SIZE;
+        uint32_t destinationIdx = blockRow * BLOCK_SIZE * _width + blockColumn * BLOCK_SIZE;
+        #pragma GCC unroll BLOCK_SIZE
+        for (uint32_t i = 0; i < BLOCK_SIZE; i++)
+        {   
+            // copy whole row at once
+            if constexpr (BLOCK_SIZE == 8)
+            {
+                reinterpret_cast<uint8v8_t *>(destination + destinationIdx + i * _width)[0] = reinterpret_cast<uint8v8_t *>(source + sourceStartingIdx)[0];
+            }
+            else if constexpr (BLOCK_SIZE == 16)
+            {
+                _mm_store_si128(reinterpret_cast<uint8v16_t*>(destination + destinationIdx + i * _width), reinterpret_cast<uint8v16_t *>(source + sourceStartingIdx)[0]);
+            }
+            else if constexpr (BLOCK_SIZE == 32)
+            {
+                _mm256_store_si256(reinterpret_cast<uint8v32_t*>(destination + destinationIdx + i * _width), reinterpret_cast<uint8v32_t *>(source + sourceStartingIdx)[0]);
+            }
+            else if constexpr (BLOCK_SIZE == 64)
+            {
+                _mm512_store_si512(reinterpret_cast<uint8v64_t*>(destination + destinationIdx + i * _width), reinterpret_cast<uint8v64_t *>(source + sourceStartingIdx)[0]);
+            }
+            sourceStartingIdx += BLOCK_SIZE;
+        }
+    }
+
     uint8_t _numberOfCompressedBlocks{1};    ///< Number of compressed blocks in the input file, which is equal to the number of threads used for compression.
     uint8_t _bitsPerCompressedBlockSize;     ///< Number of bits used to store the size of a each compressed block.
     uint32_t _numberOfBytesCompressedBlocks; ///< Total number of bytes used to store the sizes of compressed blocks.

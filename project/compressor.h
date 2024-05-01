@@ -163,6 +163,61 @@ private:
     void applyDiferenceModel(symbol_t *source, symbol_t *destination);
 
     /**
+     * @brief Transposes a block of symbols and serializes it row by row into a destination buffer.
+     * @param source Source buffer.
+     * @param destination Destination buffer.
+     * @param blockRow Starting row index of the block to be transposed and serialized in the source buffer.
+     * @param blockColumn Starting column index of the block to be transposed and serialized in the source buffer.
+     */
+    inline constexpr void transposeSerializeBlock(symbol_t *source, symbol_t *destination, uint32_t blockRow, uint32_t blockColumn)
+    {
+        uint32_t sourceStartingIdx = blockRow * BLOCK_SIZE * _width + blockColumn * BLOCK_SIZE;
+        uint32_t destinationIdx = blockRow * BLOCK_SIZE * _width + blockColumn * BLOCK_SIZE * BLOCK_SIZE;
+        for (uint32_t i = 0; i < BLOCK_SIZE; i++)
+        {   
+            for (uint32_t j = 0; j < BLOCK_SIZE; j++)
+            {
+                destination[destinationIdx++] = source[sourceStartingIdx + j * _width + i];
+            }
+        }
+    }
+    
+    /**
+     * @brief Serializes a block of symbols row by row into a destination buffer.
+     * @param source Source buffer.
+     * @param destination Destination buffer.
+     * @param blockRow Starting row index of the block to be serialized in the source buffer.
+     * @param blockColumn Starting column index of the block to be serialized in the source buffer.
+     */
+    inline constexpr void serializeBlock(symbol_t *source, symbol_t *destination, uint32_t blockRow, uint32_t blockColumn)
+    {
+        uint32_t sourceStartingIdx = blockRow * BLOCK_SIZE * _width + blockColumn * BLOCK_SIZE;
+        uint32_t destinationIdx = blockRow * BLOCK_SIZE * _width + blockColumn * BLOCK_SIZE * BLOCK_SIZE;
+        #pragma GCC unroll BLOCK_SIZE
+        for (uint32_t i = 0; i < BLOCK_SIZE; i++)
+        {   
+            // copy whole row at once
+            if constexpr (BLOCK_SIZE == 8)
+            {
+                reinterpret_cast<uint8v8_t *>(destination + destinationIdx)[0] = reinterpret_cast<uint8v8_t *>(source + sourceStartingIdx + i * _width)[0];
+            }
+            else if constexpr (BLOCK_SIZE == 16)
+            {
+                reinterpret_cast<uint8v16_t *>(destination + destinationIdx)[0] = _mm_load_si128(reinterpret_cast<uint8v16_t*>(source + sourceStartingIdx + i * _width));
+            }
+            else if constexpr (BLOCK_SIZE == 32)
+            {
+                reinterpret_cast<uint8v32_t *>(destination + destinationIdx)[0] = _mm256_load_si256(reinterpret_cast<uint8v32_t*>(source + sourceStartingIdx + i * _width));
+            }
+            else if constexpr (BLOCK_SIZE == 64)
+            {
+                reinterpret_cast<uint8v64_t *>(destination + destinationIdx)[0] = _mm512_load_si512(reinterpret_cast<uint8v64_t*>(source + sourceStartingIdx + i * _width));
+            }
+            destinationIdx += BLOCK_SIZE;
+        }
+    }
+
+    /**
      * @brief A memory pool recycled for different purposes during the compression.
      */
     uint8_t _memoryPool[10 * NUMBER_OF_SYMBOLS * sizeof(uint64_t)] __attribute__((aligned(64)));
