@@ -608,7 +608,7 @@ void Decompressor::transformRLE(uint16_t *compressedData, symbol_t *decompressed
         currentIdx += overflow;
         inverseBitLength = 16 - bitLength;
 
-        if (sameSymbolCount == 2) // 3 same symbols in a row
+        if (sameSymbolCount == (SAME_SYMBOLS_TO_REPETITION - 1)) // 3 same symbols in a row
         {
             sameSymbolCount = 0;
             bool repeat;

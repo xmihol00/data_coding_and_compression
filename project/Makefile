@@ -17,8 +17,6 @@ PRGAMA_IGNORE = -Wno-unknown-pragmas
 CPP_SRC = $(wildcard $(PROJECT_DIR)/*.cpp)
 
 TARGET = $(PROJECT_DIR)/huff_codec
-TARGET_TEST = $(PROJECT_DIR)/huff_codec_test
-TARGET_DEBUG = $(PROJECT_DIR)/huff_codec_debug
 
 ADDITIONAL_DEFINES =  # add by running make ADDITIONAL_DEFINES="-D<define name>"
 

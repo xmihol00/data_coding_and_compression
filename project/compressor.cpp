@@ -158,42 +158,49 @@ void Compressor::computeHistogram()
             intHistogram[i] = 0;
         }
 
-        uint8_t lastSymbol = ~buffer[0];
+        uint8_t lastSymbol = ~buffer[0]; // ensure the first symbol at first iteration is different
+        uint64_t sameSymbolCount = 0;
+        bool same;
         for (uint64_t i = 0; i < symbolsToProcess; i++)
         {
-            if (buffer[i] != lastSymbol)
-            {
-                intHistogram[buffer[i]]++;
-            }
+            same = buffer[i] == lastSymbol;
             lastSymbol = buffer[i];
+            sameSymbolCount *= same; // reset the counter if the symbol is different
+            sameSymbolCount++;
+            intHistogram[buffer[i]] += sameSymbolCount <= SAME_SYMBOLS_TO_REPETITION; // count only the first 3 occurrences of the same symbol
         }
     }
-    #pragma omp barrier
+    #pragma omp barrier // wait for all threads to finish the histogram computation
 
-    #pragma omp single
+    // it is necessary to have 2 if statements, because the barrier must be called by all threads, even by those that do not compute the histogram
+    if (threadId < MAX_HISTOGRAM_THREADS)
     {
-        intHistogram = _intHistogram;
+        uint16_t symbolsPerThread = NUMBER_OF_SYMBOLS / numberOfThreads;
+        uint16_t threadOffset = threadId * symbolsPerThread;
+
+        // sum up the histograms computed by individual threads
+        intHistogram = _intHistogram + threadOffset;
         for (uint8_t i = 1; i < numberOfThreads; i++)
         {
             #pragma omp simd aligned(intHistogram: 64) simdlen(8)
-            for (uint16_t j = 0; j < NUMBER_OF_SYMBOLS; j++)
+            for (uint16_t j = 0; j < symbolsPerThread; j++) // each thread sums up part of the histogram
             {
                 intHistogram[j] += intHistogram[i * NUMBER_OF_SYMBOLS + j];
             }
         }
 
-        uint32_t *structHistogram = reinterpret_cast<uint32_t *>(_structHistogram);
+        uint32_t *structHistogram = reinterpret_cast<uint32_t *>(_structHistogram) + threadOffset;
         #pragma omp simd aligned(structHistogram, intHistogram: 64) simdlen(16)
-        for (uint32_t i = 0; i < NUMBER_OF_SYMBOLS; i++)
+        for (uint32_t i = 0; i < symbolsPerThread; i++) // each thread stores the frequency and the symbol in different part of the histogram
         {
-            // clip the frequency to the maximum value
+            // clamp the frequency to the maximum value
             intHistogram[i] = intHistogram[i] >= (1UL << MAX_BITS_FOR_FREQUENCY) ? (1UL << MAX_BITS_FOR_FREQUENCY) - 2 : intHistogram[i];
             structHistogram[i] = intHistogram[i] << 8; // store the frequency in the struct at the 24 MSBs
-            structHistogram[i] |= i;
+            structHistogram[i] |= i + threadOffset;    // store the symbol index in the struct at the 8 LSBs
             structHistogram[i] = intHistogram[i] == 0 ? UINT32_MAX : structHistogram[i];
         }
     }
-    // implicit barrier
+    #pragma omp barrier // wait for all threads to construct the frequency-symbol pairs
 
     DEBUG_PRINT("Thread " << threadId << ": histogram computed");
 }
@@ -605,7 +612,7 @@ void Compressor::transformRLE(symbol_t *sourceData, uint16_t *compressedData, ui
             uint16_t code = _codeTable[current].code << (16 - codeLength);
 
             // store the Huffman code in the compressed data up to 3 times
-            for (uint64_t i = 0; i < sameSymbolCount && i < 3; i++)
+            for (uint64_t i = 0; i < sameSymbolCount && i < SAME_SYMBOLS_TO_REPETITION; i++)
             {
                 // separate the code to two parts, that are stored in two 16-bit parts of the compressed data
                 uint16_t downShiftedCode = code >> chunkIdx;
