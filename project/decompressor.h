@@ -114,7 +114,6 @@ private:
         uint32_t sourceIdx = blockRow * BLOCK_SIZE * _width + blockColumn * BLOCK_SIZE * BLOCK_SIZE;
         uint32_t blockFirstIdx = blockRow * BLOCK_SIZE * _width + blockColumn * BLOCK_SIZE;
 
-        #pragma GCC unroll BLOCK_SIZE * BLOCK_SIZE
         for (uint32_t k = 0; k < BLOCK_SIZE * BLOCK_SIZE; k++)
         {
             uint64_t valueIdx = blockFirstIdx + rowIndices[k] * _width + colIndices[k];

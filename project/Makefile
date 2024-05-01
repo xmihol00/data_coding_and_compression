@@ -10,7 +10,7 @@ AVX512VPOPCNTDQ = $(shell grep avx512vpopcntdq /proc/cpuinfo >/dev/null && echo 
 AVX512FLAGS = $(AVX2) $(AVX512F) $(AVX512VL) $(AVX512BW) $(AVX512VPOPCNTDQ)
 
 CC = g++
-CFLAGS = -Wall -Wextra -std=c++20 -O3 -g
+CFLAGS = -Wall -Wextra -std=c++20 -O3
 OMPFLAGS = -fopenmp
 PRGAMA_IGNORE = -Wno-unknown-pragmas
 

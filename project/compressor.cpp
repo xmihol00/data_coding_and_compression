@@ -21,12 +21,9 @@ Compressor::~Compressor()
         free(_sourceBuffer);
     }
 
-    for (uint8_t i = 0; i < NUMBER_OF_TRAVERSALS; i++)
+    if (_rlePerBlockCounts != nullptr)
     {
-        if (_rlePerBlockCounts[i] != nullptr)
-        {
-            delete[] _rlePerBlockCounts[i];
-        }
+        delete[] _rlePerBlockCounts;
     }
 
     if (_destinationBuffer != nullptr)
@@ -251,7 +248,6 @@ void Compressor::buildHuffmanTree()
     #if __AVX512F__
         uint32v16_t min1 = _vectorHistogram[0];
         uint32v16_t min2 = _vectorHistogram[1];
-        #pragma GCC unroll (NUMBER_OF_SYMBOLS / 32 - 1)
         for (uint8_t i = 2; i < NUMBER_OF_SYMBOLS / 16 ; i += 2)
         {
             uint32v16_t current1 = _vectorHistogram[i];
@@ -266,7 +262,6 @@ void Compressor::buildHuffmanTree()
         
         min1 = _vectorHistogram[0];
         min2 = _vectorHistogram[1];
-        #pragma GCC unroll (NUMBER_OF_SYMBOLS / 32 - 1)
         for (uint8_t i = 2; i < NUMBER_OF_SYMBOLS / 16 ; i += 2)
         {
             uint32v16_t current1 = _vectorHistogram[i];
@@ -857,7 +852,6 @@ void Compressor::compressDepthMaps()
             uint32_t mask = _mm256_cmp_epi8_mask(_symbolsAtDepths[i], _mm256_setzero_si256(), _MM_CMPINT_NE);
         #else
             uint32_t mask = 0;
-            #pragma GCC unroll 32
             for (uint8_t j = 0; j < 32; j++)
             {
                 mask |= (depthBytes[j] != 0) << j;
@@ -1006,50 +1000,79 @@ void Compressor::analyzeImageAdaptive()
     DEBUG_PRINT("Thread: " << omp_get_thread_num() << " analyzing image");
     startAnalyzeImageAdaptiveTimer(); // NOP if performance measurements are disabled
 
-    #pragma omp sections // NTH: It would be better to use a parallel for loop here and perform all traversals at one block and only then move to the next block
-    {
-        // example of values in a flattened 3x3 memory block {0, 1, 2, 3, 4, 5, 6, 7, 8}
-        #pragma omp section
-        {
-            // traversed as {0, 1, 2, 5, 4, 3, 6, 7, 8} 
-            countRepetitions(HORIZONTAL_ZIG_ZAG, HORIZONTAL_ZIG_ZAG_ROW_INDICES, HORIZONTAL_ZIG_ZAG_COL_INDICES);
-        }
-
-        #pragma omp section
-        {
-            // traversed as {0, 3, 6, 7, 4, 1, 2, 5, 8}
-            countRepetitions(VERTICAL_ZIG_ZAG, VERTICAL_ZIG_ZAG_ROW_INDICES, VERTICAL_ZIG_ZAG_COL_INDICES);
-        }
-
-        #pragma omp section
-        {
-            // traversed as {2, 1, 5, 8, 4, 0, 3, 7, 6}
-            countRepetitions(MAJOR_DIAGONAL_ZIG_ZAG, MAJOR_DIAGONAL_ZIG_ZAG_ROW_INDICES, MAJOR_DIAGONAL_ZIG_ZAG_COL_INDICES);
-        }
-
-        #pragma omp section
-        {
-            // traversed as {0, 1, 3, 6, 4, 2, 5, 7, 8}
-            countRepetitions(MINOR_DIAGONAL_ZIG_ZAG, MINOR_DIAGONAL_ZIG_ZAG_ROW_INDICES, MINOR_DIAGONAL_ZIG_ZAG_COL_INDICES);
-        }
-    }
-    // implicit barrier
-
-    // determine the best traversal for each block
     #pragma omp for schedule(static) // each iteration should take approximately the same time
-    for (uint32_t i = 0; i < _numberOfTraversalBlocks; i++)
+    for (uint32_t i = 0; i < _blocksPerColumn; i++)
     {
-        AdaptiveTraversals bestTraversal = HORIZONTAL_ZIG_ZAG;
-        int32_t bestRleCount = INT32_MIN;
-        for (uint8_t j = 0; j < NUMBER_OF_TRAVERSALS; j++)
+        uint64_t blockRowIdx = i * _width * BLOCK_SIZE;
+        for (uint32_t j = 0; j < _blocksPerRow; j++)
         {
-            if (_rlePerBlockCounts[j][i] > bestRleCount)
+            uint64_t blockFirstIdx = blockRowIdx + j * BLOCK_SIZE;
+
+            int32_t horizontalSameSymbolCount = -3;
+            int32_t verticalSameSymbolCount = -3;
+            int32_t majorDiagonalSameSymbolCount = -3;
+            int32_t minorDiagonalSameSymbolCount = -3;
+
+            int16_t horizontalRleCount = 0;
+            int16_t verticalRleCount = 0;
+            int16_t majorDiagonalRleCount = 0;
+            int16_t minorDiagonalRleCount = 0;
+
+            uint16_t horizontalLastSymbol = -1;
+            uint16_t verticalLastSymbol = -1;
+            uint16_t majorDiagonalLastSymbol = -1;
+            uint16_t minorDiagonalLastSymbol = -1;
+
+            uint64_t horizontalValueIdx;
+            uint64_t verticalValueIdx;
+            uint64_t majorDiagonalValueIdx;
+            uint64_t minorDiagonalValueIdx;
+
+            bool horizontalSameSymbol;
+            bool verticalSameSymbol;
+            bool majorDiagonalSameSymbol;
+            bool minorDiagonalSameSymbol;
+
+            for (uint32_t k = 0; k < BLOCK_SIZE * BLOCK_SIZE; k++)
             {
-                bestRleCount = _rlePerBlockCounts[j][i];
-                bestTraversal = static_cast<AdaptiveTraversals>(j);
+                horizontalValueIdx = blockFirstIdx + HORIZONTAL_ZIG_ZAG_ROW_INDICES[k] * _width + HORIZONTAL_ZIG_ZAG_COL_INDICES[k];
+                verticalValueIdx = blockFirstIdx + VERTICAL_ZIG_ZAG_ROW_INDICES[k] * _width + VERTICAL_ZIG_ZAG_COL_INDICES[k];
+                majorDiagonalValueIdx = blockFirstIdx + MAJOR_DIAGONAL_ZIG_ZAG_ROW_INDICES[k] * _width + MAJOR_DIAGONAL_ZIG_ZAG_COL_INDICES[k];
+                minorDiagonalValueIdx = blockFirstIdx + MINOR_DIAGONAL_ZIG_ZAG_ROW_INDICES[k] * _width + MINOR_DIAGONAL_ZIG_ZAG_COL_INDICES[k];
+
+                horizontalSameSymbol = _sourceBuffer[horizontalValueIdx] == horizontalLastSymbol;
+                verticalSameSymbol = _sourceBuffer[verticalValueIdx] == verticalLastSymbol;
+                majorDiagonalSameSymbol = _sourceBuffer[majorDiagonalValueIdx] == majorDiagonalLastSymbol;
+                minorDiagonalSameSymbol = _sourceBuffer[minorDiagonalValueIdx] == minorDiagonalLastSymbol;
+
+                horizontalLastSymbol = _sourceBuffer[horizontalValueIdx];
+                verticalLastSymbol = _sourceBuffer[verticalValueIdx];
+                majorDiagonalLastSymbol = _sourceBuffer[majorDiagonalValueIdx];
+                minorDiagonalLastSymbol = _sourceBuffer[minorDiagonalValueIdx];
+
+                horizontalRleCount += !horizontalSameSymbol && horizontalSameSymbolCount >= -1 ? horizontalSameSymbolCount : 0;
+                verticalRleCount += !verticalSameSymbol && verticalSameSymbolCount >= -1 ? verticalSameSymbolCount : 0;
+                majorDiagonalRleCount += !majorDiagonalSameSymbol && majorDiagonalSameSymbolCount >= -1 ? majorDiagonalSameSymbolCount : 0;
+                minorDiagonalRleCount += !minorDiagonalSameSymbol && minorDiagonalSameSymbolCount >= -1 ? minorDiagonalSameSymbolCount : 0;
+                
+                horizontalSameSymbolCount++;
+                verticalSameSymbolCount++;
+                majorDiagonalSameSymbolCount++;
+                minorDiagonalSameSymbolCount++;
+
+                horizontalSameSymbolCount = horizontalSameSymbol ? horizontalSameSymbolCount : -3;
+                verticalSameSymbolCount = verticalSameSymbol ? verticalSameSymbolCount : -3;
+                majorDiagonalSameSymbolCount = majorDiagonalSameSymbol ? majorDiagonalSameSymbolCount : -3;
+                minorDiagonalSameSymbolCount = minorDiagonalSameSymbol ? minorDiagonalSameSymbolCount : -3;
             }
+
+            uint64_t blockIdx = i * _blocksPerRow + j;
+            AdaptiveTraversals horizontalVertical = horizontalRleCount >= verticalRleCount ? HORIZONTAL_ZIG_ZAG : VERTICAL_ZIG_ZAG;
+            int16_t horizontalVerticalRleCount = horizontalRleCount >= verticalRleCount ? horizontalRleCount : verticalRleCount;
+            AdaptiveTraversals diagonal = majorDiagonalRleCount >= minorDiagonalRleCount ? MAJOR_DIAGONAL_ZIG_ZAG : MINOR_DIAGONAL_ZIG_ZAG;
+            int16_t diagonalRleCount = majorDiagonalRleCount >= minorDiagonalRleCount ? majorDiagonalRleCount : minorDiagonalRleCount;
+            _bestBlockTraversals[blockIdx] = horizontalVerticalRleCount >= diagonalRleCount ? horizontalVertical : diagonal;
         }
-        _bestBlockTraversals[i] = bestTraversal;
     }
     // implicit barrier
 

@@ -12,7 +12,7 @@
 
 #include "common.h"
 
-#define _MEASURE_ALL_ 0
+#define _MEASURE_ALL_ 1
 
 /**
  * @brief A class implementing the compression of an input file using Huffman coding and RLE transformation.
@@ -179,7 +179,6 @@ private:
         uint64_t blockFirstIdx = blockRow * BLOCK_SIZE * _width + blockColumn * BLOCK_SIZE;
         uint64_t destinationIdx = blockRow * BLOCK_SIZE * _width + blockColumn * BLOCK_SIZE * BLOCK_SIZE;
 
-        #pragma GCC unroll BLOCK_SIZE * BLOCK_SIZE
         for (uint32_t k = 0; k < BLOCK_SIZE * BLOCK_SIZE; k++)
         {
             uint64_t valueIdx = blockFirstIdx + rowIndices[k] * _width + colIndices[k];
@@ -190,8 +189,7 @@ private:
     inline constexpr void countRepetitions(AdaptiveTraversals traversal, 
                                            const uint8_t rowIndices[BLOCK_SIZE * BLOCK_SIZE], const uint8_t colIndices[BLOCK_SIZE * BLOCK_SIZE])
     {
-        _rlePerBlockCounts[traversal] = new int16_t[_numberOfTraversalBlocks];
-        int16_t *rleCounts = _rlePerBlockCounts[traversal];
+        int16_t *rleCounts = _rlePerBlockCounts + traversal * _numberOfTraversalBlocks;
 
         int32_t blockIdx = 0;
         for (uint32_t i = 0; i < _height; i += BLOCK_SIZE)
@@ -204,7 +202,6 @@ private:
                 int32_t rleCount = 0;
                 uint16_t lastSymbol = -1;
 
-                #pragma GCC unroll BLOCK_SIZE * BLOCK_SIZE
                 for (uint32_t k = 0; k < BLOCK_SIZE * BLOCK_SIZE; k++)
                 {
                     uint64_t valueIdx = blockFirstIdx + rowIndices[k] * _width + colIndices[k];
@@ -245,7 +242,7 @@ private:
     uint16_t _threadBlocksSizesSize{0};     ///< Sizes of the compressed blocks for each thread.
     uint64_t _threadPadding;                ///< Padding between the compressed blocks for each thread, if the compressed size of any thread is larger than the uncompressed size.
 
-    int16_t *_rlePerBlockCounts[NUMBER_OF_TRAVERSALS]{nullptr, }; ///< Counts of repetitions of symbols in each block when adaptive compression is used.
+    int16_t *_rlePerBlockCounts{nullptr, }; ///< Counts of repetitions of symbols in each block when adaptive compression is used.
 
     uint8_t _mostPopulatedDepth;        ///< Depth with the most symbols in the Huffman tree.
     uint8_t _mostPopulatedDepthIdx;     ///< Index of the depth with the most symbols in the Huffman tree in an array of depths.
