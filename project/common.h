@@ -59,17 +59,15 @@ public:
     /**
      * @brief Exit codes of the compressor/decompressor.
      */
-    enum ExitCodes // TODO: use them actually
+    enum ExitCodes
     {
         SUCCESS = 0,
-        INVALID_ARGUMENTS = 1,
-        FILE_OPEN_ERROR = 2,
-        FILE_READ_ERROR = 3,
-        FILE_WRITE_ERROR = 4,
-        FILE_FORMAT_ERROR = 5,
-        MEMORY_ALLOCATION_ERROR = 6,
-        THREAD_ERROR = 7,
-        DECOMPRESSION_ERROR = 8
+        INVALID_ARGUMENT = 2,
+        INPUT_FILE_ERROR = 4,
+        OUTPUT_FILE_ERROR = 8,
+        FILE_SIZE_ERROR = 16,
+        MEMORY_ALLOCATION_ERROR = 32,
+        CORRUPTED_FILE_ERROR = 64,
     };
 
     /**

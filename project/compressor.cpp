@@ -42,7 +42,7 @@ void Compressor::readInputFile(string inputFileName, string outputFileName)
     if (!inputFile.is_open())
     {
         cerr << "Error: Unable to open input file '" << inputFileName << "'." << endl;
-        exit(1);
+        exit(INPUT_FILE_ERROR);
     }
 
     // get the size of the input file
@@ -62,7 +62,7 @@ void Compressor::readInputFile(string inputFileName, string outputFileName)
         if (!outputFile.is_open())
         {
             cerr << "Error: Unable to open output file '" << outputFileName << "'." << endl;
-            exit(1);
+            exit(OUTPUT_FILE_ERROR);
         }
 
         FirstByteHeader &header = reinterpret_cast<FirstByteHeader &>(_headerBuffer);
@@ -71,33 +71,33 @@ void Compressor::readInputFile(string inputFileName, string outputFileName)
         outputFile.write(reinterpret_cast<char *>(&_headerBuffer), sizeof(FirstByteHeader));
         outputFile.close();
 
-        exit(0);
+        exit(SUCCESS);
     }
 
     _height = _size / _width;
     if (_height * _width != _size) // verify that file is rectangular
     {
         cerr << "Error: The input file size is not a multiple of the specified width." << endl;
-        exit(1);
+        exit(FILE_SIZE_ERROR);
     }
 
     if (_adaptive && _height >= (1UL << MAX_BITS_PER_FILE_DIMENSION)) // verify that he height is within the allowed range
     {
         cerr << "Error: Input file is too large, height out of range, maximum allowed height is " 
              << (1UL << MAX_BITS_PER_FILE_DIMENSION) - 1 << " (2^" << MAX_BITS_PER_FILE_DIMENSION << "-1)." << endl;
-        exit(1);
+        exit(FILE_SIZE_ERROR);
     }
     else if (_adaptive && _width >= (1UL << MAX_BITS_PER_FILE_DIMENSION)) // verify that the width is within the allowed range
     {
         cerr << "Error: Input file is too large, width out of range, maximum allowed width is " 
              << (1UL << MAX_BITS_PER_FILE_DIMENSION) - 1 << " (2^" << MAX_BITS_PER_FILE_DIMENSION << "-1)." << endl;
-        exit(1);
+        exit(FILE_SIZE_ERROR);
     }
     else if (!_adaptive && _size >= (1UL << MAX_BITS_FOR_FILE_SIZE)) // verify that the file size is within the allowed range
     {
         cerr << "Error: Input file is too large, maximum allowed size is " 
              << (1UL << MAX_BITS_FOR_FILE_SIZE) - 1 << " (2^" << MAX_BITS_FOR_FILE_SIZE << "-1)." << endl;
-        exit(1);
+        exit(FILE_SIZE_ERROR);
     }
 
     if ((_width % BLOCK_SIZE || _height % BLOCK_SIZE) && _adaptive) // verify that file is divisible by block size
@@ -118,7 +118,7 @@ void Compressor::readInputFile(string inputFileName, string outputFileName)
     if (_sourceBuffer == nullptr || _destinationBuffer == nullptr)
     {
         cerr << "Error: Unable to allocate memory for the input file." << endl;
-        exit(1);
+        exit(MEMORY_ALLOCATION_ERROR);
     }
 
     inputFile.read(reinterpret_cast<char *>(_sourceBuffer), _size);
@@ -596,10 +596,6 @@ void Compressor::transformRLE(symbol_t *sourceData, uint16_t *compressedData, ui
             // retrieve the corresponding Huffman code and its length for the current symbol
             uint16_t codeLength = _codeTable[current].length;
             uint16_t code = _codeTable[current].code << (16 - codeLength);
-            /*if (!currentCompressedIdx) // TODO: remove
-            {
-                cerr << omp_get_thread_num() << " " << bitset<16>(code) << " " << codeLength << " " << current << " " << sameSymbolCount << endl;
-            }*/
 
             // store the Huffman code in the compressed data up to 3 times
             for (uint64_t i = 0; i < sameSymbolCount && i < 3; i++)
@@ -865,7 +861,7 @@ void Compressor::writeOutputFile(string outputFileName, string inputFileName)
     if (!outputFile.is_open())
     {
         cerr << "Error: Unable to open output file '" << outputFileName << "'." << endl;
-        exit(1);
+        exit(OUTPUT_FILE_ERROR);
     }
     
     if ((_size < _headerSize + _threadBlocksSizesSize + sizeof(uint64v4_t) * popcount(_usedDepths) + _compressedSizesExScan[_numberOfThreads]) ||
@@ -882,7 +878,7 @@ void Compressor::writeOutputFile(string outputFileName, string inputFileName)
         if (!inputFile.is_open())
         {
             cerr << "Error: Unable to open input file '" << inputFileName << "'." << endl;
-            exit(1);
+            exit(INPUT_FILE_ERROR);
         }
         inputFile.read(reinterpret_cast<char *>(_sourceBuffer), _size);   
         inputFile.close();
@@ -948,18 +944,25 @@ void Compressor::compressStatic()
         DEBUG_PRINT("Total compressed size: " << _compressedSizesExScan[_numberOfThreads]);
     } // implicit barrier
 
-    // TODO: disable if single threaded
-    // all threads pack the compressed data back into the initial buffer
+    if (_numberOfThreads > 1) // multi-threaded compression
     {
-        copy(_destinationBuffer + startingIdx, _destinationBuffer + startingIdx + _compressedSizes[threadNumber], _sourceBuffer + _compressedSizesExScan[threadNumber]);
-    }
-    #pragma omp barrier
+        // all threads pack the compressed data back into the initial buffer
+        {
+            copy(_destinationBuffer + startingIdx, _destinationBuffer + startingIdx + _compressedSizes[threadNumber], _sourceBuffer + _compressedSizesExScan[threadNumber]);
+        }
+        #pragma omp barrier
 
-    #pragma omp master 
+        #pragma omp master 
+        {
+            swap(_sourceBuffer, _destinationBuffer);
+            createHeader();
+            
+            DEBUG_PRINT("Static compression finished");
+        }
+    }
+    else // single-threaded compression
     {
-        swap(_sourceBuffer, _destinationBuffer);
         createHeader();
-        
         DEBUG_PRINT("Static compression finished");
     }
 }
@@ -1049,7 +1052,7 @@ void Compressor::applyDiferenceModel(symbol_t *source, symbol_t *destination)
 
     int threadNumber = omp_get_thread_num();
     uint64_t bytesToProcess = (_size + _numberOfThreads - 1) / _numberOfThreads;
-    bytesToProcess += bytesToProcess & 0b1; // ensure even number of bytes per thread, TODO: align to 64 bytes
+    bytesToProcess += bytesToProcess & 0b1; // ensure even number of bytes per thread
     uint64_t startingIdx = bytesToProcess * threadNumber;
     if (threadNumber == _numberOfThreads - 1) // last thread
     {
@@ -1153,16 +1156,24 @@ void Compressor::compressAdaptive()
     }
     // implicit barrier
 
-    // all threads pack the compressed data back into the initial buffer
+    if (_numberOfThreads > 1) // multi-threaded compression
     {
-        copy(_sourceBuffer + startingIdx, _sourceBuffer + startingIdx + _compressedSizes[threadNumber], _destinationBuffer + _compressedSizesExScan[threadNumber]);
-    }
-    #pragma omp barrier
+        // all threads pack the compressed data back into the initial buffer
+        {
+            copy(_sourceBuffer + startingIdx, _sourceBuffer + startingIdx + _compressedSizes[threadNumber], _destinationBuffer + _compressedSizesExScan[threadNumber]);
+        }
+        #pragma omp barrier
 
-    #pragma omp master 
+        #pragma omp master 
+        {
+            createHeader();
+            DEBUG_PRINT("Static adaptive compression finished");
+        }
+    }
+    else
     {
+        swap(_sourceBuffer, _destinationBuffer);
         createHeader();
-        
         DEBUG_PRINT("Static adaptive compression finished");
     }
 }

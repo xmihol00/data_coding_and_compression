@@ -32,8 +32,8 @@ bool Decompressor::readInputFile(string inputFileName, string outputFileName)
     ifstream inputFile(inputFileName, ios::binary);
     if (!inputFile.is_open())
     {
-        cout << "Error: Could not open input file " << inputFileName << endl;
-        exit(1);
+        cout << "Error: Unable to open input file '" << inputFileName << "'." << endl;
+        exit(INPUT_FILE_ERROR);
     }
 
     inputFile.seekg(0, ios::end);
@@ -48,8 +48,8 @@ bool Decompressor::readInputFile(string inputFileName, string outputFileName)
         ofstream outputFile(outputFileName, ios::binary);
         if (!outputFile.is_open())
         {
-            cout << "Error: Could not open output file " << outputFileName << endl;
-            exit(1);
+            cout << "Error: Unable to open output file '" << outputFileName << "'." << endl;
+            exit(OUTPUT_FILE_ERROR);
         }
 
         // just copy it to the output file
@@ -109,8 +109,8 @@ bool Decompressor::readInputFile(string inputFileName, string outputFileName)
             break;
         
         default: // corrupted header
-            cerr << "Error: Unsupported header type" << endl;
-            exit(1);
+            cerr << "Error: Unsupported header type." << endl;
+            exit(CORRUPTED_FILE_ERROR);
     }
 
     parseHuffmanTree(bitmapsSize); // decompress the Huffman tree from the compressed depth bitmaps
@@ -134,22 +134,22 @@ bool Decompressor::readInputFile(string inputFileName, string outputFileName)
             break;
 
         default: // corrupted header
-            cerr << "Error: Unsupported header type" << endl;
-            exit(1);
+            cerr << "Error: Unsupported header type." << endl;
+            exit(CORRUPTED_FILE_ERROR);
     }
 
     _compressedData = reinterpret_cast<uint16_t *>(aligned_alloc(64, _size + 64));
     if (_compressedData == nullptr)
     {
-        cerr << "Error: Could not allocate memory for compressed file" << endl;
-        exit(1);
+        cerr << "Error: Unable to allocate memory for compressed file." << endl;
+        exit(MEMORY_ALLOCATION_ERROR);
     }
 
     _decompressionBuffer = reinterpret_cast<uint8_t *>(aligned_alloc(64, _size + 64));
     if (_decompressionBuffer == nullptr)
     {
-        cerr << "Error: Could not allocate memory for decompression" << endl;
-        exit(1);
+        cerr << "Error: Unable to allocate memory for decompression." << endl;
+        exit(MEMORY_ALLOCATION_ERROR);
     }
 
     if (header.getHeaderType() & ADAPTIVE)
@@ -795,8 +795,8 @@ void Decompressor::decompressAdaptive()
                     break;
 
                 default:
-                    cerr << "Error: Unsupported traversal type" << endl;
-                    exit(1);
+                    cerr << "Error: Unsupported traversal type." << endl;
+                    exit(CORRUPTED_FILE_ERROR);
                     break;
                 }
             }
@@ -813,8 +813,8 @@ void Decompressor::writeOutputFile(std::string outputFileName)
     ofstream outputFile(outputFileName, ios::binary);
     if (!outputFile.is_open())
     {
-        cout << "Error: Could not open output file " << outputFileName << endl;
-        exit(1);
+        cout << "Error: Unable to open output file '" << outputFileName << "'." << endl;
+        exit(OUTPUT_FILE_ERROR);
     }
 
     outputFile.write(reinterpret_cast<char *>(_decompressedData), _size);

@@ -39,7 +39,7 @@ int main(int argc, char* argv[])
         decompressor.decompress(args.inputFileName, args.outputFileName);
     }
     
-    return 0;
+    return HuffmanRLECompression::SUCCESS;
 }
 
 Arguments parseArguments(int argc, char* argv[])
@@ -90,12 +90,12 @@ Arguments parseArguments(int argc, char* argv[])
             catch (const invalid_argument& e)
             {
                 cerr << "Error: Unsigned integer expected after the '-w' switch, got '" << arguments[i] << "'." << endl;
-                exit(1);
+                exit(HuffmanRLECompression::INVALID_ARGUMENT);
             }
             catch (const out_of_range& e)
             {
                 cerr << "Error: Specified width is out of range with '" << arguments[i] << "'." << endl;
-                exit(1);
+                exit(HuffmanRLECompression::INVALID_ARGUMENT);
             }
 
             widthSet = true;
@@ -110,7 +110,7 @@ Arguments parseArguments(int argc, char* argv[])
             else
             {
                 cerr << "Error: Missing input file name after the switch '-i'." << endl;
-                exit(1);
+                exit(HuffmanRLECompression::INVALID_ARGUMENT);
             }
         }
         else if (arguments[i] == "-o")
@@ -123,7 +123,7 @@ Arguments parseArguments(int argc, char* argv[])
             else
             {
                 cerr << "Error: Missing output file name after the switch '-o'." << endl;
-                exit(1);
+                exit(HuffmanRLECompression::INVALID_ARGUMENT);
             }
         }
         else if (arguments[i] == "-h")
@@ -138,7 +138,8 @@ Arguments parseArguments(int argc, char* argv[])
             cout << "  -i <input_file>:  Specify the input file." << endl;
             cout << "  -o <output_file>: Specify the output file." << endl;
             cout << "  -t <threads>:     Number of threads to use (default is " << DEFAULT_NUMBER_OF_THREADS << "), must be a power of 2." << endl;
-            exit(0);
+
+            exit(HuffmanRLECompression::SUCCESS);
         }
         else if (arguments[i] == "-t")
         {
@@ -187,31 +188,31 @@ Arguments parseArguments(int argc, char* argv[])
     if (args.compress && args.decompress)
     {
         cerr << "Error: Cannot compress and decompress at the same time." << endl;
-        exit(1);
+        exit(HuffmanRLECompression::INVALID_ARGUMENT);
     }
 
     if (!args.compress && !args.decompress)
     {
         cerr << "Error: Either compress or decompress must be specified." << endl;
-        exit(1);
+        exit(HuffmanRLECompression::INVALID_ARGUMENT);
     }
 
     if (args.inputFileName.empty())
     {
         cerr << "Error: Input file name is missing." << endl;
-        exit(1);
+        exit(HuffmanRLECompression::INVALID_ARGUMENT);
     }
 
     if (args.outputFileName.empty())
     {
         cerr << "Error: Output file name is missing." << endl;
-        exit(1);
+        exit(HuffmanRLECompression::INVALID_ARGUMENT);
     }
 
     if (!widthSet && args.compress)
     {
         cerr << "Error: Width ('-w' switch) is missing." << endl;
-        exit(1);
+        exit(HuffmanRLECompression::INVALID_ARGUMENT);
     }
 
     if (widthSet && args.decompress)
