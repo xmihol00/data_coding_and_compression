@@ -12,8 +12,6 @@
 
 #include "common.h"
 
-#define _MEASURE_ALL_ 1
-
 /**
  * @brief A class implementing the compression of an input file using Huffman coding and RLE transformation.
  */
@@ -27,10 +25,11 @@ public:
      * @param numberOfThreads Number of threads used for multi-threaded compression.
      */
     Compressor(bool model, bool adaptive, uint64_t width, int32_t numberOfThreads);
-    ~Compressor();
+    ~Compressor() = default;
 
     /**
      * @brief Compresses the input file and writes the compressed data to the output file.
+     *        NOTE: this method can be called repeatedly with different input and output file names on the same instance of the Compressor class.
      * @param inputFileName Name of the input file.
      * @param outputFileName Name of the output file.
      */
@@ -87,12 +86,15 @@ private:
     static constexpr uint8_t MAX_HISTOGRAM_THREADS = 8;
 
     /**
+     * @brief Frees all memory allocated for compression.
+     */
+    void freeMemory();
+
+    /**
      * @brief Reads the input file into a memory buffer and computes its height based on the file size and width passed by the user.
      *        Checks weather the input file is rectangular.
-     * @param inputFileName Name of the input file.
-     * @param outputFileName Name of the output file.
      */
-    void readInputFile(std::string inputFileName, std::string outputFileName);
+    void readInputFile();
 
     /**
      * @brief Computes a histogram of the input data with repetitions considered.
@@ -130,9 +132,9 @@ private:
     void compressDepthMaps();
 
     /**
-     * @brief Writes the compressed data with a header to the output file
+     * @brief Writes the compressed data with a header to the output file.
      */
-    void writeOutputFile(std::string outputFileName, std::string inputFileName);
+    void writeOutputFile();
 
     /**
      * @brief Performs static compression.
@@ -249,6 +251,9 @@ private:
     uint16_t _maxSymbolsPerDepth;       ///< Maximum number of symbols in a single depth in the Huffman tree.
     uint16_t _compressedDepthMapsSize;  ///< Size of the compressed depth maps in bytes.
 
+    uint8_t *_blockTypes{nullptr};      ///< Dynamically allocated array with packed best traversal options for each block during adaptive compression.
+    uint32_t _blockTypesByteSize{0};    ///< Size of the packed block types array in bytes.
+
     // ------------------------------------------------------------------------------------------
     // Section for performance measurements
     // ------------------------------------------------------------------------------------------
@@ -256,14 +261,14 @@ private:
     std::chrono::_V2::system_clock::time_point _readInputFileStart;
     inline void startReadInputFileTimer()
     {
-    #if _MEASURE_READ_INPUT_FILE_ || _MEASURE_ALL_
+    #ifdef _MEASURE_PARTIAL_EXECUTION_TIMES_
         using namespace std::chrono;
         _readInputFileStart = high_resolution_clock::now();
     #endif
     }
     inline void stopReadInputFileTimer()
     {
-    #if _MEASURE_READ_INPUT_FILE_ || _MEASURE_ALL_
+    #ifdef _MEASURE_PARTIAL_EXECUTION_TIMES_
         using namespace std::chrono;
         using namespace std::chrono::_V2;
         system_clock::time_point readInputFileEnd = high_resolution_clock::now();
@@ -274,14 +279,14 @@ private:
     std::chrono::_V2::system_clock::time_point _writeOutputFileStart;
     inline void startWriteOutputFileTimer()
     {
-    #if _MEASURE_WRITE_OUTPUT_FILE_ || _MEASURE_ALL_
+    #ifdef _MEASURE_PARTIAL_EXECUTION_TIMES_
         using namespace std::chrono;
         _writeOutputFileStart = high_resolution_clock::now();
     #endif
     }
     inline void stopWriteOutputFileTimer()
     {
-    #if _MEASURE_WRITE_OUTPUT_FILE_ || _MEASURE_ALL_
+    #ifdef _MEASURE_PARTIAL_EXECUTION_TIMES_
         using namespace std::chrono;
         using namespace std::chrono::_V2;
         system_clock::time_point writeOutputFileEnd = high_resolution_clock::now();
@@ -292,7 +297,7 @@ private:
     std::chrono::_V2::system_clock::time_point _histogramComputationStart;
     inline void startHistogramComputationTimer()
     {
-    #if _MEASURE_HISTOGRAM_ || _MEASURE_ALL_
+    #ifdef _MEASURE_PARTIAL_EXECUTION_TIMES_
         using namespace std::chrono;
         #pragma omp barrier
         #pragma omp master
@@ -303,7 +308,7 @@ private:
     }
     inline void stopHistogramComputationTimer()
     {
-    #if _MEASURE_HISTOGRAM_ || _MEASURE_ALL_
+    #ifdef _MEASURE_PARTIAL_EXECUTION_TIMES_
         using namespace std::chrono;
         using namespace std::chrono::_V2;
         #pragma omp master
@@ -317,14 +322,14 @@ private:
     std::chrono::_V2::system_clock::time_point _huffmanTreeBuildStart;
     inline void startHuffmanTreeBuildTimer()
     {
-    #if _MEASURE_HUFFMAN_TREE_BUILD_ || _MEASURE_ALL_
+    #ifdef _MEASURE_PARTIAL_EXECUTION_TIMES_
         using namespace std::chrono;
         _huffmanTreeBuildStart = high_resolution_clock::now();
     #endif
     }
     inline void stopHuffmanTreeBuildTimer()
     {
-    #if _MEASURE_HUFFMAN_TREE_BUILD_ || _MEASURE_ALL_
+    #ifdef _MEASURE_PARTIAL_EXECUTION_TIMES_
         using namespace std::chrono;
         using namespace std::chrono::_V2;
         system_clock::time_point huffmanTreeBuildEnd = high_resolution_clock::now();
@@ -335,14 +340,14 @@ private:
     std::chrono::_V2::system_clock::time_point _codeTablePopulationStart;
     inline void startCodeTablePopulationTimer()
     {
-    #if _MEASURE_CODE_TABLE_POPULATION_ || _MEASURE_ALL_
+    #ifdef _MEASURE_PARTIAL_EXECUTION_TIMES_
         using namespace std::chrono;
         _codeTablePopulationStart = high_resolution_clock::now();
     #endif
     }
     inline void stopCodeTablePopulationTimer()
     {
-    #if _MEASURE_CODE_TABLE_POPULATION_ || _MEASURE_ALL_
+    #ifdef _MEASURE_PARTIAL_EXECUTION_TIMES_
         using namespace std::chrono;
         using namespace std::chrono::_V2;
         system_clock::time_point codeTablePopulationEnd = high_resolution_clock::now();
@@ -353,7 +358,7 @@ private:
     std::chrono::_V2::system_clock::time_point _transformRLEStart;
     inline void startTransformRLETimer()
     {
-    #if _MEASURE_RLE_TRANSFORM_ || _MEASURE_ALL_
+    #ifdef _MEASURE_PARTIAL_EXECUTION_TIMES_
         using namespace std::chrono;
         #pragma omp barrier
         #pragma omp master
@@ -364,7 +369,7 @@ private:
     }
     inline void stopTransformRLETimer()
     {
-    #if _MEASURE_RLE_TRANSFORM_ || _MEASURE_ALL_
+    #ifdef _MEASURE_PARTIAL_EXECUTION_TIMES_
         using namespace std::chrono;
         using namespace std::chrono::_V2;
         #pragma omp barrier
@@ -379,7 +384,7 @@ private:
     std::chrono::_V2::system_clock::time_point _analyzeImageAdaptiveStart;
     inline void startAnalyzeImageAdaptiveTimer()
     {
-    #if _MEASURE_ADAPTIVE_ANALYSIS_ || _MEASURE_ALL_
+    #ifdef _MEASURE_PARTIAL_EXECUTION_TIMES_
         using namespace std::chrono;
         #pragma omp barrier
         #pragma omp master
@@ -390,7 +395,7 @@ private:
     }
     inline void stopAnalyzeImageAdaptiveTimer()
     {
-    #if _MEASURE_ADAPTIVE_ANALYSIS_ || _MEASURE_ALL_
+    #ifdef _MEASURE_PARTIAL_EXECUTION_TIMES_
         using namespace std::chrono;
         using namespace std::chrono::_V2;
         #pragma omp master
@@ -404,7 +409,7 @@ private:
     std::chrono::_V2::system_clock::time_point _serializeTraversalStart;
     inline void startSerializeTraversalTimer()
     {
-    #if _MEASURE_SERIALIZE_TRAVERSAL_ || _MEASURE_ALL_
+    #ifdef _MEASURE_PARTIAL_EXECUTION_TIMES_
         using namespace std::chrono;
         #pragma omp master
         {
@@ -414,7 +419,7 @@ private:
     }
     inline void stopSerializeTraversalTimer()
     {
-    #if _MEASURE_SERIALIZE_TRAVERSAL_ || _MEASURE_ALL_
+    #ifdef _MEASURE_PARTIAL_EXECUTION_TIMES_
         using namespace std::chrono;
         using namespace std::chrono::_V2;
         #pragma omp master
@@ -428,7 +433,7 @@ private:
     std::chrono::_V2::system_clock::time_point _applyDiferenceModelStart;
     inline void startApplyDiferenceModelTimer()
     {
-    #if _MEASURE_DIFFERENCE_MODEL_ || _MEASURE_ALL_
+    #ifdef _MEASURE_PARTIAL_EXECUTION_TIMES_
         using namespace std::chrono;
         #pragma omp barrier
         #pragma omp master
@@ -439,7 +444,7 @@ private:
     }
     inline void stopApplyDiferenceModelTimer()
     {
-    #if _MEASURE_DIFFERENCE_MODEL_ || _MEASURE_ALL_
+    #ifdef _MEASURE_PARTIAL_EXECUTION_TIMES_
         using namespace std::chrono;
         using namespace std::chrono::_V2;
         #pragma omp barrier
@@ -454,7 +459,7 @@ private:
     std::chrono::_V2::system_clock::time_point _staticCompressionStart;
     inline void startStaticCompressionTimer()
     {
-    #if _MEASURE_STATIC_COMPRESSION_
+    #ifdef _MEASURE_ALGORITHM_EXECUTION_TIMES_
         using namespace std::chrono;
         #pragma omp barrier
         #pragma omp master
@@ -465,7 +470,7 @@ private:
     }
     inline void stopStaticCompressionTimer()
     {
-    #if _MEASURE_STATIC_COMPRESSION_
+    #ifdef _MEASURE_ALGORITHM_EXECUTION_TIMES_
         using namespace std::chrono;
         using namespace std::chrono::_V2;
         #pragma omp barrier
@@ -480,7 +485,7 @@ private:
     std::chrono::_V2::system_clock::time_point _staticCompressionWithModelStart;
     inline void startStaticCompressionWithModelTimer()
     {
-    #if _MEASURE_STATIC_COMPRESSION_WITH_MODEL_
+    #ifdef _MEASURE_ALGORITHM_EXECUTION_TIMES_
         using namespace std::chrono;
         #pragma omp barrier
         #pragma omp master
@@ -491,7 +496,7 @@ private:
     }
     inline void stopStaticCompressionWithModelTimer()
     {
-    #if _MEASURE_STATIC_COMPRESSION_WITH_MODEL_
+    #ifdef _MEASURE_ALGORITHM_EXECUTION_TIMES_
         using namespace std::chrono;
         using namespace std::chrono::_V2;
         #pragma omp barrier
@@ -506,7 +511,7 @@ private:
     std::chrono::_V2::system_clock::time_point _adaptiveCompressionStart;
     inline void startAdaptiveCompressionTimer()
     {
-    #if _MEASURE_ADAPTIVE_COMPRESSION_
+    #ifdef _MEASURE_ALGORITHM_EXECUTION_TIMES_
         using namespace std::chrono;
         #pragma omp barrier
         #pragma omp master
@@ -517,7 +522,7 @@ private:
     }
     inline void stopAdaptiveCompressionTimer()
     {
-    #if _MEASURE_ADAPTIVE_COMPRESSION_
+    #ifdef _MEASURE_ALGORITHM_EXECUTION_TIMES_
         using namespace std::chrono;
         using namespace std::chrono::_V2;
         #pragma omp barrier
@@ -532,7 +537,7 @@ private:
     std::chrono::_V2::system_clock::time_point _adaptiveCompressionWithModelStart;
     inline void startAdaptiveCompressionWithModelTimer()
     {
-    #if _MEASURE_ADAPTIVE_COMPRESSION_WITH_MODEL_
+    #ifdef _MEASURE_ALGORITHM_EXECUTION_TIMES_
         using namespace std::chrono;
         #pragma omp barrier
         #pragma omp master
@@ -543,7 +548,7 @@ private:
     }
     inline void stopAdaptiveCompressionWithModelTimer()
     {
-    #if _MEASURE_ADAPTIVE_COMPRESSION_WITH_MODEL_ || _MEASURE_ALL_
+    #ifdef _MEASURE_ALGORITHM_EXECUTION_TIMES_
         using namespace std::chrono;
         using namespace std::chrono::_V2;
         #pragma omp barrier
@@ -555,10 +560,28 @@ private:
     #endif
     }
 
+    std::chrono::_V2::system_clock::time_point _fullExecutionStart;
+    inline void startFullExecutionTimer()
+    {
+    #ifdef _MEASURE_FULL_EXECUTION_TIME_
+        using namespace std::chrono;
+        _fullExecutionStart = high_resolution_clock::now();
+    #endif
+    }
+    inline void stopFullExecutionTimer()
+    {
+    #ifdef _MEASURE_FULL_EXECUTION_TIME_
+        using namespace std::chrono;
+        using namespace std::chrono::_V2;
+        system_clock::time_point fullExecutionEnd = high_resolution_clock::now();
+        _performanceCounters["Full execution time"] = duration_cast<microseconds>(fullExecutionEnd - _fullExecutionStart).count();
+    #endif
+    }
+
     uint64_t _traversalTypeCounts[NUMBER_OF_TRAVERSALS] = {0, };
     inline void countTraversalTypes()
     {
-    #if _MEASURE_TRAVERSAL_TYPES_ || _MEASURE_ALL_
+    #ifdef _PERFORM_DATA_ANALYSIS_
         #pragma omp single
         {
             for (uint64_t i = 0; i < _numberOfTraversalBlocks; i++)
@@ -571,6 +594,55 @@ private:
             _performanceCounters["Major diagonal zig-zag traversals"] = _traversalTypeCounts[MAJOR_DIAGONAL_ZIG_ZAG];
             _performanceCounters["Minor diagonal zig-zag traversals"] = _traversalTypeCounts[MINOR_DIAGONAL_ZIG_ZAG];
         }
+    #endif
+    }
+
+    inline void captureHeaderSize()
+    {
+    #ifdef _PERFORM_DATA_ANALYSIS_
+        _performanceCounters["Header size"] = _headerSize;
+    #endif
+    }
+
+    inline void captureThreadBlocksSizesSize()
+    {
+    #ifdef _PERFORM_DATA_ANALYSIS_
+        _performanceCounters["Thread blocks sizes size"] = _threadBlocksSizesSize;
+    #endif
+    }
+
+    inline void captureCompressedDepthMapsSize()
+    {
+    #ifdef _PERFORM_DATA_ANALYSIS_
+        _performanceCounters["Compressed depth maps size"] = _compressedDepthMapsSize + 2;
+    #endif
+    }
+
+    inline void captureBlockTypesByteSize()
+    {
+    #ifdef _PERFORM_DATA_ANALYSIS_
+        _performanceCounters["Block types byte size"] = _blockTypesByteSize;
+    #endif
+    }
+
+    inline void captureCompressedDataSize()
+    {
+    #ifdef _PERFORM_DATA_ANALYSIS_
+        _performanceCounters["Compressed data size"] = _compressedSizesExScan[_numberOfThreads];
+    #endif
+    }
+
+    inline void captureWholeCompressedFileSize()
+    {
+    #ifdef _PERFORM_DATA_ANALYSIS_
+        _performanceCounters["Compressed file size"] = _headerSize + _threadBlocksSizesSize + _compressedDepthMapsSize + _blockTypesByteSize + _compressedSizesExScan[_numberOfThreads];
+    #endif
+    }
+
+    inline void captureUncompressedFileSize()
+    {
+    #ifdef _PERFORM_DATA_ANALYSIS_
+        _performanceCounters["Uncompressed file size"] = _size;
     #endif
     }
 };

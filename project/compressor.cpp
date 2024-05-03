@@ -14,11 +14,16 @@ using namespace std;
 Compressor::Compressor(bool model, bool adaptive, uint64_t width, int32_t numberOfThreads)
     : HuffmanRLECompression(model, adaptive, width, numberOfThreads) { }
 
-Compressor::~Compressor()
-{ 
+void Compressor::freeMemory()
+{
     if (_sourceBuffer != nullptr)
     {
         free(_sourceBuffer);
+    }
+
+    if (_destinationBuffer != nullptr)
+    {
+        free(_destinationBuffer);
     }
 
     if (_rlePerBlockCounts != nullptr)
@@ -26,27 +31,33 @@ Compressor::~Compressor()
         delete[] _rlePerBlockCounts;
     }
 
-    if (_destinationBuffer != nullptr)
+    if (_blockTypes != nullptr)
     {
-        free(_destinationBuffer);
+        delete[] _blockTypes;
+    }
+
+    if (_bestBlockTraversals != nullptr)
+    {
+        delete[] _bestBlockTraversals;
     }
 }
 
-void Compressor::readInputFile(string inputFileName, string outputFileName)
+void Compressor::readInputFile()
 {
     DEBUG_PRINT("Reading input file");
-    startReadInputFileTimer(); // NOP if performance measurements are disabled
+    startReadInputFileTimer(); // NOP if partial measurements are disabled
 
-    ifstream inputFile(inputFileName, ios::binary);
+    ifstream inputFile(_inputFileName, ios::binary);
     if (!inputFile.is_open())
     {
-        cerr << "Error: Unable to open input file '" << inputFileName << "'." << endl;
+        cerr << "Error: Unable to open input file '" << _inputFileName << "'." << endl;
         exit(INPUT_FILE_ERROR);
     }
 
     // get the size of the input file
     inputFile.seekg(0, ios::end);
     _size = inputFile.tellg();
+    captureUncompressedFileSize(); // NOP if performance measurements are disabled
     inputFile.seekg(0, ios::beg);
 
     if (_size == 0)
@@ -57,10 +68,10 @@ void Compressor::readInputFile(string inputFileName, string outputFileName)
             cerr << "         Specified width does not match the file size." << endl;
         }
 
-        ofstream outputFile(outputFileName, ios::binary);
+        ofstream outputFile(_outputFileName, ios::binary);
         if (!outputFile.is_open())
         {
-            cerr << "Error: Unable to open output file '" << outputFileName << "'." << endl;
+            cerr << "Error: Unable to open output file '" << _outputFileName << "'." << endl;
             exit(OUTPUT_FILE_ERROR);
         }
 
@@ -69,6 +80,8 @@ void Compressor::readInputFile(string inputFileName, string outputFileName)
         header.setNotCompressed();
         outputFile.write(reinterpret_cast<char *>(&_headerBuffer), sizeof(FirstByteHeader));
         outputFile.close();
+
+        freeMemory();
 
         exit(SUCCESS);
     }
@@ -130,14 +143,14 @@ void Compressor::readInputFile(string inputFileName, string outputFileName)
     inputFile.read(reinterpret_cast<char *>(_sourceBuffer), _size);
     inputFile.close();
 
-    stopReadInputFileTimer(); // NOP if performance measurements are disabled
+    stopReadInputFileTimer(); // NOP if partial measurements are disabled
     DEBUG_PRINT("Input file read");
 }
 
 void Compressor::computeHistogram()
 {
-    DEBUG_PRINT("Thread " << threadId << ": computing histogram");
-    startHistogramComputationTimer(); // NOP if performance measurements are disabled
+    DEBUG_PRINT("Thread " << omp_get_num_threads() << ": computing histogram");
+    startHistogramComputationTimer(); // NOP if partial measurements are disabled
 
     int threadId = omp_get_thread_num();
     uint64_t *intHistogram = _intHistogram;
@@ -204,14 +217,14 @@ void Compressor::computeHistogram()
     }
     #pragma omp barrier // wait for all threads to construct the frequency-symbol pairs
 
-    stopHistogramComputationTimer(); // NOP if performance measurements are disabled
+    stopHistogramComputationTimer(); // NOP if partial measurements are disabled
     DEBUG_PRINT("Thread " << threadId << ": histogram computed");
 }
 
 void Compressor::buildHuffmanTree()
 {
     DEBUG_PRINT("Building Huffman tree");
-    startHuffmanTreeBuildTimer(); // NOP if performance measurements are disabled
+    startHuffmanTreeBuildTimer(); // NOP if partial measurements are disabled
 
     uint32_t *symbolsParentsDepths = reinterpret_cast<uint32_t *>(_symbolsParentsDepths);
     uint16_t *parentsSortedIndices = _parentsSortedIndices;
@@ -401,6 +414,7 @@ void Compressor::buildHuffmanTree()
     }
 #else
     // reduce the depth to maximum of 15 (one less to adjust for possible overflow in the next step)
+    _depths[symbolsDepthsIdx] = 0; // ensure that the memory after the last depth is initialized
     symbolsDepthsIdx--;
     uint8_t maxDepth = _depths[symbolsDepthsIdx];
     constexpr uint16_t decreasedMaxCodeLength = MAX_CODE_LENGTH - 1;
@@ -460,14 +474,14 @@ void Compressor::buildHuffmanTree()
     _adjustedDepths = _depths;
 #endif
 
-    stopHuffmanTreeBuildTimer(); // NOP if performance measurements are disabled
+    stopHuffmanTreeBuildTimer(); // NOP if partial measurements are disabled
     DEBUG_PRINT("Huffman tree built");
 }
 
 void Compressor::populateCodeTable()
 {
     DEBUG_PRINT("Populating code table");
-    startCodeTablePopulationTimer(); // NOP if performance measurements are disabled
+    startCodeTablePopulationTimer(); // NOP if partial measurements are disabled
 
     uint32_t *codeTable = reinterpret_cast<uint32_t *>(_codeTable);
     uint32_t *symbolsAtDepths = reinterpret_cast<uint32_t *>(_symbolsAtDepths);
@@ -571,7 +585,7 @@ void Compressor::populateCodeTable()
         delta++;
     }
 
-    stopCodeTablePopulationTimer(); // NOP if performance measurements are disabled
+    stopCodeTablePopulationTimer(); // NOP if partial measurements are disabled
     DEBUG_PRINT("Code table populated");
 }
 
@@ -579,7 +593,7 @@ void Compressor::transformRLE(symbol_t *sourceData, uint16_t *compressedData, ui
 {
     int threadNumber = omp_get_thread_num();
     DEBUG_PRINT("Thread " << threadNumber << ": transforming RLE");
-    startTransformRLETimer(); // NOP if performance measurements are disabled
+    startTransformRLETimer(); // NOP if partial measurements are disabled
 
     uint64_t bytesToCompress = (_size + _numberOfThreads - 1) / _numberOfThreads;
     bytesToCompress += bytesToCompress & 0b1; // ensure the number of bytes to compress is even
@@ -671,7 +685,7 @@ void Compressor::transformRLE(symbol_t *sourceData, uint16_t *compressedData, ui
     _compressionUnsuccessful = sourceDataIdx <= bytesToCompress; // there is still something to compress
     compressedSize = nextCompressedIdx * 2; // size in bytes
 
-    stopTransformRLETimer(); // NOP if performance measurements are disabled
+    stopTransformRLETimer(); // NOP if partial measurements are disabled
     DEBUG_PRINT("Thread " << threadNumber << ": RLE transformed, compressed size: " << compressedSize);
 }
 
@@ -875,15 +889,15 @@ void Compressor::compressDepthMaps()
     DEBUG_PRINT("Depth maps compressed");
 }
 
-void Compressor::writeOutputFile(string outputFileName, string inputFileName)
+void Compressor::writeOutputFile()
 {
     DEBUG_PRINT("Writing output file");
-    startWriteOutputFileTimer(); // NOP if performance measurements are disabled
+    startWriteOutputFileTimer(); // NOP if partial measurements are disabled
 
-    ofstream outputFile(outputFileName, ios::binary);
+    ofstream outputFile(_outputFileName, ios::binary);
     if (!outputFile.is_open())
     {
-        cerr << "Error: Unable to open output file '" << outputFileName << "'." << endl;
+        cerr << "Error: Unable to open output file '" << _outputFileName << "'." << endl;
         exit(OUTPUT_FILE_ERROR);
     }
     
@@ -897,49 +911,53 @@ void Compressor::writeOutputFile(string outputFileName, string inputFileName)
         outputFile.write(reinterpret_cast<char *>(&_headerBuffer), sizeof(FirstByteHeader));
 
         // copy the input file to the output file
-        ifstream inputFile(inputFileName, ios::binary);
+        ifstream inputFile(_inputFileName, ios::binary);
         if (!inputFile.is_open())
         {
-            cerr << "Error: Unable to open input file '" << inputFileName << "'." << endl;
+            cerr << "Error: Unable to open input file '" << _inputFileName << "'." << endl;
             exit(INPUT_FILE_ERROR);
         }
         inputFile.read(reinterpret_cast<char *>(_sourceBuffer), _size);   
         inputFile.close();
 
         outputFile.write(reinterpret_cast<char *>(_sourceBuffer), _size);
+
+        // reset the compressed sizes for later data analysis capture if active
+        _headerSize = sizeof(FirstByteHeader);
+        _threadBlocksSizesSize = 0;
+        _compressedDepthMapsSize = 0;
+        _blockTypesByteSize = 0;
+        _compressedSizesExScan[_numberOfThreads] = _size;
     }
     else // data successfully compressed
     {
         // write the header
         outputFile.write(reinterpret_cast<char *>(_headerBuffer), _headerSize);
-        DEBUG_PRINT("Header size: " << _headerSize);
-
         // write the sizes of the compressed data by each thread (if multi-threaded compression)
         outputFile.write(reinterpret_cast<char *>(_compressedSizes), _threadBlocksSizesSize);
-        DEBUG_PRINT("Compressed block sizes size: " << _threadBlocksSizesSize);
-
         // write the compressed depth maps
         outputFile.write(reinterpret_cast<char *>(_compressedDepthMaps), _compressedDepthMapsSize);
-        DEBUG_PRINT("Compressed depth maps size: " << _compressedDepthMapsSize);
-
         // write the block types (if adaptive compression)
         outputFile.write(reinterpret_cast<char *>(_blockTypes), _blockTypesByteSize);
-        DEBUG_PRINT("Block types size: " << _blockTypesByteSize);
-
         // write the compressed data
         outputFile.write(reinterpret_cast<char *>(_destinationBuffer), _compressedSizesExScan[_numberOfThreads]);
-        DEBUG_PRINT("Compressed data size: " << _compressedSizesExScan[_numberOfThreads]);
     }
     outputFile.close();
+    
+    // NOPs if data analysis is disabled
+    captureHeaderSize();
+    captureHeaderSize();
+    captureCompressedDepthMapsSize();
+    captureBlockTypesByteSize();
+    captureCompressedDataSize();
+    captureWholeCompressedFileSize();
 
-    stopWriteOutputFileTimer(); // NOP if performance measurements are disabled
+    stopWriteOutputFileTimer(); // NOP if partial measurements are disabled
     DEBUG_PRINT("Output file written");
 }
 
 void Compressor::compressStatic()
 {
-    startStaticCompressionTimer(); // NOP if performance measurements are disabled
-
     int threadNumber = omp_get_thread_num();
     computeHistogram(); // compute the histogram of frequencies of symbols in the input data
 
@@ -991,8 +1009,6 @@ void Compressor::compressStatic()
         createHeader();
         DEBUG_PRINT("Static compression finished");
     }
-
-    stopStaticCompressionTimer(); // NOP if performance measurements are disabled
 }
 
 void Compressor::analyzeImageAdaptive()
@@ -1111,8 +1127,6 @@ void Compressor::applyDiferenceModel(symbol_t *source, symbol_t *destination)
 
 void Compressor::compressAdaptive()
 {   
-    startAdaptiveCompressionTimer();
-
     int threadNumber = omp_get_thread_num();
     analyzeImageAdaptive();
 
@@ -1175,14 +1189,10 @@ void Compressor::compressAdaptive()
         createHeader();
         DEBUG_PRINT("Static adaptive compression finished");
     }
-
-    stopAdaptiveCompressionTimer();
 }
 
 void Compressor::compressStaticModel()
 {
-    startStaticCompressionWithModelTimer();
-
     // apply the difference model
     applyDiferenceModel(_sourceBuffer, _destinationBuffer);
     #pragma omp barrier
@@ -1195,14 +1205,10 @@ void Compressor::compressStaticModel()
 
     // then use the static compression as it would be used without the model
     compressStatic();
-
-    stopStaticCompressionWithModelTimer();
 }
 
 void Compressor::compressAdaptiveModel()
 {
-    startAdaptiveCompressionWithModelTimer();
-
     // apply the difference model
     applyDiferenceModel(_sourceBuffer, _destinationBuffer);
     #pragma omp barrier
@@ -1215,13 +1221,15 @@ void Compressor::compressAdaptiveModel()
 
     // then use the adaptive compression as it would be used without the model
     compressAdaptive();
-
-    stopAdaptiveCompressionWithModelTimer();
 }
 
 void Compressor::compress(string inputFileName, string outputFileName)
 {
-    readInputFile(inputFileName, outputFileName);
+    startFullExecutionTimer(); // NOP if full measurements are disabled
+
+    _inputFileName = inputFileName;
+    _outputFileName = outputFileName;
+    readInputFile();
     
     if (_adaptive) // adaptive compression
     {
@@ -1232,32 +1240,42 @@ void Compressor::compress(string inputFileName, string outputFileName)
     DEBUG_PRINT("Starting compression with " << _numberOfThreads << " threads");
     #pragma omp parallel // launch threads, i.e. create a parallel region
     {
-        DEBUG_PRINT("Thread " << omp_get_thread_num() << " started");
         // select the compression method based on the passed parameters
         if (_model)
         {
             if (_adaptive)
             {
+                startAdaptiveCompressionWithModelTimer(); // NOP if algorithm measurements are disabled
                 compressAdaptiveModel();
+                stopAdaptiveCompressionWithModelTimer();  // NOP if algorithm measurements are disabled
             }
             else
             {
+                startStaticCompressionWithModelTimer(); // NOP if algorithm measurements are disabled
                 compressStaticModel();
+                stopStaticCompressionWithModelTimer();  // NOP if algorithm measurements are disabled
             }
         }
         else
         {
             if (_adaptive)
             {
+                startAdaptiveCompressionTimer(); // NOP if algorithm measurements are disabled
                 compressAdaptive();
+                stopAdaptiveCompressionTimer();  // NOP if algorithm measurements are disabled
             }
             else
             {
+                startStaticCompressionTimer(); // NOP if algorithm measurements are disabled
                 compressStatic();
+                stopStaticCompressionTimer();  // NOP if algorithm measurements are disabled
             }
         }
-        DEBUG_PRINT("Thread " << omp_get_thread_num() << " finished");
     }
 
-    writeOutputFile(outputFileName, inputFileName);
+    writeOutputFile();
+    freeMemory(); // free the allocated memory so that the object does not have to be deleted and next compression can be performed
+
+    stopFullExecutionTimer();   // NOP if full measurements are disabled
+    printPerformanceCounters(); // not NOP if any measurements are active
 }

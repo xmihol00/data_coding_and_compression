@@ -20,7 +20,7 @@ TARGET = $(PROJECT_DIR)/huff_codec
 
 ADDITIONAL_DEFINES =  # add by running make ADDITIONAL_DEFINES="-D<define name>"
 
-.PHONY: all plain no_omp no_avx debug clean
+.PHONY: all plain no_omp no_avx debug plain_debug clean partial_measure algorithm_measure full_measure data_analysis
 
 all:
 	$(CC) $(CFLAGS) $(OMPFLAGS) $(AVX512FLAGS) $(CPP_SRC) $(ADDITIONAL_DEFINES) -o $(TARGET)
@@ -35,7 +35,22 @@ no_avx:
 	$(CC) $(CFLAGS) $(OMPFLAGS) $(CPP_SRC) $(ADDITIONAL_DEFINES) -o $(TARGET)
 
 debug:
-	$(CC) $(CFLAGS) $(OMPFLAGS) $(AVX512FLAGS) $(CPP_SRC) -D_DEBUG_PRINT_ACTIVE_ $(ADDITIONAL_DEFINES) -o $(TARGET)
+	$(CC) $(CFLAGS) -g $(OMPFLAGS) $(AVX512FLAGS) $(CPP_SRC) -D_DEBUG_PRINT_ACTIVE_ $(ADDITIONAL_DEFINES) -o $(TARGET)
+
+plain_debug:
+	$(CC) $(CFLAGS) -g $(CPP_SRC) -D_DEBUG_PRINT_ACTIVE_ $(PRGAMA_IGNORE) $(ADDITIONAL_DEFINES) -o $(TARGET)
+
+partial_measure:
+	$(CC) $(CFLAGS) $(OMPFLAGS) $(AVX512FLAGS) $(CPP_SRC) -D_MEASURE_PARTIAL_EXECUTION_TIMES_ $(ADDITIONAL_DEFINES) -o $(TARGET)
+
+algorithm_measure:
+	$(CC) $(CFLAGS) $(OMPFLAGS) $(AVX512FLAGS) $(CPP_SRC) -D_MEASURE_ALGORITHM_EXECUTION_TIMES_ $(ADDITIONAL_DEFINES) -o $(TARGET)
+
+full_measure:
+	$(CC) $(CFLAGS) $(OMPFLAGS) $(AVX512FLAGS) $(CPP_SRC) -D_MEASURE_FULL_EXECUTION_TIME_ $(ADDITIONAL_DEFINES) -o $(TARGET)
+
+data_analysis:
+	$(CC) $(CFLAGS) $(OMPFLAGS) $(AVX512FLAGS) $(CPP_SRC) -D_PERFORM_DATA_ANALYSIS_ $(ADDITIONAL_DEFINES) -o $(TARGET)
 
 clean: 
 	rm -f $(TARGET) $(TARGET_TEST)

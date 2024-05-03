@@ -91,20 +91,7 @@ public:
      */
     HuffmanRLECompression(bool model = false, bool adaptive = false, uint64_t width = 0, int32_t numberOfThreads = 1) 
         : _model{model}, _adaptive{adaptive}, _width{width}, _numberOfThreads{numberOfThreads} { };
-    ~HuffmanRLECompression()
-    {
-        printPerformanceCounters();
-
-        if (_blockTypes != nullptr)
-        {
-            delete[] _blockTypes;
-        }
-
-        if (_bestBlockTraversals != nullptr)
-        {
-            delete[] _bestBlockTraversals;
-        }
-    }
+    ~HuffmanRLECompression() = default;
 
 protected:
     /**
@@ -214,6 +201,8 @@ protected:
     uint64_t _width;              ///< Width of the image to be compressed/decompressed.
     uint64_t _height;             ///< Height of the image to be compressed/decompressed.
     uint64_t _size;               ///< Overall size of the image to be compressed/decompressed.
+    std::string _inputFileName;   ///< Name of the input file.
+    std::string _outputFileName;  ///< Name of the output file.
 
     uint64_t _numberOfTraversalBlocks;       ///< Total number of blocks in an image.
     uint32_t _blocksPerRow;     ///< Number of blocks in a row of an image.
@@ -231,9 +220,6 @@ protected:
     uint8_t _headerBuffer[32];  ///< Memory buffer to store a specific header depending on the type of the compression and number of threads.
 
     AdaptiveTraversals *_bestBlockTraversals{nullptr}; ///< Dynamically allocated array with the best traversal option for each block during adaptive compression.
-
-    uint8_t *_blockTypes{nullptr};   ///< Dynamically allocated array with packed best traversal options for each block during adaptive compression.
-    uint32_t _blockTypesByteSize{0}; ///< Size of the packed block types array in bytes.
     
     /**
      * @brief Structure representing the first byte of the compressed file header.
@@ -441,10 +427,12 @@ protected:
      */
     inline void printPerformanceCounters()
     {
+    #if _MEASURE_PARTIAL_EXECUTION_TIMES_ || _MEASURE_ALGORITHM_EXECUTION_TIMES_ || _MEASURE_FULL_EXECUTION_TIME_ || _PERFORM_DATA_ANALYSIS_
         for (const auto& [key, value] : _performanceCounters)
         {
-            std::cout << key << ", " << value << ", " << _numberOfThreads << std::endl;
+            std::cout << _inputFileName << "," << key << "," << value << "," << _numberOfThreads << "," << _adaptive << "," << _model << std::endl;
         }
+    #endif
     }
 };
 

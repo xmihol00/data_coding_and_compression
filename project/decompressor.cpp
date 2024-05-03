@@ -14,7 +14,7 @@ using namespace std;
 Decompressor::Decompressor(int32_t numberOfThreads)
     : HuffmanRLECompression(false, false, 0, numberOfThreads) { }
 
-Decompressor::~Decompressor()
+void Decompressor::freeMemory()
 {
     if (_decompressionBuffer != nullptr)
     {
@@ -25,14 +25,19 @@ Decompressor::~Decompressor()
     {
         free(_compressedData);
     }
+
+    if (_bestBlockTraversals != nullptr)
+    {
+        delete[] _bestBlockTraversals;
+    }
 }
 
-bool Decompressor::readInputFile(string inputFileName, string outputFileName)
+bool Decompressor::readInputFile()
 {
-    ifstream inputFile(inputFileName, ios::binary);
+    ifstream inputFile(_inputFileName, ios::binary);
     if (!inputFile.is_open())
     {
-        cout << "Error: Unable to open input file '" << inputFileName << "'." << endl;
+        cout << "Error: Unable to open input file '" << _inputFileName << "'." << endl;
         exit(INPUT_FILE_ERROR);
     }
 
@@ -45,10 +50,10 @@ bool Decompressor::readInputFile(string inputFileName, string outputFileName)
     inputFile.read(reinterpret_cast<char *>(&firstByte), sizeof(FirstByteHeader));
     if (firstByte.getCompressed()) // file is not compressed
     {
-        ofstream outputFile(outputFileName, ios::binary);
+        ofstream outputFile(_outputFileName, ios::binary);
         if (!outputFile.is_open())
         {
-            cout << "Error: Unable to open output file '" << outputFileName << "'." << endl;
+            cout << "Error: Unable to open output file '" << _outputFileName << "'." << endl;
             exit(OUTPUT_FILE_ERROR);
         }
 
@@ -57,9 +62,9 @@ bool Decompressor::readInputFile(string inputFileName, string outputFileName)
         inputFile.read(buffer, fileSize - 1);
         outputFile.write(buffer, fileSize - 1);
 
-        delete[] buffer;
         outputFile.close();
         inputFile.close();
+        delete[] buffer;
         
         return false;
     }
@@ -793,12 +798,12 @@ void Decompressor::decompressAdaptive()
     #pragma omp barrier
 }
 
-void Decompressor::writeOutputFile(std::string outputFileName)
+void Decompressor::writeOutputFile()
 {
-    ofstream outputFile(outputFileName, ios::binary);
+    ofstream outputFile(_outputFileName, ios::binary);
     if (!outputFile.is_open())
     {
-        cout << "Error: Unable to open output file '" << outputFileName << "'." << endl;
+        cout << "Error: Unable to open output file '" << _outputFileName << "'." << endl;
         exit(OUTPUT_FILE_ERROR);
     }
 
@@ -808,7 +813,9 @@ void Decompressor::writeOutputFile(std::string outputFileName)
 
 void Decompressor::decompress(string inputFileName, string outputFileName)
 {
-    if (readInputFile(inputFileName, outputFileName)) // the data are compressed 
+    _inputFileName = inputFileName;
+    _outputFileName = outputFileName;
+    if (readInputFile()) // the data are compressed 
     {
         #pragma omp parallel // launch threads, i.e. create a parallel region
         {
@@ -837,6 +844,8 @@ void Decompressor::decompress(string inputFileName, string outputFileName)
             }
         }
         
-        writeOutputFile(outputFileName);
+        writeOutputFile();
     }
+
+    freeMemory();
 }

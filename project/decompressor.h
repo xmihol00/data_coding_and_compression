@@ -29,10 +29,11 @@ public:
      * @param numberOfThreads Number of threads used for multi-threaded decompression.
      */
     Decompressor(int32_t numberOfThreads);
-    ~Decompressor();
+    ~Decompressor() = default;
 
     /**
      * @brief Decompresses the input file and writes the decompressed data to the output file.
+     *        NOTE: All memory allocated for decompression is freed and the method can be called again without deleting the object.
      * @param inputFileName Name of the input file.
      * @param outputFileName Name of the output file.
      */
@@ -40,18 +41,20 @@ public:
 
 private:
     /**
+     * @brief Frees the memory allocated for decompression.
+     */
+    void freeMemory();
+
+    /**
      * @brief Reads the input file and parses its header. If the header indicates that no compression was performed, 
      *        the rest of the file is copied to the output file.
-     * @param inputFileName Name of the input file.
-     * @param outputFileName Name of the output file.
      */
-    bool readInputFile(std::string inputFileName, std::string outputFileName);
+    bool readInputFile();
 
     /**
      * @brief Writes the decompressed data to the output file.
-     * @param outputFileName Name of the output file.
      */
-    void writeOutputFile(std::string outputFileName);
+    void writeOutputFile();
 
     /**
      * @brief Parses a depth bitmap of symbols in a Huffman tree from the input file.
