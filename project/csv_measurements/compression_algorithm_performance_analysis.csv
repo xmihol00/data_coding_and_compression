@@ -1,0 +1,241 @@
+file_name,measurement_name,value,number_of_threads,adaptive,model
+data_benchmark/df1h.raw,Static compression time,1984,1,0,0
+data_benchmark/df1hvx.raw,Static compression time,1396,1,0,0
+data_benchmark/df1v.raw,Static compression time,742,1,0,0
+data_benchmark/hd01.raw,Static compression time,1270,1,0,0
+data_benchmark/hd02.raw,Static compression time,1281,1,0,0
+data_benchmark/hd07.raw,Static compression time,1717,1,0,0
+data_benchmark/hd08.raw,Static compression time,1527,1,0,0
+data_benchmark/hd09.raw,Static compression time,2080,1,0,0
+data_benchmark/hd12.raw,Static compression time,2030,1,0,0
+data_benchmark/nk01.raw,Static compression time,1842,1,0,0
+data_benchmark/df1h.raw,Static compression time,1297,2,0,0
+data_benchmark/df1hvx.raw,Static compression time,777,2,0,0
+data_benchmark/df1v.raw,Static compression time,400,2,0,0
+data_benchmark/hd01.raw,Static compression time,932,2,0,0
+data_benchmark/hd02.raw,Static compression time,703,2,0,0
+data_benchmark/hd07.raw,Static compression time,960,2,0,0
+data_benchmark/hd08.raw,Static compression time,914,2,0,0
+data_benchmark/hd09.raw,Static compression time,1940,2,0,0
+data_benchmark/hd12.raw,Static compression time,1007,2,0,0
+data_benchmark/nk01.raw,Static compression time,1009,2,0,0
+data_benchmark/df1h.raw,Static compression time,948,4,0,0
+data_benchmark/df1hvx.raw,Static compression time,714,4,0,0
+data_benchmark/df1v.raw,Static compression time,282,4,0,0
+data_benchmark/hd01.raw,Static compression time,566,4,0,0
+data_benchmark/hd02.raw,Static compression time,663,4,0,0
+data_benchmark/hd07.raw,Static compression time,852,4,0,0
+data_benchmark/hd08.raw,Static compression time,591,4,0,0
+data_benchmark/hd09.raw,Static compression time,740,4,0,0
+data_benchmark/hd12.raw,Static compression time,722,4,0,0
+data_benchmark/nk01.raw,Static compression time,948,4,0,0
+data_benchmark/df1h.raw,Static compression time,486,8,0,0
+data_benchmark/df1hvx.raw,Static compression time,381,8,0,0
+data_benchmark/df1v.raw,Static compression time,216,8,0,0
+data_benchmark/hd01.raw,Static compression time,430,8,0,0
+data_benchmark/hd02.raw,Static compression time,368,8,0,0
+data_benchmark/hd07.raw,Static compression time,480,8,0,0
+data_benchmark/hd08.raw,Static compression time,438,8,0,0
+data_benchmark/hd09.raw,Static compression time,562,8,0,0
+data_benchmark/hd12.raw,Static compression time,480,8,0,0
+data_benchmark/nk01.raw,Static compression time,503,8,0,0
+data_benchmark/df1h.raw,Static compression time,31985,16,0,0
+data_benchmark/df1hvx.raw,Static compression time,34988,16,0,0
+data_benchmark/df1v.raw,Static compression time,251,16,0,0
+data_benchmark/hd01.raw,Static compression time,361,16,0,0
+data_benchmark/hd02.raw,Static compression time,329,16,0,0
+data_benchmark/hd07.raw,Static compression time,494,16,0,0
+data_benchmark/hd08.raw,Static compression time,492,16,0,0
+data_benchmark/hd09.raw,Static compression time,20547,16,0,0
+data_benchmark/hd12.raw,Static compression time,3023,16,0,0
+data_benchmark/nk01.raw,Static compression time,36991,16,0,0
+data_benchmark/df1h.raw,Static compression time,1168,32,0,0
+data_benchmark/df1hvx.raw,Static compression time,1185,32,0,0
+data_benchmark/df1v.raw,Static compression time,963,32,0,0
+data_benchmark/hd01.raw,Static compression time,1064,32,0,0
+data_benchmark/hd02.raw,Static compression time,967,32,0,0
+data_benchmark/hd07.raw,Static compression time,1173,32,0,0
+data_benchmark/hd08.raw,Static compression time,1678,32,0,0
+data_benchmark/hd09.raw,Static compression time,1057,32,0,0
+data_benchmark/hd12.raw,Static compression time,966,32,0,0
+data_benchmark/nk01.raw,Static compression time,1159,32,0,0
+data_benchmark/df1h.raw,Adaptive compression time,3243,1,1,0
+data_benchmark/df1hvx.raw,Adaptive compression time,5615,1,1,0
+data_benchmark/df1v.raw,Adaptive compression time,5491,1,1,0
+data_benchmark/hd01.raw,Adaptive compression time,3929,1,1,0
+data_benchmark/hd02.raw,Adaptive compression time,4037,1,1,0
+data_benchmark/hd07.raw,Adaptive compression time,6738,1,1,0
+data_benchmark/hd08.raw,Adaptive compression time,4026,1,1,0
+data_benchmark/hd09.raw,Adaptive compression time,4528,1,1,0
+data_benchmark/hd12.raw,Adaptive compression time,4120,1,1,0
+data_benchmark/nk01.raw,Adaptive compression time,4138,1,1,0
+data_benchmark/df1h.raw,Adaptive compression time,1649,2,1,0
+data_benchmark/df1hvx.raw,Adaptive compression time,1837,2,1,0
+data_benchmark/df1v.raw,Adaptive compression time,1909,2,1,0
+data_benchmark/hd01.raw,Adaptive compression time,2127,2,1,0
+data_benchmark/hd02.raw,Adaptive compression time,2901,2,1,0
+data_benchmark/hd07.raw,Adaptive compression time,2317,2,1,0
+data_benchmark/hd08.raw,Adaptive compression time,2221,2,1,0
+data_benchmark/hd09.raw,Adaptive compression time,2413,2,1,0
+data_benchmark/hd12.raw,Adaptive compression time,2346,2,1,0
+data_benchmark/nk01.raw,Adaptive compression time,2822,2,1,0
+data_benchmark/df1h.raw,Adaptive compression time,1765,4,1,0
+data_benchmark/df1hvx.raw,Adaptive compression time,1601,4,1,0
+data_benchmark/df1v.raw,Adaptive compression time,1596,4,1,0
+data_benchmark/hd01.raw,Adaptive compression time,1378,4,1,0
+data_benchmark/hd02.raw,Adaptive compression time,1335,4,1,0
+data_benchmark/hd07.raw,Adaptive compression time,1439,4,1,0
+data_benchmark/hd08.raw,Adaptive compression time,1208,4,1,0
+data_benchmark/hd09.raw,Adaptive compression time,1515,4,1,0
+data_benchmark/hd12.raw,Adaptive compression time,1231,4,1,0
+data_benchmark/nk01.raw,Adaptive compression time,1973,4,1,0
+data_benchmark/df1h.raw,Adaptive compression time,859,8,1,0
+data_benchmark/df1hvx.raw,Adaptive compression time,1004,8,1,0
+data_benchmark/df1v.raw,Adaptive compression time,830,8,1,0
+data_benchmark/hd01.raw,Adaptive compression time,1321,8,1,0
+data_benchmark/hd02.raw,Adaptive compression time,985,8,1,0
+data_benchmark/hd07.raw,Adaptive compression time,1138,8,1,0
+data_benchmark/hd08.raw,Adaptive compression time,1067,8,1,0
+data_benchmark/hd09.raw,Adaptive compression time,1217,8,1,0
+data_benchmark/hd12.raw,Adaptive compression time,1074,8,1,0
+data_benchmark/nk01.raw,Adaptive compression time,1035,8,1,0
+data_benchmark/df1h.raw,Adaptive compression time,40223,16,1,0
+data_benchmark/df1hvx.raw,Adaptive compression time,37629,16,1,0
+data_benchmark/df1v.raw,Adaptive compression time,40987,16,1,0
+data_benchmark/hd01.raw,Adaptive compression time,873,16,1,0
+data_benchmark/hd02.raw,Adaptive compression time,809,16,1,0
+data_benchmark/hd07.raw,Adaptive compression time,37045,16,1,0
+data_benchmark/hd08.raw,Adaptive compression time,39909,16,1,0
+data_benchmark/hd09.raw,Adaptive compression time,39917,16,1,0
+data_benchmark/hd12.raw,Adaptive compression time,40052,16,1,0
+data_benchmark/nk01.raw,Adaptive compression time,688,16,1,0
+data_benchmark/df1h.raw,Adaptive compression time,1615,32,1,0
+data_benchmark/df1hvx.raw,Adaptive compression time,1897,32,1,0
+data_benchmark/df1v.raw,Adaptive compression time,2102,32,1,0
+data_benchmark/hd01.raw,Adaptive compression time,2123,32,1,0
+data_benchmark/hd02.raw,Adaptive compression time,2600,32,1,0
+data_benchmark/hd07.raw,Adaptive compression time,2336,32,1,0
+data_benchmark/hd08.raw,Adaptive compression time,1659,32,1,0
+data_benchmark/hd09.raw,Adaptive compression time,2104,32,1,0
+data_benchmark/hd12.raw,Adaptive compression time,2154,32,1,0
+data_benchmark/nk01.raw,Adaptive compression time,1734,32,1,0
+data_benchmark/df1h.raw,Static compression with model time,864,1,0,1
+data_benchmark/df1hvx.raw,Static compression with model time,1281,1,0,1
+data_benchmark/df1v.raw,Static compression with model time,1247,1,0,1
+data_benchmark/hd01.raw,Static compression with model time,1383,1,0,1
+data_benchmark/hd02.raw,Static compression with model time,1377,1,0,1
+data_benchmark/hd07.raw,Static compression with model time,2097,1,0,1
+data_benchmark/hd08.raw,Static compression with model time,1677,1,0,1
+data_benchmark/hd09.raw,Static compression with model time,2465,1,0,1
+data_benchmark/hd12.raw,Static compression with model time,2050,1,0,1
+data_benchmark/nk01.raw,Static compression with model time,1922,1,0,1
+data_benchmark/df1h.raw,Static compression with model time,529,2,0,1
+data_benchmark/df1hvx.raw,Static compression with model time,654,2,0,1
+data_benchmark/df1v.raw,Static compression with model time,460,2,0,1
+data_benchmark/hd01.raw,Static compression with model time,799,2,0,1
+data_benchmark/hd02.raw,Static compression with model time,756,2,0,1
+data_benchmark/hd07.raw,Static compression with model time,1144,2,0,1
+data_benchmark/hd08.raw,Static compression with model time,1041,2,0,1
+data_benchmark/hd09.raw,Static compression with model time,2106,2,0,1
+data_benchmark/hd12.raw,Static compression with model time,1343,2,0,1
+data_benchmark/nk01.raw,Static compression with model time,1307,2,0,1
+data_benchmark/df1h.raw,Static compression with model time,390,4,0,1
+data_benchmark/df1hvx.raw,Static compression with model time,657,4,0,1
+data_benchmark/df1v.raw,Static compression with model time,394,4,0,1
+data_benchmark/hd01.raw,Static compression with model time,656,4,0,1
+data_benchmark/hd02.raw,Static compression with model time,575,4,0,1
+data_benchmark/hd07.raw,Static compression with model time,710,4,0,1
+data_benchmark/hd08.raw,Static compression with model time,801,4,0,1
+data_benchmark/hd09.raw,Static compression with model time,1068,4,0,1
+data_benchmark/hd12.raw,Static compression with model time,684,4,0,1
+data_benchmark/nk01.raw,Static compression with model time,677,4,0,1
+data_benchmark/df1h.raw,Static compression with model time,260,8,0,1
+data_benchmark/df1hvx.raw,Static compression with model time,413,8,0,1
+data_benchmark/df1v.raw,Static compression with model time,235,8,0,1
+data_benchmark/hd01.raw,Static compression with model time,470,8,0,1
+data_benchmark/hd02.raw,Static compression with model time,584,8,0,1
+data_benchmark/hd07.raw,Static compression with model time,558,8,0,1
+data_benchmark/hd08.raw,Static compression with model time,521,8,0,1
+data_benchmark/hd09.raw,Static compression with model time,1364,8,0,1
+data_benchmark/hd12.raw,Static compression with model time,611,8,0,1
+data_benchmark/nk01.raw,Static compression with model time,922,8,0,1
+data_benchmark/df1h.raw,Static compression with model time,42969,16,0,1
+data_benchmark/df1hvx.raw,Static compression with model time,337,16,0,1
+data_benchmark/df1v.raw,Static compression with model time,348,16,0,1
+data_benchmark/hd01.raw,Static compression with model time,687,16,0,1
+data_benchmark/hd02.raw,Static compression with model time,464,16,0,1
+data_benchmark/hd07.raw,Static compression with model time,35987,16,0,1
+data_benchmark/hd08.raw,Static compression with model time,8754,16,0,1
+data_benchmark/hd09.raw,Static compression with model time,4042,16,0,1
+data_benchmark/hd12.raw,Static compression with model time,42993,16,0,1
+data_benchmark/nk01.raw,Static compression with model time,606,16,0,1
+data_benchmark/df1h.raw,Static compression with model time,1014,32,0,1
+data_benchmark/df1hvx.raw,Static compression with model time,1090,32,0,1
+data_benchmark/df1v.raw,Static compression with model time,757,32,0,1
+data_benchmark/hd01.raw,Static compression with model time,949,32,0,1
+data_benchmark/hd02.raw,Static compression with model time,2057,32,0,1
+data_benchmark/hd07.raw,Static compression with model time,1380,32,0,1
+data_benchmark/hd08.raw,Static compression with model time,1138,32,0,1
+data_benchmark/hd09.raw,Static compression with model time,1765,32,0,1
+data_benchmark/hd12.raw,Static compression with model time,1232,32,0,1
+data_benchmark/nk01.raw,Static compression with model time,1224,32,0,1
+data_benchmark/df1h.raw,Adaptive compression with model time,3185,1,1,1
+data_benchmark/df1hvx.raw,Adaptive compression with model time,3641,1,1,1
+data_benchmark/df1v.raw,Adaptive compression with model time,3144,1,1,1
+data_benchmark/hd01.raw,Adaptive compression with model time,3811,1,1,1
+data_benchmark/hd02.raw,Adaptive compression with model time,3877,1,1,1
+data_benchmark/hd07.raw,Adaptive compression with model time,5252,1,1,1
+data_benchmark/hd08.raw,Adaptive compression with model time,4327,1,1,1
+data_benchmark/hd09.raw,Adaptive compression with model time,5043,1,1,1
+data_benchmark/hd12.raw,Adaptive compression with model time,4314,1,1,1
+data_benchmark/nk01.raw,Adaptive compression with model time,4149,1,1,1
+data_benchmark/df1h.raw,Adaptive compression with model time,2103,2,1,1
+data_benchmark/df1hvx.raw,Adaptive compression with model time,2326,2,1,1
+data_benchmark/df1v.raw,Adaptive compression with model time,1842,2,1,1
+data_benchmark/hd01.raw,Adaptive compression with model time,2055,2,1,1
+data_benchmark/hd02.raw,Adaptive compression with model time,2039,2,1,1
+data_benchmark/hd07.raw,Adaptive compression with model time,2358,2,1,1
+data_benchmark/hd08.raw,Adaptive compression with model time,2297,2,1,1
+data_benchmark/hd09.raw,Adaptive compression with model time,3674,2,1,1
+data_benchmark/hd12.raw,Adaptive compression with model time,3414,2,1,1
+data_benchmark/nk01.raw,Adaptive compression with model time,2629,2,1,1
+data_benchmark/df1h.raw,Adaptive compression with model time,1553,4,1,1
+data_benchmark/df1hvx.raw,Adaptive compression with model time,1097,4,1,1
+data_benchmark/df1v.raw,Adaptive compression with model time,959,4,1,1
+data_benchmark/hd01.raw,Adaptive compression with model time,1473,4,1,1
+data_benchmark/hd02.raw,Adaptive compression with model time,1813,4,1,1
+data_benchmark/hd07.raw,Adaptive compression with model time,2253,4,1,1
+data_benchmark/hd08.raw,Adaptive compression with model time,2639,4,1,1
+data_benchmark/hd09.raw,Adaptive compression with model time,2522,4,1,1
+data_benchmark/hd12.raw,Adaptive compression with model time,1601,4,1,1
+data_benchmark/nk01.raw,Adaptive compression with model time,1237,4,1,1
+data_benchmark/df1h.raw,Adaptive compression with model time,839,8,1,1
+data_benchmark/df1hvx.raw,Adaptive compression with model time,1176,8,1,1
+data_benchmark/df1v.raw,Adaptive compression with model time,824,8,1,1
+data_benchmark/hd01.raw,Adaptive compression with model time,1151,8,1,1
+data_benchmark/hd02.raw,Adaptive compression with model time,1151,8,1,1
+data_benchmark/hd07.raw,Adaptive compression with model time,1273,8,1,1
+data_benchmark/hd08.raw,Adaptive compression with model time,1681,8,1,1
+data_benchmark/hd09.raw,Adaptive compression with model time,1814,8,1,1
+data_benchmark/hd12.raw,Adaptive compression with model time,2012,8,1,1
+data_benchmark/nk01.raw,Adaptive compression with model time,1200,8,1,1
+data_benchmark/df1h.raw,Adaptive compression with model time,44634,16,1,1
+data_benchmark/df1hvx.raw,Adaptive compression with model time,1087,16,1,1
+data_benchmark/df1v.raw,Adaptive compression with model time,536,16,1,1
+data_benchmark/hd01.raw,Adaptive compression with model time,1140,16,1,1
+data_benchmark/hd02.raw,Adaptive compression with model time,32615,16,1,1
+data_benchmark/hd07.raw,Adaptive compression with model time,13149,16,1,1
+data_benchmark/hd08.raw,Adaptive compression with model time,23548,16,1,1
+data_benchmark/hd09.raw,Adaptive compression with model time,45985,16,1,1
+data_benchmark/hd12.raw,Adaptive compression with model time,2488,16,1,1
+data_benchmark/nk01.raw,Adaptive compression with model time,2619,16,1,1
+data_benchmark/df1h.raw,Adaptive compression with model time,1656,32,1,1
+data_benchmark/df1hvx.raw,Adaptive compression with model time,2064,32,1,1
+data_benchmark/df1v.raw,Adaptive compression with model time,2046,32,1,1
+data_benchmark/hd01.raw,Adaptive compression with model time,2005,32,1,1
+data_benchmark/hd02.raw,Adaptive compression with model time,2456,32,1,1
+data_benchmark/hd07.raw,Adaptive compression with model time,1861,32,1,1
+data_benchmark/hd08.raw,Adaptive compression with model time,2376,32,1,1
+data_benchmark/hd09.raw,Adaptive compression with model time,2919,32,1,1
+data_benchmark/hd12.raw,Adaptive compression with model time,1698,32,1,1
+data_benchmark/nk01.raw,Adaptive compression with model time,2557,32,1,1

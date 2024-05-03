@@ -174,6 +174,258 @@ private:
     uint16_t *_codePrefixes{reinterpret_cast<uint16_t *>(&_codePrefixesVector)}; ///< Array of prefixes for easier access to the vector.
     uint16v32_t _codeMasksVector;                                                ///< Vector of masks for the corresponding prefixes.
     uint16_t *_codeMasks{reinterpret_cast<uint16_t *>(&_codeMasksVector)};       ///< Array of masks for easier access to the vector.
+
+    // ------------------------------------------------------------------------------------------
+    // Section for performance measurements
+    // ------------------------------------------------------------------------------------------
+
+    std::chrono::_V2::system_clock::time_point _readInputFileStart;
+    inline void startReadInputFileTimer()
+    {
+    #ifdef _MEASURE_PARTIAL_EXECUTION_TIMES_
+        using namespace std::chrono;
+        _readInputFileStart = high_resolution_clock::now();
+    #endif
+    }
+    inline void stopReadInputFileTimer()
+    {
+    #ifdef _MEASURE_PARTIAL_EXECUTION_TIMES_
+        using namespace std::chrono;
+        using namespace std::chrono::_V2;
+        system_clock::time_point readInputFileEnd = high_resolution_clock::now();
+        _performanceCounters["Read input file time"] += duration_cast<microseconds>(readInputFileEnd - _readInputFileStart).count();
+    #endif
+    }
+
+    std::chrono::_V2::system_clock::time_point _writeOutputFileStart;
+    inline void startWriteOutputFileTimer()
+    {
+    #ifdef _MEASURE_PARTIAL_EXECUTION_TIMES_
+        using namespace std::chrono;
+        _writeOutputFileStart = high_resolution_clock::now();
+    #endif
+    }
+    inline void stopWriteOutputFileTimer()
+    {
+    #ifdef _MEASURE_PARTIAL_EXECUTION_TIMES_
+        using namespace std::chrono;
+        using namespace std::chrono::_V2;
+        system_clock::time_point writeOutputFileEnd = high_resolution_clock::now();
+        _performanceCounters["Write output file time"] += duration_cast<microseconds>(writeOutputFileEnd - _writeOutputFileStart).count();
+    #endif
+    }
+
+    std::chrono::_V2::system_clock::time_point _huffmanTreeRebuildStart;
+    inline void startHuffmanTreeRebuildTimer()
+    {
+    #ifdef _MEASURE_PARTIAL_EXECUTION_TIMES_
+        using namespace std::chrono;
+        _huffmanTreeRebuildStart = high_resolution_clock::now();
+    #endif
+    }
+    inline void stopHuffmanTreeRebuildTimer()
+    {
+    #ifdef _MEASURE_PARTIAL_EXECUTION_TIMES_
+        using namespace std::chrono;
+        using namespace std::chrono::_V2;
+        system_clock::time_point huffmanTreeRebuildEnd = high_resolution_clock::now();
+        _performanceCounters["Huffman tree rebuild time"] += duration_cast<microseconds>(huffmanTreeRebuildEnd - _huffmanTreeRebuildStart).count();
+    #endif
+    }
+
+    std::chrono::_V2::system_clock::time_point _transformRLEStart;
+    inline void startTransformRLETimer()
+    {
+    #ifdef _MEASURE_PARTIAL_EXECUTION_TIMES_
+        using namespace std::chrono;
+        #pragma omp master
+        {
+            _transformRLEStart = high_resolution_clock::now();
+        }
+    #endif
+    }
+    inline void stopTransformRLETimer()
+    {
+    #ifdef _MEASURE_PARTIAL_EXECUTION_TIMES_
+        using namespace std::chrono;
+        using namespace std::chrono::_V2;
+        #pragma omp master
+        {
+            system_clock::time_point transformRLEEnd = high_resolution_clock::now();
+            _performanceCounters["RLE transform time"] += duration_cast<microseconds>(transformRLEEnd - _transformRLEStart).count();
+        }
+    #endif
+    }
+
+    std::chrono::_V2::system_clock::time_point _deserializeTraversalStart;
+    inline void startDeserializeTraversalTimer()
+    {
+    #ifdef _MEASURE_PARTIAL_EXECUTION_TIMES_
+        using namespace std::chrono;
+        #pragma omp master
+        {
+            _deserializeTraversalStart = high_resolution_clock::now();
+        }
+    #endif
+    }
+    inline void stopDeserializeTraversalTimer()
+    {
+    #ifdef _MEASURE_PARTIAL_EXECUTION_TIMES_
+        using namespace std::chrono;
+        using namespace std::chrono::_V2;
+        #pragma omp master
+        {
+            system_clock::time_point deserializeTraversalEnd = high_resolution_clock::now();
+            _performanceCounters["Deserialize traversal time"] += duration_cast<microseconds>(deserializeTraversalEnd - _deserializeTraversalStart).count();
+        }
+    #endif
+    }
+
+    std::chrono::_V2::system_clock::time_point _reverseDiferenceModelStart;
+    inline void startReverseDiferenceModelTimer()
+    {
+    #ifdef _MEASURE_PARTIAL_EXECUTION_TIMES_
+        using namespace std::chrono;
+        #pragma omp master
+        {
+            _reverseDiferenceModelStart = high_resolution_clock::now();
+        }
+    #endif
+    }
+    inline void stopReverseDiferenceModelTimer()
+    {
+    #ifdef _MEASURE_PARTIAL_EXECUTION_TIMES_
+        using namespace std::chrono;
+        using namespace std::chrono::_V2;
+        #pragma omp master
+        {
+            system_clock::time_point applyDiferenceModelEnd = high_resolution_clock::now();
+            _performanceCounters["Difference model reversal time"] += duration_cast<microseconds>(applyDiferenceModelEnd - _reverseDiferenceModelStart).count();
+        }
+    #endif
+    }
+
+    std::chrono::_V2::system_clock::time_point _staticDecompressionStart;
+    inline void startStaticDecompressionTimer()
+    {
+    #ifdef _MEASURE_ALGORITHM_EXECUTION_TIMES_
+        using namespace std::chrono;
+        #pragma omp barrier
+        #pragma omp master
+        {
+            _staticDecompressionStart = high_resolution_clock::now();
+        }
+    #endif
+    }
+    inline void stopStaticDecompressionTimer()
+    {
+    #ifdef _MEASURE_ALGORITHM_EXECUTION_TIMES_
+        using namespace std::chrono;
+        using namespace std::chrono::_V2;
+        #pragma omp barrier
+        #pragma omp master
+        {
+            system_clock::time_point staticDecompressionEnd = high_resolution_clock::now();
+            _performanceCounters["Static decompression time"] += duration_cast<microseconds>(staticDecompressionEnd - _staticDecompressionStart).count();
+        }
+    #endif
+    }
+
+    std::chrono::_V2::system_clock::time_point _staticDecompressionWithModelStart;
+    inline void startStaticDecompressionWithModelTimer()
+    {
+    #ifdef _MEASURE_ALGORITHM_EXECUTION_TIMES_
+        using namespace std::chrono;
+        #pragma omp barrier
+        #pragma omp master
+        {
+            _staticDecompressionWithModelStart = high_resolution_clock::now();
+        }
+    #endif
+    }
+    inline void stopStaticDecompressionWithModelTimer()
+    {
+    #ifdef _MEASURE_ALGORITHM_EXECUTION_TIMES_
+        using namespace std::chrono;
+        using namespace std::chrono::_V2;
+        #pragma omp barrier
+        #pragma omp master
+        {
+            system_clock::time_point staticDecompressionWithModelEnd = high_resolution_clock::now();
+            _performanceCounters["Static decompression with model time"] += duration_cast<microseconds>(staticDecompressionWithModelEnd - _staticDecompressionWithModelStart).count();
+        }
+    #endif
+    }
+
+    std::chrono::_V2::system_clock::time_point _adaptiveDecompressionStart;
+    inline void startAdaptiveDecompressionTimer()
+    {
+    #ifdef _MEASURE_ALGORITHM_EXECUTION_TIMES_
+        using namespace std::chrono;
+        #pragma omp barrier
+        #pragma omp master
+        {
+            _adaptiveDecompressionStart = high_resolution_clock::now();
+        }
+    #endif
+    }
+    inline void stopAdaptiveDecompressionTimer()
+    {
+    #ifdef _MEASURE_ALGORITHM_EXECUTION_TIMES_
+        using namespace std::chrono;
+        using namespace std::chrono::_V2;
+        #pragma omp barrier
+        #pragma omp master
+        {
+            system_clock::time_point adaptiveDecompressionEnd = high_resolution_clock::now();
+            _performanceCounters["Adaptive decompression time"] += duration_cast<microseconds>(adaptiveDecompressionEnd - _adaptiveDecompressionStart).count();
+        }
+    #endif
+    }
+
+    std::chrono::_V2::system_clock::time_point _adaptiveDecompressionWithModelStart;
+    inline void startAdaptiveDecompressionWithModelTimer()
+    {
+    #ifdef _MEASURE_ALGORITHM_EXECUTION_TIMES_
+        using namespace std::chrono;
+        #pragma omp barrier
+        #pragma omp master
+        {
+            _adaptiveDecompressionWithModelStart = high_resolution_clock::now();
+        }
+    #endif
+    }
+    inline void stopAdaptiveDecompressionWithModelTimer()
+    {
+    #ifdef _MEASURE_ALGORITHM_EXECUTION_TIMES_
+        using namespace std::chrono;
+        using namespace std::chrono::_V2;
+        #pragma omp barrier
+        #pragma omp master
+        {
+            system_clock::time_point adaptiveDecompressionWithModelEnd = high_resolution_clock::now();
+            _performanceCounters["Adaptive decompression with model time"] += duration_cast<microseconds>(adaptiveDecompressionWithModelEnd - _adaptiveDecompressionWithModelStart).count();
+        }
+    #endif
+    }
+
+    std::chrono::_V2::system_clock::time_point _fullExecutionStart;
+    inline void startFullExecutionTimer()
+    {
+    #ifdef _MEASURE_FULL_EXECUTION_TIME_
+        using namespace std::chrono;
+        _fullExecutionStart = high_resolution_clock::now();
+    #endif
+    }
+    inline void stopFullExecutionTimer()
+    {
+    #ifdef _MEASURE_FULL_EXECUTION_TIME_
+        using namespace std::chrono;
+        using namespace std::chrono::_V2;
+        system_clock::time_point fullExecutionEnd = high_resolution_clock::now();
+        _performanceCounters["Full execution time"] = duration_cast<microseconds>(fullExecutionEnd - _fullExecutionStart).count();
+    #endif
+    }
 };
 
 #endif // _DECOMPRESSOR_H_

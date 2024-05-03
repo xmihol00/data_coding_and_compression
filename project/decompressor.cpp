@@ -34,6 +34,8 @@ void Decompressor::freeMemory()
 
 bool Decompressor::readInputFile()
 {
+    startReadInputFileTimer(); // NOP if partial measurements are disabled
+
     ifstream inputFile(_inputFileName, ios::binary);
     if (!inputFile.is_open())
     {
@@ -178,12 +180,14 @@ bool Decompressor::readInputFile()
     inputFile.read(reinterpret_cast<char *>(_compressedData), fileSize); // read the remaining compressed data
     inputFile.close();
     
+    stopReadInputFileTimer(); // NOP if partial measurements are disabled
     return true;
 }
 
 void Decompressor::parseHuffmanTree(uint16_t &readBytes)
 {
     DEBUG_PRINT("Parsing Huffman tree");
+    startHuffmanTreeRebuildTimer(); // NOP if partial measurements are disabled
 
     uint8_t depthIdx = 0;
     uint16_t lastCode = -1;
@@ -431,12 +435,15 @@ void Decompressor::parseHuffmanTree(uint16_t &readBytes)
         delta++;
     }
 #endif
+
+    stopHuffmanTreeRebuildTimer(); // NOP if partial measurements are disabled
     DEBUG_PRINT("Huffman tree parsed");
 }
 
 void Decompressor::parseThreadingInfo()
 {
     DEBUG_PRINT("Parsing threading info");
+
     uint8_t packedIdx = 0;
     uint8_t chunkIdx = 0;
 
@@ -663,6 +670,7 @@ void Decompressor::decompressStaticModel()
 {
     decompressStatic(); // use the regular static decompression
 
+    startReverseDiferenceModelTimer(); // NOP if partial measurements are disabled
     #pragma omp master
     {
         DEBUG_PRINT("Static decompression with model");
@@ -695,12 +703,14 @@ void Decompressor::decompressStaticModel()
     }
     #pragma omp taskwait
     #pragma omp barrier
+    stopReverseDiferenceModelTimer(); // NOP if partial measurements are disabled
 }
 
 void Decompressor::decompressAdaptiveModel()
 {
     decompressAdaptive(); // use the regular adaptive decompression
 
+    startReverseDiferenceModelTimer(); // NOP if partial measurements are disabled
     #pragma omp master
     {
         DEBUG_PRINT("Adaptive decompression with model");
@@ -732,10 +742,12 @@ void Decompressor::decompressAdaptiveModel()
     }
     #pragma omp taskwait
     #pragma omp barrier
+    stopReverseDiferenceModelTimer(); // NOP if partial measurements are disabled
 }
 
 void Decompressor::decompressStatic()
 {
+    startTransformRLETimer(); // NOP if partial measurements are disabled
     #pragma omp master
     {
         DEBUG_PRINT("Static decompression");
@@ -765,12 +777,14 @@ void Decompressor::decompressStatic()
     }
     #pragma omp taskwait
     #pragma omp barrier
+    stopTransformRLETimer(); // NOP if partial measurements are disabled
 }
 
 void Decompressor::decompressAdaptive()
 {
     decompressStatic();
 
+    startDeserializeTraversalTimer(); // NOP if partial measurements are disabled
     #pragma omp master
     {
         DEBUG_PRINT("Adaptive decompression");
@@ -796,10 +810,13 @@ void Decompressor::decompressAdaptive()
     }
     #pragma omp taskwait
     #pragma omp barrier
+    stopDeserializeTraversalTimer(); // NOP if partial measurements are disabled
 }
 
 void Decompressor::writeOutputFile()
 {
+    startWriteOutputFileTimer(); // NOP if partial measurements are disabled
+
     ofstream outputFile(_outputFileName, ios::binary);
     if (!outputFile.is_open())
     {
@@ -809,10 +826,14 @@ void Decompressor::writeOutputFile()
 
     outputFile.write(reinterpret_cast<char *>(_decompressedData), _size);
     outputFile.close();
+
+    stopWriteOutputFileTimer(); // NOP if partial measurements are disabled
 }
 
 void Decompressor::decompress(string inputFileName, string outputFileName)
 {
+    startFullExecutionTimer(); // NOP if full measurements are disabled
+
     _inputFileName = inputFileName;
     _outputFileName = outputFileName;
     if (readInputFile()) // the data are compressed 
@@ -824,28 +845,38 @@ void Decompressor::decompress(string inputFileName, string outputFileName)
             {
                 if (_header.getHeaderType() & ADAPTIVE)
                 {
+                    startAdaptiveDecompressionWithModelTimer(); // NOP if algorithm measurements are disabled
                     decompressAdaptiveModel();
+                    stopAdaptiveDecompressionWithModelTimer();  // NOP if algorithm measurements are disabled
                 }
                 else
                 {
+                    startStaticDecompressionWithModelTimer(); // NOP if algorithm measurements are disabled
                     decompressStaticModel();
+                    stopStaticDecompressionWithModelTimer();  // NOP if algorithm measurements are disabled
                 }
             }
             else
             {
                 if (_header.getHeaderType() & ADAPTIVE)
                 {
+                    startAdaptiveDecompressionTimer(); // NOP if algorithm measurements are disabled
                     decompressAdaptive();
+                    stopAdaptiveDecompressionTimer();  // NOP if algorithm measurements are disabled
                 }
                 else
                 {
+                    startStaticDecompressionTimer(); // NOP if algorithm measurements are disabled
                     decompressStatic();
+                    stopStaticDecompressionTimer();  // NOP if algorithm measurements are disabled
                 }
             }
         }
         
         writeOutputFile();
     }
-
     freeMemory();
+
+    stopFullExecutionTimer();   // NOP if full measurements are disabled
+    printPerformanceCounters(); // not NOP if any measurements are active
 }

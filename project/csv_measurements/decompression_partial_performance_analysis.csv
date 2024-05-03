@@ -1,0 +1,1177 @@
+file_name,measurement_name,value,number_of_threads,adaptive,model
+compressed_files/df1hvx.raw,Write output file time,3321,1,0,0
+compressed_files/df1hvx.raw,RLE transform time,2434,1,0,0
+compressed_files/df1hvx.raw,Read input file time,691,1,0,0
+compressed_files/df1hvx.raw,Huffman tree build time,6,1,0,0
+compressed_files/df1v.raw,Write output file time,3505,1,0,0
+compressed_files/df1v.raw,RLE transform time,182,1,0,0
+compressed_files/df1v.raw,Read input file time,660,1,0,0
+compressed_files/df1v.raw,Huffman tree build time,1,1,0,0
+compressed_files/hd01.raw,Write output file time,3162,1,0,0
+compressed_files/hd01.raw,RLE transform time,2304,1,0,0
+compressed_files/hd01.raw,Read input file time,660,1,0,0
+compressed_files/hd01.raw,Huffman tree build time,4,1,0,0
+compressed_files/hd02.raw,Write output file time,4107,1,0,0
+compressed_files/hd02.raw,RLE transform time,1784,1,0,0
+compressed_files/hd02.raw,Read input file time,585,1,0,0
+compressed_files/hd02.raw,Huffman tree build time,6,1,0,0
+compressed_files/hd07.raw,Write output file time,3753,1,0,0
+compressed_files/hd07.raw,RLE transform time,3176,1,0,0
+compressed_files/hd07.raw,Read input file time,666,1,0,0
+compressed_files/hd07.raw,Huffman tree build time,4,1,0,0
+compressed_files/hd08.raw,Write output file time,3031,1,0,0
+compressed_files/hd08.raw,RLE transform time,2486,1,0,0
+compressed_files/hd08.raw,Read input file time,611,1,0,0
+compressed_files/hd08.raw,Huffman tree build time,3,1,0,0
+compressed_files/hd09.raw,Write output file time,3653,1,0,0
+compressed_files/hd09.raw,RLE transform time,4213,1,0,0
+compressed_files/hd09.raw,Read input file time,690,1,0,0
+compressed_files/hd09.raw,Huffman tree build time,4,1,0,0
+compressed_files/hd12.raw,Write output file time,5694,1,0,0
+compressed_files/hd12.raw,RLE transform time,3204,1,0,0
+compressed_files/hd12.raw,Read input file time,1837,1,0,0
+compressed_files/hd12.raw,Huffman tree build time,4,1,0,0
+compressed_files/nk01.raw,Write output file time,3646,1,0,0
+compressed_files/nk01.raw,RLE transform time,4446,1,0,0
+compressed_files/nk01.raw,Read input file time,855,1,0,0
+compressed_files/nk01.raw,Huffman tree build time,6,1,0,0
+compressed_files/df1hvx.raw,Write output file time,5015,2,0,0
+compressed_files/df1hvx.raw,RLE transform time,1366,2,0,0
+compressed_files/df1hvx.raw,Read input file time,1479,2,0,0
+compressed_files/df1hvx.raw,Huffman tree build time,3,2,0,0
+compressed_files/df1v.raw,Write output file time,3969,2,0,0
+compressed_files/df1v.raw,RLE transform time,116,2,0,0
+compressed_files/df1v.raw,Read input file time,625,2,0,0
+compressed_files/df1v.raw,Huffman tree build time,1,2,0,0
+compressed_files/hd01.raw,Write output file time,4447,2,0,0
+compressed_files/hd01.raw,RLE transform time,1134,2,0,0
+compressed_files/hd01.raw,Read input file time,1583,2,0,0
+compressed_files/hd01.raw,Huffman tree build time,4,2,0,0
+compressed_files/hd02.raw,Write output file time,3648,2,0,0
+compressed_files/hd02.raw,RLE transform time,918,2,0,0
+compressed_files/hd02.raw,Read input file time,830,2,0,0
+compressed_files/hd02.raw,Huffman tree build time,6,2,0,0
+compressed_files/hd07.raw,Write output file time,5119,2,0,0
+compressed_files/hd07.raw,RLE transform time,1607,2,0,0
+compressed_files/hd07.raw,Read input file time,1766,2,0,0
+compressed_files/hd07.raw,Huffman tree build time,7,2,0,0
+compressed_files/hd08.raw,Write output file time,4499,2,0,0
+compressed_files/hd08.raw,RLE transform time,1511,2,0,0
+compressed_files/hd08.raw,Read input file time,1713,2,0,0
+compressed_files/hd08.raw,Huffman tree build time,3,2,0,0
+compressed_files/hd09.raw,Write output file time,3867,2,0,0
+compressed_files/hd09.raw,RLE transform time,2551,2,0,0
+compressed_files/hd09.raw,Read input file time,1065,2,0,0
+compressed_files/hd09.raw,Huffman tree build time,8,2,0,0
+compressed_files/hd12.raw,Write output file time,4388,2,0,0
+compressed_files/hd12.raw,RLE transform time,1687,2,0,0
+compressed_files/hd12.raw,Read input file time,2033,2,0,0
+compressed_files/hd12.raw,Huffman tree build time,4,2,0,0
+compressed_files/nk01.raw,Write output file time,3138,2,0,0
+compressed_files/nk01.raw,RLE transform time,2230,2,0,0
+compressed_files/nk01.raw,Read input file time,1126,2,0,0
+compressed_files/nk01.raw,Huffman tree build time,4,2,0,0
+compressed_files/df1hvx.raw,Write output file time,3946,4,0,0
+compressed_files/df1hvx.raw,RLE transform time,780,4,0,0
+compressed_files/df1hvx.raw,Read input file time,1247,4,0,0
+compressed_files/df1hvx.raw,Huffman tree build time,2,4,0,0
+compressed_files/df1v.raw,Write output file time,4627,4,0,0
+compressed_files/df1v.raw,RLE transform time,82,4,0,0
+compressed_files/df1v.raw,Read input file time,660,4,0,0
+compressed_files/df1v.raw,Huffman tree build time,1,4,0,0
+compressed_files/hd01.raw,Write output file time,3429,4,0,0
+compressed_files/hd01.raw,RLE transform time,704,4,0,0
+compressed_files/hd01.raw,Read input file time,631,4,0,0
+compressed_files/hd01.raw,Huffman tree build time,6,4,0,0
+compressed_files/hd02.raw,Write output file time,3035,4,0,0
+compressed_files/hd02.raw,RLE transform time,1234,4,0,0
+compressed_files/hd02.raw,Read input file time,654,4,0,0
+compressed_files/hd02.raw,Huffman tree build time,5,4,0,0
+compressed_files/hd07.raw,Write output file time,3166,4,0,0
+compressed_files/hd07.raw,RLE transform time,1322,4,0,0
+compressed_files/hd07.raw,Read input file time,754,4,0,0
+compressed_files/hd07.raw,Huffman tree build time,6,4,0,0
+compressed_files/hd08.raw,Write output file time,3213,4,0,0
+compressed_files/hd08.raw,RLE transform time,1290,4,0,0
+compressed_files/hd08.raw,Read input file time,1006,4,0,0
+compressed_files/hd08.raw,Huffman tree build time,3,4,0,0
+compressed_files/hd09.raw,Write output file time,3881,4,0,0
+compressed_files/hd09.raw,RLE transform time,1253,4,0,0
+compressed_files/hd09.raw,Read input file time,869,4,0,0
+compressed_files/hd09.raw,Huffman tree build time,7,4,0,0
+compressed_files/hd12.raw,Write output file time,3238,4,0,0
+compressed_files/hd12.raw,RLE transform time,967,4,0,0
+compressed_files/hd12.raw,Read input file time,863,4,0,0
+compressed_files/hd12.raw,Huffman tree build time,6,4,0,0
+compressed_files/nk01.raw,Write output file time,3075,4,0,0
+compressed_files/nk01.raw,RLE transform time,1600,4,0,0
+compressed_files/nk01.raw,Read input file time,700,4,0,0
+compressed_files/nk01.raw,Huffman tree build time,4,4,0,0
+compressed_files/df1hvx.raw,Write output file time,4378,8,0,0
+compressed_files/df1hvx.raw,RLE transform time,465,8,0,0
+compressed_files/df1hvx.raw,Read input file time,588,8,0,0
+compressed_files/df1hvx.raw,Huffman tree build time,2,8,0,0
+compressed_files/df1v.raw,Write output file time,5135,8,0,0
+compressed_files/df1v.raw,RLE transform time,66,8,0,0
+compressed_files/df1v.raw,Read input file time,561,8,0,0
+compressed_files/df1v.raw,Huffman tree build time,1,8,0,0
+compressed_files/hd01.raw,Write output file time,3042,8,0,0
+compressed_files/hd01.raw,RLE transform time,408,8,0,0
+compressed_files/hd01.raw,Read input file time,680,8,0,0
+compressed_files/hd01.raw,Huffman tree build time,4,8,0,0
+compressed_files/hd02.raw,Write output file time,3929,8,0,0
+compressed_files/hd02.raw,RLE transform time,752,8,0,0
+compressed_files/hd02.raw,Read input file time,642,8,0,0
+compressed_files/hd02.raw,Huffman tree build time,6,8,0,0
+compressed_files/hd07.raw,Write output file time,4170,8,0,0
+compressed_files/hd07.raw,RLE transform time,525,8,0,0
+compressed_files/hd07.raw,Read input file time,2268,8,0,0
+compressed_files/hd07.raw,Huffman tree build time,4,8,0,0
+compressed_files/hd08.raw,Write output file time,3355,8,0,0
+compressed_files/hd08.raw,RLE transform time,577,8,0,0
+compressed_files/hd08.raw,Read input file time,729,8,0,0
+compressed_files/hd08.raw,Huffman tree build time,5,8,0,0
+compressed_files/hd09.raw,Write output file time,4879,8,0,0
+compressed_files/hd09.raw,RLE transform time,666,8,0,0
+compressed_files/hd09.raw,Read input file time,623,8,0,0
+compressed_files/hd09.raw,Huffman tree build time,3,8,0,0
+compressed_files/hd12.raw,Write output file time,3077,8,0,0
+compressed_files/hd12.raw,RLE transform time,518,8,0,0
+compressed_files/hd12.raw,Read input file time,1981,8,0,0
+compressed_files/hd12.raw,Huffman tree build time,4,8,0,0
+compressed_files/nk01.raw,Write output file time,3232,8,0,0
+compressed_files/nk01.raw,RLE transform time,824,8,0,0
+compressed_files/nk01.raw,Read input file time,2115,8,0,0
+compressed_files/nk01.raw,Huffman tree build time,4,8,0,0
+compressed_files/df1hvx.raw,Write output file time,3239,16,0,0
+compressed_files/df1hvx.raw,RLE transform time,422,16,0,0
+compressed_files/df1hvx.raw,Read input file time,698,16,0,0
+compressed_files/df1hvx.raw,Huffman tree build time,2,16,0,0
+compressed_files/df1v.raw,Write output file time,4847,16,0,0
+compressed_files/df1v.raw,RLE transform time,107,16,0,0
+compressed_files/df1v.raw,Read input file time,446,16,0,0
+compressed_files/df1v.raw,Huffman tree build time,1,16,0,0
+compressed_files/hd01.raw,Write output file time,3600,16,0,0
+compressed_files/hd01.raw,RLE transform time,278,16,0,0
+compressed_files/hd01.raw,Read input file time,1240,16,0,0
+compressed_files/hd01.raw,Huffman tree build time,4,16,0,0
+compressed_files/hd02.raw,Write output file time,4380,16,0,0
+compressed_files/hd02.raw,RLE transform time,279,16,0,0
+compressed_files/hd02.raw,Read input file time,1691,16,0,0
+compressed_files/hd02.raw,Huffman tree build time,5,16,0,0
+compressed_files/hd07.raw,Write output file time,2865,16,0,0
+compressed_files/hd07.raw,RLE transform time,418,16,0,0
+compressed_files/hd07.raw,Read input file time,684,16,0,0
+compressed_files/hd07.raw,Huffman tree build time,4,16,0,0
+compressed_files/hd08.raw,Write output file time,4667,16,0,0
+compressed_files/hd08.raw,RLE transform time,447,16,0,0
+compressed_files/hd08.raw,Read input file time,701,16,0,0
+compressed_files/hd08.raw,Huffman tree build time,3,16,0,0
+compressed_files/hd09.raw,Write output file time,3288,16,0,0
+compressed_files/hd09.raw,RLE transform time,563,16,0,0
+compressed_files/hd09.raw,Read input file time,689,16,0,0
+compressed_files/hd09.raw,Huffman tree build time,6,16,0,0
+compressed_files/hd12.raw,Write output file time,3298,16,0,0
+compressed_files/hd12.raw,RLE transform time,3426,16,0,0
+compressed_files/hd12.raw,Read input file time,790,16,0,0
+compressed_files/hd12.raw,Huffman tree build time,5,16,0,0
+compressed_files/nk01.raw,Write output file time,5219,16,0,0
+compressed_files/nk01.raw,RLE transform time,584,16,0,0
+compressed_files/nk01.raw,Read input file time,870,16,0,0
+compressed_files/nk01.raw,Huffman tree build time,4,16,0,0
+compressed_files/df1hvx.raw,Write output file time,3490,32,0,0
+compressed_files/df1hvx.raw,RLE transform time,409,32,0,0
+compressed_files/df1hvx.raw,Read input file time,641,32,0,0
+compressed_files/df1hvx.raw,Huffman tree build time,2,32,0,0
+compressed_files/df1v.raw,Write output file time,4132,32,0,0
+compressed_files/df1v.raw,RLE transform time,538,32,0,0
+compressed_files/df1v.raw,Read input file time,599,32,0,0
+compressed_files/df1v.raw,Huffman tree build time,1,32,0,0
+compressed_files/hd01.raw,Write output file time,3098,32,0,0
+compressed_files/hd01.raw,RLE transform time,362,32,0,0
+compressed_files/hd01.raw,Read input file time,729,32,0,0
+compressed_files/hd01.raw,Huffman tree build time,4,32,0,0
+compressed_files/hd02.raw,Write output file time,3033,32,0,0
+compressed_files/hd02.raw,RLE transform time,540,32,0,0
+compressed_files/hd02.raw,Read input file time,1704,32,0,0
+compressed_files/hd02.raw,Huffman tree build time,6,32,0,0
+compressed_files/hd07.raw,Write output file time,4115,32,0,0
+compressed_files/hd07.raw,RLE transform time,462,32,0,0
+compressed_files/hd07.raw,Read input file time,1846,32,0,0
+compressed_files/hd07.raw,Huffman tree build time,6,32,0,0
+compressed_files/hd08.raw,Write output file time,5034,32,0,0
+compressed_files/hd08.raw,RLE transform time,384,32,0,0
+compressed_files/hd08.raw,Read input file time,688,32,0,0
+compressed_files/hd08.raw,Huffman tree build time,3,32,0,0
+compressed_files/hd09.raw,Write output file time,2967,32,0,0
+compressed_files/hd09.raw,RLE transform time,591,32,0,0
+compressed_files/hd09.raw,Read input file time,687,32,0,0
+compressed_files/hd09.raw,Huffman tree build time,3,32,0,0
+compressed_files/hd12.raw,Write output file time,3104,32,0,0
+compressed_files/hd12.raw,RLE transform time,373,32,0,0
+compressed_files/hd12.raw,Read input file time,685,32,0,0
+compressed_files/hd12.raw,Huffman tree build time,3,32,0,0
+compressed_files/nk01.raw,Write output file time,4821,32,0,0
+compressed_files/nk01.raw,RLE transform time,485,32,0,0
+compressed_files/nk01.raw,Read input file time,906,32,0,0
+compressed_files/nk01.raw,Huffman tree build time,6,32,0,0
+compressed_files/df1h.raw,Write output file time,3826,1,0,0
+compressed_files/df1h.raw,Serialize traversal time,380,1,0,0
+compressed_files/df1h.raw,RLE transform time,1034,1,0,0
+compressed_files/df1h.raw,Read input file time,1551,1,0,0
+compressed_files/df1h.raw,Huffman tree build time,1,1,0,0
+compressed_files/df1hvx.raw,Write output file time,3762,1,0,0
+compressed_files/df1hvx.raw,Serialize traversal time,375,1,0,0
+compressed_files/df1hvx.raw,RLE transform time,1866,1,0,0
+compressed_files/df1hvx.raw,Read input file time,689,1,0,0
+compressed_files/df1hvx.raw,Huffman tree build time,2,1,0,0
+compressed_files/df1v.raw,Write output file time,3573,1,0,0
+compressed_files/df1v.raw,Serialize traversal time,378,1,0,0
+compressed_files/df1v.raw,RLE transform time,1042,1,0,0
+compressed_files/df1v.raw,Read input file time,1621,1,0,0
+compressed_files/df1v.raw,Huffman tree build time,1,1,0,0
+compressed_files/hd01.raw,Write output file time,4531,1,0,0
+compressed_files/hd01.raw,Serialize traversal time,362,1,0,0
+compressed_files/hd01.raw,RLE transform time,1817,1,0,0
+compressed_files/hd01.raw,Read input file time,1360,1,0,0
+compressed_files/hd01.raw,Huffman tree build time,5,1,0,0
+compressed_files/hd02.raw,Write output file time,2831,1,0,0
+compressed_files/hd02.raw,Serialize traversal time,363,1,0,0
+compressed_files/hd02.raw,RLE transform time,1739,1,0,0
+compressed_files/hd02.raw,Read input file time,625,1,0,0
+compressed_files/hd02.raw,Huffman tree build time,4,1,0,0
+compressed_files/hd07.raw,Write output file time,2971,1,0,0
+compressed_files/hd07.raw,Serialize traversal time,343,1,0,0
+compressed_files/hd07.raw,RLE transform time,3117,1,0,0
+compressed_files/hd07.raw,Read input file time,705,1,0,0
+compressed_files/hd07.raw,Huffman tree build time,4,1,0,0
+compressed_files/hd08.raw,Write output file time,4876,1,0,0
+compressed_files/hd08.raw,Serialize traversal time,385,1,0,0
+compressed_files/hd08.raw,RLE transform time,2392,1,0,0
+compressed_files/hd08.raw,Read input file time,692,1,0,0
+compressed_files/hd08.raw,Huffman tree build time,3,1,0,0
+compressed_files/hd09.raw,Write output file time,4212,1,0,0
+compressed_files/hd09.raw,Serialize traversal time,352,1,0,0
+compressed_files/hd09.raw,RLE transform time,4116,1,0,0
+compressed_files/hd09.raw,Read input file time,814,1,0,0
+compressed_files/hd09.raw,Huffman tree build time,4,1,0,0
+compressed_files/hd12.raw,Write output file time,3779,1,0,0
+compressed_files/hd12.raw,Serialize traversal time,337,1,0,0
+compressed_files/hd12.raw,RLE transform time,3099,1,0,0
+compressed_files/hd12.raw,Read input file time,911,1,0,0
+compressed_files/hd12.raw,Huffman tree build time,4,1,0,0
+compressed_files/nk01.raw,Write output file time,3455,1,0,0
+compressed_files/nk01.raw,Serialize traversal time,311,1,0,0
+compressed_files/nk01.raw,RLE transform time,4261,1,0,0
+compressed_files/nk01.raw,Read input file time,812,1,0,0
+compressed_files/nk01.raw,Huffman tree build time,5,1,0,0
+compressed_files/df1h.raw,Write output file time,3758,2,0,0
+compressed_files/df1h.raw,Serialize traversal time,745,2,0,0
+compressed_files/df1h.raw,RLE transform time,643,2,0,0
+compressed_files/df1h.raw,Read input file time,797,2,0,0
+compressed_files/df1h.raw,Huffman tree build time,1,2,0,0
+compressed_files/df1hvx.raw,Write output file time,2716,2,0,0
+compressed_files/df1hvx.raw,Serialize traversal time,712,2,0,0
+compressed_files/df1hvx.raw,RLE transform time,960,2,0,0
+compressed_files/df1hvx.raw,Read input file time,1338,2,0,0
+compressed_files/df1hvx.raw,Huffman tree build time,2,2,0,0
+compressed_files/df1v.raw,Write output file time,5898,2,0,0
+compressed_files/df1v.raw,Serialize traversal time,768,2,0,0
+compressed_files/df1v.raw,RLE transform time,548,2,0,0
+compressed_files/df1v.raw,Read input file time,623,2,0,0
+compressed_files/df1v.raw,Huffman tree build time,1,2,0,0
+compressed_files/hd01.raw,Write output file time,4324,2,0,0
+compressed_files/hd01.raw,Serialize traversal time,715,2,0,0
+compressed_files/hd01.raw,RLE transform time,969,2,0,0
+compressed_files/hd01.raw,Read input file time,665,2,0,0
+compressed_files/hd01.raw,Huffman tree build time,4,2,0,0
+compressed_files/hd02.raw,Write output file time,4625,2,0,0
+compressed_files/hd02.raw,Serialize traversal time,686,2,0,0
+compressed_files/hd02.raw,RLE transform time,1832,2,0,0
+compressed_files/hd02.raw,Read input file time,1716,2,0,0
+compressed_files/hd02.raw,Huffman tree build time,6,2,0,0
+compressed_files/hd07.raw,Write output file time,3870,2,0,0
+compressed_files/hd07.raw,Serialize traversal time,682,2,0,0
+compressed_files/hd07.raw,RLE transform time,1594,2,0,0
+compressed_files/hd07.raw,Read input file time,731,2,0,0
+compressed_files/hd07.raw,Huffman tree build time,4,2,0,0
+compressed_files/hd08.raw,Write output file time,4247,2,0,0
+compressed_files/hd08.raw,Serialize traversal time,700,2,0,0
+compressed_files/hd08.raw,RLE transform time,1450,2,0,0
+compressed_files/hd08.raw,Read input file time,816,2,0,0
+compressed_files/hd08.raw,Huffman tree build time,5,2,0,0
+compressed_files/hd09.raw,Write output file time,3197,2,0,0
+compressed_files/hd09.raw,Serialize traversal time,635,2,0,0
+compressed_files/hd09.raw,RLE transform time,2100,2,0,0
+compressed_files/hd09.raw,Read input file time,789,2,0,0
+compressed_files/hd09.raw,Huffman tree build time,4,2,0,0
+compressed_files/hd12.raw,Write output file time,4420,2,0,0
+compressed_files/hd12.raw,Serialize traversal time,681,2,0,0
+compressed_files/hd12.raw,RLE transform time,1633,2,0,0
+compressed_files/hd12.raw,Read input file time,1767,2,0,0
+compressed_files/hd12.raw,Huffman tree build time,5,2,0,0
+compressed_files/nk01.raw,Write output file time,3369,2,0,0
+compressed_files/nk01.raw,Serialize traversal time,652,2,0,0
+compressed_files/nk01.raw,RLE transform time,2150,2,0,0
+compressed_files/nk01.raw,Read input file time,782,2,0,0
+compressed_files/nk01.raw,Huffman tree build time,4,2,0,0
+compressed_files/df1h.raw,Write output file time,5717,4,0,0
+compressed_files/df1h.raw,Serialize traversal time,792,4,0,0
+compressed_files/df1h.raw,RLE transform time,303,4,0,0
+compressed_files/df1h.raw,Read input file time,1735,4,0,0
+compressed_files/df1h.raw,Huffman tree build time,1,4,0,0
+compressed_files/df1hvx.raw,Write output file time,3277,4,0,0
+compressed_files/df1hvx.raw,Serialize traversal time,944,4,0,0
+compressed_files/df1hvx.raw,RLE transform time,674,4,0,0
+compressed_files/df1hvx.raw,Read input file time,1319,4,0,0
+compressed_files/df1hvx.raw,Huffman tree build time,3,4,0,0
+compressed_files/df1v.raw,Write output file time,3568,4,0,0
+compressed_files/df1v.raw,Serialize traversal time,1474,4,0,0
+compressed_files/df1v.raw,RLE transform time,293,4,0,0
+compressed_files/df1v.raw,Read input file time,655,4,0,0
+compressed_files/df1v.raw,Huffman tree build time,1,4,0,0
+compressed_files/hd01.raw,Write output file time,2966,4,0,0
+compressed_files/hd01.raw,Serialize traversal time,1122,4,0,0
+compressed_files/hd01.raw,RLE transform time,920,4,0,0
+compressed_files/hd01.raw,Read input file time,652,4,0,0
+compressed_files/hd01.raw,Huffman tree build time,6,4,0,0
+compressed_files/hd02.raw,Write output file time,4836,4,0,0
+compressed_files/hd02.raw,Serialize traversal time,1022,4,0,0
+compressed_files/hd02.raw,RLE transform time,919,4,0,0
+compressed_files/hd02.raw,Read input file time,755,4,0,0
+compressed_files/hd02.raw,Huffman tree build time,4,4,0,0
+compressed_files/hd07.raw,Write output file time,4858,4,0,0
+compressed_files/hd07.raw,Serialize traversal time,921,4,0,0
+compressed_files/hd07.raw,RLE transform time,824,4,0,0
+compressed_files/hd07.raw,Read input file time,779,4,0,0
+compressed_files/hd07.raw,Huffman tree build time,4,4,0,0
+compressed_files/hd08.raw,Write output file time,4098,4,0,0
+compressed_files/hd08.raw,Serialize traversal time,1077,4,0,0
+compressed_files/hd08.raw,RLE transform time,764,4,0,0
+compressed_files/hd08.raw,Read input file time,628,4,0,0
+compressed_files/hd08.raw,Huffman tree build time,5,4,0,0
+compressed_files/hd09.raw,Write output file time,4256,4,0,0
+compressed_files/hd09.raw,Serialize traversal time,826,4,0,0
+compressed_files/hd09.raw,RLE transform time,1395,4,0,0
+compressed_files/hd09.raw,Read input file time,2491,4,0,0
+compressed_files/hd09.raw,Huffman tree build time,4,4,0,0
+compressed_files/hd12.raw,Write output file time,5052,4,0,0
+compressed_files/hd12.raw,Serialize traversal time,825,4,0,0
+compressed_files/hd12.raw,RLE transform time,941,4,0,0
+compressed_files/hd12.raw,Read input file time,750,4,0,0
+compressed_files/hd12.raw,Huffman tree build time,6,4,0,0
+compressed_files/nk01.raw,Write output file time,4822,4,0,0
+compressed_files/nk01.raw,Serialize traversal time,1478,4,0,0
+compressed_files/nk01.raw,RLE transform time,1399,4,0,0
+compressed_files/nk01.raw,Read input file time,770,4,0,0
+compressed_files/nk01.raw,Huffman tree build time,4,4,0,0
+compressed_files/df1h.raw,Write output file time,4465,8,0,0
+compressed_files/df1h.raw,Serialize traversal time,1119,8,0,0
+compressed_files/df1h.raw,RLE transform time,211,8,0,0
+compressed_files/df1h.raw,Read input file time,592,8,0,0
+compressed_files/df1h.raw,Huffman tree build time,1,8,0,0
+compressed_files/df1hvx.raw,Write output file time,2992,8,0,0
+compressed_files/df1hvx.raw,Serialize traversal time,1645,8,0,0
+compressed_files/df1hvx.raw,RLE transform time,656,8,0,0
+compressed_files/df1hvx.raw,Read input file time,685,8,0,0
+compressed_files/df1hvx.raw,Huffman tree build time,5,8,0,0
+compressed_files/df1v.raw,Write output file time,3542,8,0,0
+compressed_files/df1v.raw,Serialize traversal time,1774,8,0,0
+compressed_files/df1v.raw,RLE transform time,271,8,0,0
+compressed_files/df1v.raw,Read input file time,1175,8,0,0
+compressed_files/df1v.raw,Huffman tree build time,1,8,0,0
+compressed_files/hd01.raw,Write output file time,3234,8,0,0
+compressed_files/hd01.raw,Serialize traversal time,1753,8,0,0
+compressed_files/hd01.raw,RLE transform time,426,8,0,0
+compressed_files/hd01.raw,Read input file time,658,8,0,0
+compressed_files/hd01.raw,Huffman tree build time,4,8,0,0
+compressed_files/hd02.raw,Write output file time,3976,8,0,0
+compressed_files/hd02.raw,Serialize traversal time,1746,8,0,0
+compressed_files/hd02.raw,RLE transform time,432,8,0,0
+compressed_files/hd02.raw,Read input file time,699,8,0,0
+compressed_files/hd02.raw,Huffman tree build time,3,8,0,0
+compressed_files/hd07.raw,Write output file time,5666,8,0,0
+compressed_files/hd07.raw,Serialize traversal time,1799,8,0,0
+compressed_files/hd07.raw,RLE transform time,619,8,0,0
+compressed_files/hd07.raw,Read input file time,684,8,0,0
+compressed_files/hd07.raw,Huffman tree build time,4,8,0,0
+compressed_files/hd08.raw,Write output file time,3513,8,0,0
+compressed_files/hd08.raw,Serialize traversal time,1744,8,0,0
+compressed_files/hd08.raw,RLE transform time,467,8,0,0
+compressed_files/hd08.raw,Read input file time,698,8,0,0
+compressed_files/hd08.raw,Huffman tree build time,3,8,0,0
+compressed_files/hd09.raw,Write output file time,3212,8,0,0
+compressed_files/hd09.raw,Serialize traversal time,1906,8,0,0
+compressed_files/hd09.raw,RLE transform time,655,8,0,0
+compressed_files/hd09.raw,Read input file time,730,8,0,0
+compressed_files/hd09.raw,Huffman tree build time,4,8,0,0
+compressed_files/hd12.raw,Write output file time,5384,8,0,0
+compressed_files/hd12.raw,Serialize traversal time,2054,8,0,0
+compressed_files/hd12.raw,RLE transform time,745,8,0,0
+compressed_files/hd12.raw,Read input file time,767,8,0,0
+compressed_files/hd12.raw,Huffman tree build time,6,8,0,0
+compressed_files/nk01.raw,Write output file time,5051,8,0,0
+compressed_files/nk01.raw,Serialize traversal time,2244,8,0,0
+compressed_files/nk01.raw,RLE transform time,660,8,0,0
+compressed_files/nk01.raw,Read input file time,819,8,0,0
+compressed_files/nk01.raw,Huffman tree build time,5,8,0,0
+compressed_files/df1h.raw,Write output file time,5203,16,0,0
+compressed_files/df1h.raw,Serialize traversal time,4023,16,0,0
+compressed_files/df1h.raw,RLE transform time,164,16,0,0
+compressed_files/df1h.raw,Read input file time,778,16,0,0
+compressed_files/df1h.raw,Huffman tree build time,1,16,0,0
+compressed_files/df1hvx.raw,Write output file time,2932,16,0,0
+compressed_files/df1hvx.raw,Serialize traversal time,3640,16,0,0
+compressed_files/df1hvx.raw,RLE transform time,250,16,0,0
+compressed_files/df1hvx.raw,Read input file time,1375,16,0,0
+compressed_files/df1hvx.raw,Huffman tree build time,2,16,0,0
+compressed_files/df1v.raw,Write output file time,5197,16,0,0
+compressed_files/df1v.raw,Serialize traversal time,5974,16,0,0
+compressed_files/df1v.raw,RLE transform time,170,16,0,0
+compressed_files/df1v.raw,Read input file time,685,16,0,0
+compressed_files/df1v.raw,Huffman tree build time,1,16,0,0
+compressed_files/hd01.raw,Write output file time,4256,16,0,0
+compressed_files/hd01.raw,Serialize traversal time,5237,16,0,0
+compressed_files/hd01.raw,RLE transform time,362,16,0,0
+compressed_files/hd01.raw,Read input file time,611,16,0,0
+compressed_files/hd01.raw,Huffman tree build time,4,16,0,0
+compressed_files/hd02.raw,Write output file time,3022,16,0,0
+compressed_files/hd02.raw,Serialize traversal time,5894,16,0,0
+compressed_files/hd02.raw,RLE transform time,1529,16,0,0
+compressed_files/hd02.raw,Read input file time,786,16,0,0
+compressed_files/hd02.raw,Huffman tree build time,4,16,0,0
+compressed_files/hd07.raw,Write output file time,5211,16,0,0
+compressed_files/hd07.raw,Serialize traversal time,6589,16,0,0
+compressed_files/hd07.raw,RLE transform time,416,16,0,0
+compressed_files/hd07.raw,Read input file time,1856,16,0,0
+compressed_files/hd07.raw,Huffman tree build time,4,16,0,0
+compressed_files/hd08.raw,Write output file time,5369,16,0,0
+compressed_files/hd08.raw,Serialize traversal time,4462,16,0,0
+compressed_files/hd08.raw,RLE transform time,312,16,0,0
+compressed_files/hd08.raw,Read input file time,840,16,0,0
+compressed_files/hd08.raw,Huffman tree build time,4,16,0,0
+compressed_files/hd09.raw,Write output file time,3209,16,0,0
+compressed_files/hd09.raw,Serialize traversal time,9938,16,0,0
+compressed_files/hd09.raw,RLE transform time,8021,16,0,0
+compressed_files/hd09.raw,Read input file time,761,16,0,0
+compressed_files/hd09.raw,Huffman tree build time,4,16,0,0
+compressed_files/hd12.raw,Write output file time,5348,16,0,0
+compressed_files/hd12.raw,Serialize traversal time,4042,16,0,0
+compressed_files/hd12.raw,RLE transform time,434,16,0,0
+compressed_files/hd12.raw,Read input file time,706,16,0,0
+compressed_files/hd12.raw,Huffman tree build time,4,16,0,0
+compressed_files/nk01.raw,Write output file time,2643,16,0,0
+compressed_files/nk01.raw,Serialize traversal time,4476,16,0,0
+compressed_files/nk01.raw,RLE transform time,770,16,0,0
+compressed_files/nk01.raw,Read input file time,522,16,0,0
+compressed_files/nk01.raw,Huffman tree build time,4,16,0,0
+compressed_files/df1h.raw,Write output file time,4223,32,0,0
+compressed_files/df1h.raw,Serialize traversal time,3121,32,0,0
+compressed_files/df1h.raw,RLE transform time,260,32,0,0
+compressed_files/df1h.raw,Read input file time,615,32,0,0
+compressed_files/df1h.raw,Huffman tree build time,1,32,0,0
+compressed_files/df1hvx.raw,Write output file time,3922,32,0,0
+compressed_files/df1hvx.raw,Serialize traversal time,3142,32,0,0
+compressed_files/df1hvx.raw,RLE transform time,379,32,0,0
+compressed_files/df1hvx.raw,Read input file time,644,32,0,0
+compressed_files/df1hvx.raw,Huffman tree build time,2,32,0,0
+compressed_files/df1v.raw,Write output file time,4639,32,0,0
+compressed_files/df1v.raw,Serialize traversal time,3489,32,0,0
+compressed_files/df1v.raw,RLE transform time,272,32,0,0
+compressed_files/df1v.raw,Read input file time,709,32,0,0
+compressed_files/df1v.raw,Huffman tree build time,1,32,0,0
+compressed_files/hd01.raw,Write output file time,4452,32,0,0
+compressed_files/hd01.raw,Serialize traversal time,3348,32,0,0
+compressed_files/hd01.raw,RLE transform time,320,32,0,0
+compressed_files/hd01.raw,Read input file time,681,32,0,0
+compressed_files/hd01.raw,Huffman tree build time,4,32,0,0
+compressed_files/hd02.raw,Write output file time,4240,32,0,0
+compressed_files/hd02.raw,Serialize traversal time,3408,32,0,0
+compressed_files/hd02.raw,RLE transform time,315,32,0,0
+compressed_files/hd02.raw,Read input file time,680,32,0,0
+compressed_files/hd02.raw,Huffman tree build time,6,32,0,0
+compressed_files/hd07.raw,Write output file time,4015,32,0,0
+compressed_files/hd07.raw,Serialize traversal time,3107,32,0,0
+compressed_files/hd07.raw,RLE transform time,461,32,0,0
+compressed_files/hd07.raw,Read input file time,691,32,0,0
+compressed_files/hd07.raw,Huffman tree build time,4,32,0,0
+compressed_files/hd08.raw,Write output file time,4886,32,0,0
+compressed_files/hd08.raw,Serialize traversal time,3403,32,0,0
+compressed_files/hd08.raw,RLE transform time,446,32,0,0
+compressed_files/hd08.raw,Read input file time,789,32,0,0
+compressed_files/hd08.raw,Huffman tree build time,3,32,0,0
+compressed_files/hd09.raw,Write output file time,4551,32,0,0
+compressed_files/hd09.raw,Serialize traversal time,3543,32,0,0
+compressed_files/hd09.raw,RLE transform time,618,32,0,0
+compressed_files/hd09.raw,Read input file time,649,32,0,0
+compressed_files/hd09.raw,Huffman tree build time,4,32,0,0
+compressed_files/hd12.raw,Write output file time,3224,32,0,0
+compressed_files/hd12.raw,Serialize traversal time,3046,32,0,0
+compressed_files/hd12.raw,RLE transform time,518,32,0,0
+compressed_files/hd12.raw,Read input file time,2794,32,0,0
+compressed_files/hd12.raw,Huffman tree build time,5,32,0,0
+compressed_files/nk01.raw,Write output file time,4367,32,0,0
+compressed_files/nk01.raw,Serialize traversal time,3009,32,0,0
+compressed_files/nk01.raw,RLE transform time,579,32,0,0
+compressed_files/nk01.raw,Read input file time,701,32,0,0
+compressed_files/nk01.raw,Huffman tree build time,4,32,0,0
+compressed_files/df1h.raw,Write output file time,3412,1,0,0
+compressed_files/df1h.raw,Difference model application time,234,1,0,0
+compressed_files/df1h.raw,RLE transform time,129,1,0,0
+compressed_files/df1h.raw,Read input file time,597,1,0,0
+compressed_files/df1h.raw,Huffman tree build time,0,1,0,0
+compressed_files/df1hvx.raw,Write output file time,3351,1,0,0
+compressed_files/df1hvx.raw,Difference model application time,285,1,0,0
+compressed_files/df1hvx.raw,RLE transform time,1502,1,0,0
+compressed_files/df1hvx.raw,Read input file time,542,1,0,0
+compressed_files/df1hvx.raw,Huffman tree build time,3,1,0,0
+compressed_files/df1v.raw,Write output file time,3401,1,0,0
+compressed_files/df1v.raw,Difference model application time,350,1,0,0
+compressed_files/df1v.raw,RLE transform time,220,1,0,0
+compressed_files/df1v.raw,Read input file time,1191,1,0,0
+compressed_files/df1v.raw,Huffman tree build time,1,1,0,0
+compressed_files/hd01.raw,Write output file time,3291,1,0,0
+compressed_files/hd01.raw,Difference model application time,204,1,0,0
+compressed_files/hd01.raw,RLE transform time,1885,1,0,0
+compressed_files/hd01.raw,Read input file time,1622,1,0,0
+compressed_files/hd01.raw,Huffman tree build time,4,1,0,0
+compressed_files/hd02.raw,Write output file time,3038,1,0,0
+compressed_files/hd02.raw,Difference model application time,209,1,0,0
+compressed_files/hd02.raw,RLE transform time,1882,1,0,0
+compressed_files/hd02.raw,Read input file time,1459,1,0,0
+compressed_files/hd02.raw,Huffman tree build time,15,1,0,0
+compressed_files/hd07.raw,Write output file time,4206,1,0,0
+compressed_files/hd07.raw,Difference model application time,182,1,0,0
+compressed_files/hd07.raw,RLE transform time,3169,1,0,0
+compressed_files/hd07.raw,Read input file time,701,1,0,0
+compressed_files/hd07.raw,Huffman tree build time,5,1,0,0
+compressed_files/hd08.raw,Write output file time,5270,1,0,0
+compressed_files/hd08.raw,Difference model application time,199,1,0,0
+compressed_files/hd08.raw,RLE transform time,2486,1,0,0
+compressed_files/hd08.raw,Read input file time,704,1,0,0
+compressed_files/hd08.raw,Huffman tree build time,4,1,0,0
+compressed_files/hd09.raw,Write output file time,4289,1,0,0
+compressed_files/hd09.raw,Difference model application time,178,1,0,0
+compressed_files/hd09.raw,RLE transform time,6226,1,0,0
+compressed_files/hd09.raw,Read input file time,742,1,0,0
+compressed_files/hd09.raw,Huffman tree build time,4,1,0,0
+compressed_files/hd12.raw,Write output file time,3913,1,0,0
+compressed_files/hd12.raw,Difference model application time,209,1,0,0
+compressed_files/hd12.raw,RLE transform time,3290,1,0,0
+compressed_files/hd12.raw,Read input file time,693,1,0,0
+compressed_files/hd12.raw,Huffman tree build time,3,1,0,0
+compressed_files/nk01.raw,Write output file time,3957,1,0,0
+compressed_files/nk01.raw,Difference model application time,167,1,0,0
+compressed_files/nk01.raw,RLE transform time,4274,1,0,0
+compressed_files/nk01.raw,Read input file time,2051,1,0,0
+compressed_files/nk01.raw,Huffman tree build time,15,1,0,0
+compressed_files/df1h.raw,Write output file time,3167,2,0,0
+compressed_files/df1h.raw,Difference model application time,168,2,0,0
+compressed_files/df1h.raw,RLE transform time,108,2,0,0
+compressed_files/df1h.raw,Read input file time,538,2,0,0
+compressed_files/df1h.raw,Huffman tree build time,1,2,0,0
+compressed_files/df1hvx.raw,Write output file time,4039,2,0,0
+compressed_files/df1hvx.raw,Difference model application time,129,2,0,0
+compressed_files/df1hvx.raw,RLE transform time,728,2,0,0
+compressed_files/df1hvx.raw,Read input file time,595,2,0,0
+compressed_files/df1hvx.raw,Huffman tree build time,3,2,0,0
+compressed_files/df1v.raw,Write output file time,3779,2,0,0
+compressed_files/df1v.raw,Difference model application time,124,2,0,0
+compressed_files/df1v.raw,RLE transform time,94,2,0,0
+compressed_files/df1v.raw,Read input file time,547,2,0,0
+compressed_files/df1v.raw,Huffman tree build time,0,2,0,0
+compressed_files/hd01.raw,Write output file time,4352,2,0,0
+compressed_files/hd01.raw,Difference model application time,201,2,0,0
+compressed_files/hd01.raw,RLE transform time,1080,2,0,0
+compressed_files/hd01.raw,Read input file time,688,2,0,0
+compressed_files/hd01.raw,Huffman tree build time,6,2,0,0
+compressed_files/hd02.raw,Write output file time,3110,2,0,0
+compressed_files/hd02.raw,Difference model application time,185,2,0,0
+compressed_files/hd02.raw,RLE transform time,1022,2,0,0
+compressed_files/hd02.raw,Read input file time,653,2,0,0
+compressed_files/hd02.raw,Huffman tree build time,6,2,0,0
+compressed_files/hd07.raw,Write output file time,4458,2,0,0
+compressed_files/hd07.raw,Difference model application time,115,2,0,0
+compressed_files/hd07.raw,RLE transform time,1956,2,0,0
+compressed_files/hd07.raw,Read input file time,1608,2,0,0
+compressed_files/hd07.raw,Huffman tree build time,6,2,0,0
+compressed_files/hd08.raw,Write output file time,4689,2,0,0
+compressed_files/hd08.raw,Difference model application time,124,2,0,0
+compressed_files/hd08.raw,RLE transform time,1490,2,0,0
+compressed_files/hd08.raw,Read input file time,443,2,0,0
+compressed_files/hd08.raw,Huffman tree build time,4,2,0,0
+compressed_files/hd09.raw,Write output file time,5012,2,0,0
+compressed_files/hd09.raw,Difference model application time,100,2,0,0
+compressed_files/hd09.raw,RLE transform time,2157,2,0,0
+compressed_files/hd09.raw,Read input file time,680,2,0,0
+compressed_files/hd09.raw,Huffman tree build time,3,2,0,0
+compressed_files/hd12.raw,Write output file time,3072,2,0,0
+compressed_files/hd12.raw,Difference model application time,112,2,0,0
+compressed_files/hd12.raw,RLE transform time,1674,2,0,0
+compressed_files/hd12.raw,Read input file time,685,2,0,0
+compressed_files/hd12.raw,Huffman tree build time,3,2,0,0
+compressed_files/nk01.raw,Write output file time,3802,2,0,0
+compressed_files/nk01.raw,Difference model application time,259,2,0,0
+compressed_files/nk01.raw,RLE transform time,3000,2,0,0
+compressed_files/nk01.raw,Read input file time,2176,2,0,0
+compressed_files/nk01.raw,Huffman tree build time,5,2,0,0
+compressed_files/df1h.raw,Write output file time,2974,4,0,0
+compressed_files/df1h.raw,Difference model application time,102,4,0,0
+compressed_files/df1h.raw,RLE transform time,75,4,0,0
+compressed_files/df1h.raw,Read input file time,576,4,0,0
+compressed_files/df1h.raw,Huffman tree build time,0,4,0,0
+compressed_files/df1hvx.raw,Write output file time,2981,4,0,0
+compressed_files/df1hvx.raw,Difference model application time,72,4,0,0
+compressed_files/df1hvx.raw,RLE transform time,481,4,0,0
+compressed_files/df1hvx.raw,Read input file time,606,4,0,0
+compressed_files/df1hvx.raw,Huffman tree build time,3,4,0,0
+compressed_files/df1v.raw,Write output file time,2925,4,0,0
+compressed_files/df1v.raw,Difference model application time,70,4,0,0
+compressed_files/df1v.raw,RLE transform time,81,4,0,0
+compressed_files/df1v.raw,Read input file time,550,4,0,0
+compressed_files/df1v.raw,Huffman tree build time,1,4,0,0
+compressed_files/hd01.raw,Write output file time,3767,4,0,0
+compressed_files/hd01.raw,Difference model application time,70,4,0,0
+compressed_files/hd01.raw,RLE transform time,697,4,0,0
+compressed_files/hd01.raw,Read input file time,1521,4,0,0
+compressed_files/hd01.raw,Huffman tree build time,4,4,0,0
+compressed_files/hd02.raw,Write output file time,3501,4,0,0
+compressed_files/hd02.raw,Difference model application time,80,4,0,0
+compressed_files/hd02.raw,RLE transform time,701,4,0,0
+compressed_files/hd02.raw,Read input file time,631,4,0,0
+compressed_files/hd02.raw,Huffman tree build time,4,4,0,0
+compressed_files/hd07.raw,Write output file time,4173,4,0,0
+compressed_files/hd07.raw,Difference model application time,64,4,0,0
+compressed_files/hd07.raw,RLE transform time,837,4,0,0
+compressed_files/hd07.raw,Read input file time,1597,4,0,0
+compressed_files/hd07.raw,Huffman tree build time,3,4,0,0
+compressed_files/hd08.raw,Write output file time,2973,4,0,0
+compressed_files/hd08.raw,Difference model application time,78,4,0,0
+compressed_files/hd08.raw,RLE transform time,892,4,0,0
+compressed_files/hd08.raw,Read input file time,824,4,0,0
+compressed_files/hd08.raw,Huffman tree build time,7,4,0,0
+compressed_files/hd09.raw,Write output file time,4352,4,0,0
+compressed_files/hd09.raw,Difference model application time,80,4,0,0
+compressed_files/hd09.raw,RLE transform time,1183,4,0,0
+compressed_files/hd09.raw,Read input file time,655,4,0,0
+compressed_files/hd09.raw,Huffman tree build time,3,4,0,0
+compressed_files/hd12.raw,Write output file time,4701,4,0,0
+compressed_files/hd12.raw,Difference model application time,66,4,0,0
+compressed_files/hd12.raw,RLE transform time,863,4,0,0
+compressed_files/hd12.raw,Read input file time,742,4,0,0
+compressed_files/hd12.raw,Huffman tree build time,4,4,0,0
+compressed_files/nk01.raw,Write output file time,3398,4,0,0
+compressed_files/nk01.raw,Difference model application time,63,4,0,0
+compressed_files/nk01.raw,RLE transform time,1105,4,0,0
+compressed_files/nk01.raw,Read input file time,742,4,0,0
+compressed_files/nk01.raw,Huffman tree build time,6,4,0,0
+compressed_files/df1h.raw,Write output file time,3565,8,0,0
+compressed_files/df1h.raw,Difference model application time,85,8,0,0
+compressed_files/df1h.raw,RLE transform time,74,8,0,0
+compressed_files/df1h.raw,Read input file time,720,8,0,0
+compressed_files/df1h.raw,Huffman tree build time,0,8,0,0
+compressed_files/df1hvx.raw,Write output file time,3518,8,0,0
+compressed_files/df1hvx.raw,Difference model application time,77,8,0,0
+compressed_files/df1hvx.raw,RLE transform time,305,8,0,0
+compressed_files/df1hvx.raw,Read input file time,554,8,0,0
+compressed_files/df1hvx.raw,Huffman tree build time,5,8,0,0
+compressed_files/df1v.raw,Write output file time,3082,8,0,0
+compressed_files/df1v.raw,Difference model application time,65,8,0,0
+compressed_files/df1v.raw,RLE transform time,74,8,0,0
+compressed_files/df1v.raw,Read input file time,554,8,0,0
+compressed_files/df1v.raw,Huffman tree build time,2,8,0,0
+compressed_files/hd01.raw,Write output file time,2985,8,0,0
+compressed_files/hd01.raw,Difference model application time,64,8,0,0
+compressed_files/hd01.raw,RLE transform time,461,8,0,0
+compressed_files/hd01.raw,Read input file time,1634,8,0,0
+compressed_files/hd01.raw,Huffman tree build time,7,8,0,0
+compressed_files/hd02.raw,Write output file time,4317,8,0,0
+compressed_files/hd02.raw,Difference model application time,59,8,0,0
+compressed_files/hd02.raw,RLE transform time,401,8,0,0
+compressed_files/hd02.raw,Read input file time,570,8,0,0
+compressed_files/hd02.raw,Huffman tree build time,4,8,0,0
+compressed_files/hd07.raw,Write output file time,4222,8,0,0
+compressed_files/hd07.raw,Difference model application time,61,8,0,0
+compressed_files/hd07.raw,RLE transform time,499,8,0,0
+compressed_files/hd07.raw,Read input file time,1592,8,0,0
+compressed_files/hd07.raw,Huffman tree build time,3,8,0,0
+compressed_files/hd08.raw,Write output file time,5671,8,0,0
+compressed_files/hd08.raw,Difference model application time,60,8,0,0
+compressed_files/hd08.raw,RLE transform time,545,8,0,0
+compressed_files/hd08.raw,Read input file time,1790,8,0,0
+compressed_files/hd08.raw,Huffman tree build time,4,8,0,0
+compressed_files/hd09.raw,Write output file time,3554,8,0,0
+compressed_files/hd09.raw,Difference model application time,55,8,0,0
+compressed_files/hd09.raw,RLE transform time,1048,8,0,0
+compressed_files/hd09.raw,Read input file time,804,8,0,0
+compressed_files/hd09.raw,Huffman tree build time,7,8,0,0
+compressed_files/hd12.raw,Write output file time,3013,8,0,0
+compressed_files/hd12.raw,Difference model application time,106,8,0,0
+compressed_files/hd12.raw,RLE transform time,742,8,0,0
+compressed_files/hd12.raw,Read input file time,714,8,0,0
+compressed_files/hd12.raw,Huffman tree build time,4,8,0,0
+compressed_files/nk01.raw,Write output file time,4218,8,0,0
+compressed_files/nk01.raw,Difference model application time,53,8,0,0
+compressed_files/nk01.raw,RLE transform time,655,8,0,0
+compressed_files/nk01.raw,Read input file time,658,8,0,0
+compressed_files/nk01.raw,Huffman tree build time,6,8,0,0
+compressed_files/df1h.raw,Write output file time,7031,16,0,0
+compressed_files/df1h.raw,Difference model application time,156,16,0,0
+compressed_files/df1h.raw,RLE transform time,315,16,0,0
+compressed_files/df1h.raw,Read input file time,789,16,0,0
+compressed_files/df1h.raw,Huffman tree build time,0,16,0,0
+compressed_files/df1hvx.raw,Write output file time,5242,16,0,0
+compressed_files/df1hvx.raw,Difference model application time,307,16,0,0
+compressed_files/df1hvx.raw,RLE transform time,1353,16,0,0
+compressed_files/df1hvx.raw,Read input file time,798,16,0,0
+compressed_files/df1hvx.raw,Huffman tree build time,3,16,0,0
+compressed_files/df1v.raw,Write output file time,3226,16,0,0
+compressed_files/df1v.raw,Difference model application time,94,16,0,0
+compressed_files/df1v.raw,RLE transform time,98,16,0,0
+compressed_files/df1v.raw,Read input file time,651,16,0,0
+compressed_files/df1v.raw,Huffman tree build time,4,16,0,0
+compressed_files/hd01.raw,Write output file time,5127,16,0,0
+compressed_files/hd01.raw,Difference model application time,5252,16,0,0
+compressed_files/hd01.raw,RLE transform time,3816,16,0,0
+compressed_files/hd01.raw,Read input file time,1672,16,0,0
+compressed_files/hd01.raw,Huffman tree build time,4,16,0,0
+compressed_files/hd02.raw,Write output file time,3554,16,0,0
+compressed_files/hd02.raw,Difference model application time,73,16,0,0
+compressed_files/hd02.raw,RLE transform time,275,16,0,0
+compressed_files/hd02.raw,Read input file time,702,16,0,0
+compressed_files/hd02.raw,Huffman tree build time,4,16,0,0
+compressed_files/hd07.raw,Write output file time,4868,16,0,0
+compressed_files/hd07.raw,Difference model application time,160,16,0,0
+compressed_files/hd07.raw,RLE transform time,604,16,0,0
+compressed_files/hd07.raw,Read input file time,1727,16,0,0
+compressed_files/hd07.raw,Huffman tree build time,3,16,0,0
+compressed_files/hd08.raw,Write output file time,5545,16,0,0
+compressed_files/hd08.raw,Difference model application time,88,16,0,0
+compressed_files/hd08.raw,RLE transform time,498,16,0,0
+compressed_files/hd08.raw,Read input file time,1132,16,0,0
+compressed_files/hd08.raw,Huffman tree build time,4,16,0,0
+compressed_files/hd09.raw,Write output file time,3298,16,0,0
+compressed_files/hd09.raw,Difference model application time,84,16,0,0
+compressed_files/hd09.raw,RLE transform time,616,16,0,0
+compressed_files/hd09.raw,Read input file time,747,16,0,0
+compressed_files/hd09.raw,Huffman tree build time,4,16,0,0
+compressed_files/hd12.raw,Write output file time,3111,16,0,0
+compressed_files/hd12.raw,Difference model application time,4997,16,0,0
+compressed_files/hd12.raw,RLE transform time,3098,16,0,0
+compressed_files/hd12.raw,Read input file time,735,16,0,0
+compressed_files/hd12.raw,Huffman tree build time,5,16,0,0
+compressed_files/nk01.raw,Write output file time,5259,16,0,0
+compressed_files/nk01.raw,Difference model application time,4998,16,0,0
+compressed_files/nk01.raw,RLE transform time,3753,16,0,0
+compressed_files/nk01.raw,Read input file time,722,16,0,0
+compressed_files/nk01.raw,Huffman tree build time,4,16,0,0
+compressed_files/df1h.raw,Write output file time,3986,32,0,0
+compressed_files/df1h.raw,Difference model application time,258,32,0,0
+compressed_files/df1h.raw,RLE transform time,268,32,0,0
+compressed_files/df1h.raw,Read input file time,667,32,0,0
+compressed_files/df1h.raw,Huffman tree build time,0,32,0,0
+compressed_files/df1hvx.raw,Write output file time,4684,32,0,0
+compressed_files/df1hvx.raw,Difference model application time,189,32,0,0
+compressed_files/df1hvx.raw,RLE transform time,290,32,0,0
+compressed_files/df1hvx.raw,Read input file time,523,32,0,0
+compressed_files/df1hvx.raw,Huffman tree build time,3,32,0,0
+compressed_files/df1v.raw,Write output file time,4295,32,0,0
+compressed_files/df1v.raw,Difference model application time,200,32,0,0
+compressed_files/df1v.raw,RLE transform time,254,32,0,0
+compressed_files/df1v.raw,Read input file time,660,32,0,0
+compressed_files/df1v.raw,Huffman tree build time,2,32,0,0
+compressed_files/hd01.raw,Write output file time,5078,32,0,0
+compressed_files/hd01.raw,Difference model application time,174,32,0,0
+compressed_files/hd01.raw,RLE transform time,294,32,0,0
+compressed_files/hd01.raw,Read input file time,623,32,0,0
+compressed_files/hd01.raw,Huffman tree build time,5,32,0,0
+compressed_files/hd02.raw,Write output file time,3460,32,0,0
+compressed_files/hd02.raw,Difference model application time,176,32,0,0
+compressed_files/hd02.raw,RLE transform time,336,32,0,0
+compressed_files/hd02.raw,Read input file time,1468,32,0,0
+compressed_files/hd02.raw,Huffman tree build time,4,32,0,0
+compressed_files/hd07.raw,Write output file time,2877,32,0,0
+compressed_files/hd07.raw,Difference model application time,182,32,0,0
+compressed_files/hd07.raw,RLE transform time,420,32,0,0
+compressed_files/hd07.raw,Read input file time,1832,32,0,0
+compressed_files/hd07.raw,Huffman tree build time,3,32,0,0
+compressed_files/hd08.raw,Write output file time,4553,32,0,0
+compressed_files/hd08.raw,Difference model application time,182,32,0,0
+compressed_files/hd08.raw,RLE transform time,746,32,0,0
+compressed_files/hd08.raw,Read input file time,1618,32,0,0
+compressed_files/hd08.raw,Huffman tree build time,6,32,0,0
+compressed_files/hd09.raw,Write output file time,4163,32,0,0
+compressed_files/hd09.raw,Difference model application time,218,32,0,0
+compressed_files/hd09.raw,RLE transform time,649,32,0,0
+compressed_files/hd09.raw,Read input file time,695,32,0,0
+compressed_files/hd09.raw,Huffman tree build time,4,32,0,0
+compressed_files/hd12.raw,Write output file time,3327,32,0,0
+compressed_files/hd12.raw,Difference model application time,184,32,0,0
+compressed_files/hd12.raw,RLE transform time,483,32,0,0
+compressed_files/hd12.raw,Read input file time,2104,32,0,0
+compressed_files/hd12.raw,Huffman tree build time,4,32,0,0
+compressed_files/nk01.raw,Write output file time,4717,32,0,0
+compressed_files/nk01.raw,Difference model application time,448,32,0,0
+compressed_files/nk01.raw,RLE transform time,857,32,0,0
+compressed_files/nk01.raw,Read input file time,757,32,0,0
+compressed_files/nk01.raw,Huffman tree build time,4,32,0,0
+compressed_files/df1h.raw,Write output file time,4789,1,0,0
+compressed_files/df1h.raw,Difference model application time,133,1,0,0
+compressed_files/df1h.raw,Serialize traversal time,410,1,0,0
+compressed_files/df1h.raw,RLE transform time,128,1,0,0
+compressed_files/df1h.raw,Read input file time,463,1,0,0
+compressed_files/df1h.raw,Huffman tree build time,0,1,0,0
+compressed_files/df1hvx.raw,Write output file time,3720,1,0,0
+compressed_files/df1hvx.raw,Difference model application time,124,1,0,0
+compressed_files/df1hvx.raw,Serialize traversal time,394,1,0,0
+compressed_files/df1hvx.raw,RLE transform time,1048,1,0,0
+compressed_files/df1hvx.raw,Read input file time,557,1,0,0
+compressed_files/df1hvx.raw,Huffman tree build time,3,1,0,0
+compressed_files/df1v.raw,Write output file time,4012,1,0,0
+compressed_files/df1v.raw,Difference model application time,131,1,0,0
+compressed_files/df1v.raw,Serialize traversal time,396,1,0,0
+compressed_files/df1v.raw,RLE transform time,148,1,0,0
+compressed_files/df1v.raw,Read input file time,550,1,0,0
+compressed_files/df1v.raw,Huffman tree build time,0,1,0,0
+compressed_files/hd01.raw,Write output file time,2995,1,0,0
+compressed_files/hd01.raw,Difference model application time,142,1,0,0
+compressed_files/hd01.raw,Serialize traversal time,397,1,0,0
+compressed_files/hd01.raw,RLE transform time,2898,1,0,0
+compressed_files/hd01.raw,Read input file time,1996,1,0,0
+compressed_files/hd01.raw,Huffman tree build time,5,1,0,0
+compressed_files/hd02.raw,Write output file time,2792,1,0,0
+compressed_files/hd02.raw,Difference model application time,131,1,0,0
+compressed_files/hd02.raw,Serialize traversal time,366,1,0,0
+compressed_files/hd02.raw,RLE transform time,1781,1,0,0
+compressed_files/hd02.raw,Read input file time,1272,1,0,0
+compressed_files/hd02.raw,Huffman tree build time,5,1,0,0
+compressed_files/hd07.raw,Write output file time,4971,1,0,0
+compressed_files/hd07.raw,Difference model application time,127,1,0,0
+compressed_files/hd07.raw,Serialize traversal time,351,1,0,0
+compressed_files/hd07.raw,RLE transform time,3179,1,0,0
+compressed_files/hd07.raw,Read input file time,502,1,0,0
+compressed_files/hd07.raw,Huffman tree build time,3,1,0,0
+compressed_files/hd08.raw,Write output file time,4654,1,0,0
+compressed_files/hd08.raw,Difference model application time,132,1,0,0
+compressed_files/hd08.raw,Serialize traversal time,370,1,0,0
+compressed_files/hd08.raw,RLE transform time,2406,1,0,0
+compressed_files/hd08.raw,Read input file time,628,1,0,0
+compressed_files/hd08.raw,Huffman tree build time,4,1,0,0
+compressed_files/hd09.raw,Write output file time,5451,1,0,0
+compressed_files/hd09.raw,Difference model application time,124,1,0,0
+compressed_files/hd09.raw,Serialize traversal time,336,1,0,0
+compressed_files/hd09.raw,RLE transform time,4160,1,0,0
+compressed_files/hd09.raw,Read input file time,981,1,0,0
+compressed_files/hd09.raw,Huffman tree build time,9,1,0,0
+compressed_files/hd12.raw,Write output file time,4407,1,0,0
+compressed_files/hd12.raw,Difference model application time,123,1,0,0
+compressed_files/hd12.raw,Serialize traversal time,338,1,0,0
+compressed_files/hd12.raw,RLE transform time,3133,1,0,0
+compressed_files/hd12.raw,Read input file time,715,1,0,0
+compressed_files/hd12.raw,Huffman tree build time,4,1,0,0
+compressed_files/nk01.raw,Write output file time,5167,1,0,0
+compressed_files/nk01.raw,Difference model application time,126,1,0,0
+compressed_files/nk01.raw,Serialize traversal time,334,1,0,0
+compressed_files/nk01.raw,RLE transform time,4405,1,0,0
+compressed_files/nk01.raw,Read input file time,933,1,0,0
+compressed_files/nk01.raw,Huffman tree build time,5,1,0,0
+compressed_files/df1h.raw,Write output file time,3674,2,0,0
+compressed_files/df1h.raw,Difference model application time,60,2,0,0
+compressed_files/df1h.raw,Serialize traversal time,773,2,0,0
+compressed_files/df1h.raw,RLE transform time,90,2,0,0
+compressed_files/df1h.raw,Read input file time,613,2,0,0
+compressed_files/df1h.raw,Huffman tree build time,0,2,0,0
+compressed_files/df1hvx.raw,Write output file time,4656,2,0,0
+compressed_files/df1hvx.raw,Difference model application time,60,2,0,0
+compressed_files/df1hvx.raw,Serialize traversal time,757,2,0,0
+compressed_files/df1hvx.raw,RLE transform time,558,2,0,0
+compressed_files/df1hvx.raw,Read input file time,630,2,0,0
+compressed_files/df1hvx.raw,Huffman tree build time,3,2,0,0
+compressed_files/df1v.raw,Write output file time,4967,2,0,0
+compressed_files/df1v.raw,Difference model application time,61,2,0,0
+compressed_files/df1v.raw,Serialize traversal time,731,2,0,0
+compressed_files/df1v.raw,RLE transform time,104,2,0,0
+compressed_files/df1v.raw,Read input file time,732,2,0,0
+compressed_files/df1v.raw,Huffman tree build time,0,2,0,0
+compressed_files/hd01.raw,Write output file time,4256,2,0,0
+compressed_files/hd01.raw,Difference model application time,84,2,0,0
+compressed_files/hd01.raw,Serialize traversal time,706,2,0,0
+compressed_files/hd01.raw,RLE transform time,987,2,0,0
+compressed_files/hd01.raw,Read input file time,1463,2,0,0
+compressed_files/hd01.raw,Huffman tree build time,5,2,0,0
+compressed_files/hd02.raw,Write output file time,4984,2,0,0
+compressed_files/hd02.raw,Difference model application time,64,2,0,0
+compressed_files/hd02.raw,Serialize traversal time,729,2,0,0
+compressed_files/hd02.raw,RLE transform time,918,2,0,0
+compressed_files/hd02.raw,Read input file time,1496,2,0,0
+compressed_files/hd02.raw,Huffman tree build time,5,2,0,0
+compressed_files/hd07.raw,Write output file time,5693,2,0,0
+compressed_files/hd07.raw,Difference model application time,74,2,0,0
+compressed_files/hd07.raw,Serialize traversal time,616,2,0,0
+compressed_files/hd07.raw,RLE transform time,1942,2,0,0
+compressed_files/hd07.raw,Read input file time,1877,2,0,0
+compressed_files/hd07.raw,Huffman tree build time,5,2,0,0
+compressed_files/hd08.raw,Write output file time,4323,2,0,0
+compressed_files/hd08.raw,Difference model application time,63,2,0,0
+compressed_files/hd08.raw,Serialize traversal time,801,2,0,0
+compressed_files/hd08.raw,RLE transform time,1482,2,0,0
+compressed_files/hd08.raw,Read input file time,1732,2,0,0
+compressed_files/hd08.raw,Huffman tree build time,4,2,0,0
+compressed_files/hd09.raw,Write output file time,4499,2,0,0
+compressed_files/hd09.raw,Difference model application time,62,2,0,0
+compressed_files/hd09.raw,Serialize traversal time,719,2,0,0
+compressed_files/hd09.raw,RLE transform time,2149,2,0,0
+compressed_files/hd09.raw,Read input file time,689,2,0,0
+compressed_files/hd09.raw,Huffman tree build time,3,2,0,0
+compressed_files/hd12.raw,Write output file time,3201,2,0,0
+compressed_files/hd12.raw,Difference model application time,76,2,0,0
+compressed_files/hd12.raw,Serialize traversal time,694,2,0,0
+compressed_files/hd12.raw,RLE transform time,1660,2,0,0
+compressed_files/hd12.raw,Read input file time,1763,2,0,0
+compressed_files/hd12.raw,Huffman tree build time,4,2,0,0
+compressed_files/nk01.raw,Write output file time,3180,2,0,0
+compressed_files/nk01.raw,Difference model application time,136,2,0,0
+compressed_files/nk01.raw,Serialize traversal time,379,2,0,0
+compressed_files/nk01.raw,RLE transform time,2445,2,0,0
+compressed_files/nk01.raw,Read input file time,768,2,0,0
+compressed_files/nk01.raw,Huffman tree build time,4,2,0,0
+compressed_files/df1h.raw,Write output file time,3022,4,0,0
+compressed_files/df1h.raw,Difference model application time,49,4,0,0
+compressed_files/df1h.raw,Serialize traversal time,1354,4,0,0
+compressed_files/df1h.raw,RLE transform time,64,4,0,0
+compressed_files/df1h.raw,Read input file time,695,4,0,0
+compressed_files/df1h.raw,Huffman tree build time,0,4,0,0
+compressed_files/df1hvx.raw,Write output file time,4791,4,0,0
+compressed_files/df1hvx.raw,Difference model application time,45,4,0,0
+compressed_files/df1hvx.raw,Serialize traversal time,1012,4,0,0
+compressed_files/df1hvx.raw,RLE transform time,366,4,0,0
+compressed_files/df1hvx.raw,Read input file time,524,4,0,0
+compressed_files/df1hvx.raw,Huffman tree build time,3,4,0,0
+compressed_files/df1v.raw,Write output file time,4463,4,0,0
+compressed_files/df1v.raw,Difference model application time,57,4,0,0
+compressed_files/df1v.raw,Serialize traversal time,1192,4,0,0
+compressed_files/df1v.raw,RLE transform time,80,4,0,0
+compressed_files/df1v.raw,Read input file time,559,4,0,0
+compressed_files/df1v.raw,Huffman tree build time,1,4,0,0
+compressed_files/hd01.raw,Write output file time,4415,4,0,0
+compressed_files/hd01.raw,Difference model application time,46,4,0,0
+compressed_files/hd01.raw,Serialize traversal time,1370,4,0,0
+compressed_files/hd01.raw,RLE transform time,687,4,0,0
+compressed_files/hd01.raw,Read input file time,946,4,0,0
+compressed_files/hd01.raw,Huffman tree build time,6,4,0,0
+compressed_files/hd02.raw,Write output file time,4305,4,0,0
+compressed_files/hd02.raw,Difference model application time,61,4,0,0
+compressed_files/hd02.raw,Serialize traversal time,1664,4,0,0
+compressed_files/hd02.raw,RLE transform time,732,4,0,0
+compressed_files/hd02.raw,Read input file time,829,4,0,0
+compressed_files/hd02.raw,Huffman tree build time,116,4,0,0
+compressed_files/hd07.raw,Write output file time,3143,4,0,0
+compressed_files/hd07.raw,Difference model application time,33,4,0,0
+compressed_files/hd07.raw,Serialize traversal time,1001,4,0,0
+compressed_files/hd07.raw,RLE transform time,896,4,0,0
+compressed_files/hd07.raw,Read input file time,2173,4,0,0
+compressed_files/hd07.raw,Huffman tree build time,5,4,0,0
+compressed_files/hd08.raw,Write output file time,3133,4,0,0
+compressed_files/hd08.raw,Difference model application time,148,4,0,0
+compressed_files/hd08.raw,Serialize traversal time,1060,4,0,0
+compressed_files/hd08.raw,RLE transform time,905,4,0,0
+compressed_files/hd08.raw,Read input file time,719,4,0,0
+compressed_files/hd08.raw,Huffman tree build time,6,4,0,0
+compressed_files/hd09.raw,Write output file time,2822,4,0,0
+compressed_files/hd09.raw,Difference model application time,47,4,0,0
+compressed_files/hd09.raw,Serialize traversal time,854,4,0,0
+compressed_files/hd09.raw,RLE transform time,1103,4,0,0
+compressed_files/hd09.raw,Read input file time,733,4,0,0
+compressed_files/hd09.raw,Huffman tree build time,4,4,0,0
+compressed_files/hd12.raw,Write output file time,4233,4,0,0
+compressed_files/hd12.raw,Difference model application time,34,4,0,0
+compressed_files/hd12.raw,Serialize traversal time,1128,4,0,0
+compressed_files/hd12.raw,RLE transform time,858,4,0,0
+compressed_files/hd12.raw,Read input file time,700,4,0,0
+compressed_files/hd12.raw,Huffman tree build time,3,4,0,0
+compressed_files/nk01.raw,Write output file time,3354,4,0,0
+compressed_files/nk01.raw,Difference model application time,36,4,0,0
+compressed_files/nk01.raw,Serialize traversal time,2210,4,0,0
+compressed_files/nk01.raw,RLE transform time,1103,4,0,0
+compressed_files/nk01.raw,Read input file time,733,4,0,0
+compressed_files/nk01.raw,Huffman tree build time,4,4,0,0
+compressed_files/df1h.raw,Write output file time,4441,8,0,0
+compressed_files/df1h.raw,Difference model application time,34,8,0,0
+compressed_files/df1h.raw,Serialize traversal time,1988,8,0,0
+compressed_files/df1h.raw,RLE transform time,73,8,0,0
+compressed_files/df1h.raw,Read input file time,664,8,0,0
+compressed_files/df1h.raw,Huffman tree build time,0,8,0,0
+compressed_files/df1hvx.raw,Write output file time,4205,8,0,0
+compressed_files/df1hvx.raw,Difference model application time,50,8,0,0
+compressed_files/df1hvx.raw,Serialize traversal time,1707,8,0,0
+compressed_files/df1hvx.raw,RLE transform time,239,8,0,0
+compressed_files/df1hvx.raw,Read input file time,640,8,0,0
+compressed_files/df1hvx.raw,Huffman tree build time,6,8,0,0
+compressed_files/df1v.raw,Write output file time,3115,8,0,0
+compressed_files/df1v.raw,Difference model application time,37,8,0,0
+compressed_files/df1v.raw,Serialize traversal time,1887,8,0,0
+compressed_files/df1v.raw,RLE transform time,81,8,0,0
+compressed_files/df1v.raw,Read input file time,525,8,0,0
+compressed_files/df1v.raw,Huffman tree build time,1,8,0,0
+compressed_files/hd01.raw,Write output file time,3082,8,0,0
+compressed_files/hd01.raw,Difference model application time,32,8,0,0
+compressed_files/hd01.raw,Serialize traversal time,1992,8,0,0
+compressed_files/hd01.raw,RLE transform time,416,8,0,0
+compressed_files/hd01.raw,Read input file time,772,8,0,0
+compressed_files/hd01.raw,Huffman tree build time,4,8,0,0
+compressed_files/hd02.raw,Write output file time,2970,8,0,0
+compressed_files/hd02.raw,Difference model application time,37,8,0,0
+compressed_files/hd02.raw,Serialize traversal time,1811,8,0,0
+compressed_files/hd02.raw,RLE transform time,391,8,0,0
+compressed_files/hd02.raw,Read input file time,643,8,0,0
+compressed_files/hd02.raw,Huffman tree build time,4,8,0,0
+compressed_files/hd07.raw,Write output file time,5088,8,0,0
+compressed_files/hd07.raw,Difference model application time,135,8,0,0
+compressed_files/hd07.raw,Serialize traversal time,3021,8,0,0
+compressed_files/hd07.raw,RLE transform time,796,8,0,0
+compressed_files/hd07.raw,Read input file time,717,8,0,0
+compressed_files/hd07.raw,Huffman tree build time,3,8,0,0
+compressed_files/hd08.raw,Write output file time,5158,8,0,0
+compressed_files/hd08.raw,Difference model application time,32,8,0,0
+compressed_files/hd08.raw,Serialize traversal time,2024,8,0,0
+compressed_files/hd08.raw,RLE transform time,439,8,0,0
+compressed_files/hd08.raw,Read input file time,619,8,0,0
+compressed_files/hd08.raw,Huffman tree build time,6,8,0,0
+compressed_files/hd09.raw,Write output file time,5242,8,0,0
+compressed_files/hd09.raw,Difference model application time,38,8,0,0
+compressed_files/hd09.raw,Serialize traversal time,1895,8,0,0
+compressed_files/hd09.raw,RLE transform time,636,8,0,0
+compressed_files/hd09.raw,Read input file time,659,8,0,0
+compressed_files/hd09.raw,Huffman tree build time,3,8,0,0
+compressed_files/hd12.raw,Write output file time,4315,8,0,0
+compressed_files/hd12.raw,Difference model application time,32,8,0,0
+compressed_files/hd12.raw,Serialize traversal time,2045,8,0,0
+compressed_files/hd12.raw,RLE transform time,497,8,0,0
+compressed_files/hd12.raw,Read input file time,2125,8,0,0
+compressed_files/hd12.raw,Huffman tree build time,3,8,0,0
+compressed_files/nk01.raw,Write output file time,3871,8,0,0
+compressed_files/nk01.raw,Difference model application time,33,8,0,0
+compressed_files/nk01.raw,Serialize traversal time,2351,8,0,0
+compressed_files/nk01.raw,RLE transform time,644,8,0,0
+compressed_files/nk01.raw,Read input file time,941,8,0,0
+compressed_files/nk01.raw,Huffman tree build time,5,8,0,0
+compressed_files/df1h.raw,Write output file time,5440,16,0,0
+compressed_files/df1h.raw,Difference model application time,4023,16,0,0
+compressed_files/df1h.raw,Serialize traversal time,3996,16,0,0
+compressed_files/df1h.raw,RLE transform time,3236,16,0,0
+compressed_files/df1h.raw,Read input file time,652,16,0,0
+compressed_files/df1h.raw,Huffman tree build time,0,16,0,0
+compressed_files/df1hvx.raw,Write output file time,5340,16,0,0
+compressed_files/df1hvx.raw,Difference model application time,59,16,0,0
+compressed_files/df1hvx.raw,Serialize traversal time,4707,16,0,0
+compressed_files/df1hvx.raw,RLE transform time,299,16,0,0
+compressed_files/df1hvx.raw,Read input file time,612,16,0,0
+compressed_files/df1hvx.raw,Huffman tree build time,3,16,0,0
+compressed_files/df1v.raw,Write output file time,3909,16,0,0
+compressed_files/df1v.raw,Difference model application time,114,16,0,0
+compressed_files/df1v.raw,Serialize traversal time,5728,16,0,0
+compressed_files/df1v.raw,RLE transform time,125,16,0,0
+compressed_files/df1v.raw,Read input file time,564,16,0,0
+compressed_files/df1v.raw,Huffman tree build time,2,16,0,0
+compressed_files/hd01.raw,Write output file time,4621,16,0,0
+compressed_files/hd01.raw,Difference model application time,1931,16,0,0
+compressed_files/hd01.raw,Serialize traversal time,3922,16,0,0
+compressed_files/hd01.raw,RLE transform time,289,16,0,0
+compressed_files/hd01.raw,Read input file time,682,16,0,0
+compressed_files/hd01.raw,Huffman tree build time,4,16,0,0
+compressed_files/hd02.raw,Write output file time,4809,16,0,0
+compressed_files/hd02.raw,Difference model application time,89,16,0,0
+compressed_files/hd02.raw,Serialize traversal time,3624,16,0,0
+compressed_files/hd02.raw,RLE transform time,606,16,0,0
+compressed_files/hd02.raw,Read input file time,1416,16,0,0
+compressed_files/hd02.raw,Huffman tree build time,4,16,0,0
+compressed_files/hd07.raw,Write output file time,4539,16,0,0
+compressed_files/hd07.raw,Difference model application time,58,16,0,0
+compressed_files/hd07.raw,Serialize traversal time,4791,16,0,0
+compressed_files/hd07.raw,RLE transform time,1096,16,0,0
+compressed_files/hd07.raw,Read input file time,801,16,0,0
+compressed_files/hd07.raw,Huffman tree build time,9,16,0,0
+compressed_files/hd08.raw,Write output file time,4180,16,0,0
+compressed_files/hd08.raw,Difference model application time,3537,16,0,0
+compressed_files/hd08.raw,Serialize traversal time,7854,16,0,0
+compressed_files/hd08.raw,RLE transform time,485,16,0,0
+compressed_files/hd08.raw,Read input file time,683,16,0,0
+compressed_files/hd08.raw,Huffman tree build time,10,16,0,0
+compressed_files/hd09.raw,Write output file time,4736,16,0,0
+compressed_files/hd09.raw,Difference model application time,62,16,0,0
+compressed_files/hd09.raw,Serialize traversal time,4251,16,0,0
+compressed_files/hd09.raw,RLE transform time,639,16,0,0
+compressed_files/hd09.raw,Read input file time,1828,16,0,0
+compressed_files/hd09.raw,Huffman tree build time,4,16,0,0
+compressed_files/hd12.raw,Write output file time,2950,16,0,0
+compressed_files/hd12.raw,Difference model application time,5345,16,0,0
+compressed_files/hd12.raw,Serialize traversal time,7339,16,0,0
+compressed_files/hd12.raw,RLE transform time,295,16,0,0
+compressed_files/hd12.raw,Read input file time,698,16,0,0
+compressed_files/hd12.raw,Huffman tree build time,3,16,0,0
+compressed_files/nk01.raw,Write output file time,8008,16,0,0
+compressed_files/nk01.raw,Difference model application time,72,16,0,0
+compressed_files/nk01.raw,Serialize traversal time,7997,16,0,0
+compressed_files/nk01.raw,RLE transform time,394,16,0,0
+compressed_files/nk01.raw,Read input file time,827,16,0,0
+compressed_files/nk01.raw,Huffman tree build time,4,16,0,0
+compressed_files/df1h.raw,Write output file time,4560,32,0,0
+compressed_files/df1h.raw,Difference model application time,244,32,0,0
+compressed_files/df1h.raw,Serialize traversal time,3070,32,0,0
+compressed_files/df1h.raw,RLE transform time,195,32,0,0
+compressed_files/df1h.raw,Read input file time,646,32,0,0
+compressed_files/df1h.raw,Huffman tree build time,0,32,0,0
+compressed_files/df1hvx.raw,Write output file time,3398,32,0,0
+compressed_files/df1hvx.raw,Difference model application time,158,32,0,0
+compressed_files/df1hvx.raw,Serialize traversal time,3207,32,0,0
+compressed_files/df1hvx.raw,RLE transform time,307,32,0,0
+compressed_files/df1hvx.raw,Read input file time,616,32,0,0
+compressed_files/df1hvx.raw,Huffman tree build time,5,32,0,0
+compressed_files/df1v.raw,Write output file time,4263,32,0,0
+compressed_files/df1v.raw,Difference model application time,164,32,0,0
+compressed_files/df1v.raw,Serialize traversal time,3054,32,0,0
+compressed_files/df1v.raw,RLE transform time,224,32,0,0
+compressed_files/df1v.raw,Read input file time,794,32,0,0
+compressed_files/df1v.raw,Huffman tree build time,2,32,0,0
+compressed_files/hd01.raw,Write output file time,3270,32,0,0
+compressed_files/hd01.raw,Difference model application time,145,32,0,0
+compressed_files/hd01.raw,Serialize traversal time,3008,32,0,0
+compressed_files/hd01.raw,RLE transform time,346,32,0,0
+compressed_files/hd01.raw,Read input file time,680,32,0,0
+compressed_files/hd01.raw,Huffman tree build time,5,32,0,0
+compressed_files/hd02.raw,Write output file time,3151,32,0,0
+compressed_files/hd02.raw,Difference model application time,172,32,0,0
+compressed_files/hd02.raw,Serialize traversal time,3288,32,0,0
+compressed_files/hd02.raw,RLE transform time,373,32,0,0
+compressed_files/hd02.raw,Read input file time,1336,32,0,0
+compressed_files/hd02.raw,Huffman tree build time,14,32,0,0
+compressed_files/hd07.raw,Write output file time,4577,32,0,0
+compressed_files/hd07.raw,Difference model application time,167,32,0,0
+compressed_files/hd07.raw,Serialize traversal time,3441,32,0,0
+compressed_files/hd07.raw,RLE transform time,468,32,0,0
+compressed_files/hd07.raw,Read input file time,1854,32,0,0
+compressed_files/hd07.raw,Huffman tree build time,4,32,0,0
+compressed_files/hd08.raw,Write output file time,3425,32,0,0
+compressed_files/hd08.raw,Difference model application time,198,32,0,0
+compressed_files/hd08.raw,Serialize traversal time,3126,32,0,0
+compressed_files/hd08.raw,RLE transform time,430,32,0,0
+compressed_files/hd08.raw,Read input file time,549,32,0,0
+compressed_files/hd08.raw,Huffman tree build time,4,32,0,0
+compressed_files/hd09.raw,Write output file time,3101,32,0,0
+compressed_files/hd09.raw,Difference model application time,156,32,0,0
+compressed_files/hd09.raw,Serialize traversal time,3055,32,0,0
+compressed_files/hd09.raw,RLE transform time,607,32,0,0
+compressed_files/hd09.raw,Read input file time,668,32,0,0
+compressed_files/hd09.raw,Huffman tree build time,3,32,0,0
+compressed_files/hd12.raw,Write output file time,4813,32,0,0
+compressed_files/hd12.raw,Difference model application time,188,32,0,0
+compressed_files/hd12.raw,Serialize traversal time,3252,32,0,0
+compressed_files/hd12.raw,RLE transform time,502,32,0,0
+compressed_files/hd12.raw,Read input file time,692,32,0,0
+compressed_files/hd12.raw,Huffman tree build time,3,32,0,0
+compressed_files/nk01.raw,Write output file time,3476,32,0,0
+compressed_files/nk01.raw,Difference model application time,273,32,0,0
+compressed_files/nk01.raw,Serialize traversal time,4472,32,0,0
+compressed_files/nk01.raw,RLE transform time,541,32,0,0
+compressed_files/nk01.raw,Read input file time,2092,32,0,0
+compressed_files/nk01.raw,Huffman tree build time,5,32,0,0

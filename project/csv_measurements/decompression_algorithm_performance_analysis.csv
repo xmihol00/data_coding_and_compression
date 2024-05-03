@@ -1,0 +1,235 @@
+file_name,measurement_name,value,number_of_threads,adaptive,model
+compressed_files/df1hvx.raw,Static compression time,2430,1,0,0
+compressed_files/df1v.raw,Static compression time,171,1,0,0
+compressed_files/hd01.raw,Static compression time,1863,1,0,0
+compressed_files/hd02.raw,Static compression time,1818,1,0,0
+compressed_files/hd07.raw,Static compression time,3340,1,0,0
+compressed_files/hd08.raw,Static compression time,2520,1,0,0
+compressed_files/hd09.raw,Static compression time,4296,1,0,0
+compressed_files/hd12.raw,Static compression time,3245,1,0,0
+compressed_files/nk01.raw,Static compression time,4253,1,0,0
+compressed_files/df1hvx.raw,Static compression time,1350,2,0,0
+compressed_files/df1v.raw,Static compression time,93,2,0,0
+compressed_files/hd01.raw,Static compression time,984,2,0,0
+compressed_files/hd02.raw,Static compression time,938,2,0,0
+compressed_files/hd07.raw,Static compression time,1620,2,0,0
+compressed_files/hd08.raw,Static compression time,1527,2,0,0
+compressed_files/hd09.raw,Static compression time,2153,2,0,0
+compressed_files/hd12.raw,Static compression time,1692,2,0,0
+compressed_files/nk01.raw,Static compression time,2270,2,0,0
+compressed_files/df1hvx.raw,Static compression time,792,4,0,0
+compressed_files/df1v.raw,Static compression time,79,4,0,0
+compressed_files/hd01.raw,Static compression time,708,4,0,0
+compressed_files/hd02.raw,Static compression time,702,4,0,0
+compressed_files/hd07.raw,Static compression time,920,4,0,0
+compressed_files/hd08.raw,Static compression time,899,4,0,0
+compressed_files/hd09.raw,Static compression time,1385,4,0,0
+compressed_files/hd12.raw,Static compression time,895,4,0,0
+compressed_files/nk01.raw,Static compression time,1103,4,0,0
+compressed_files/df1hvx.raw,Static compression time,430,8,0,0
+compressed_files/df1v.raw,Static compression time,69,8,0,0
+compressed_files/hd01.raw,Static compression time,449,8,0,0
+compressed_files/hd02.raw,Static compression time,397,8,0,0
+compressed_files/hd07.raw,Static compression time,705,8,0,0
+compressed_files/hd08.raw,Static compression time,487,8,0,0
+compressed_files/hd09.raw,Static compression time,665,8,0,0
+compressed_files/hd12.raw,Static compression time,971,8,0,0
+compressed_files/nk01.raw,Static compression time,664,8,0,0
+compressed_files/df1hvx.raw,Static compression time,514,16,0,0
+compressed_files/df1v.raw,Static compression time,101,16,0,0
+compressed_files/hd01.raw,Static compression time,275,16,0,0
+compressed_files/hd02.raw,Static compression time,290,16,0,0
+compressed_files/hd07.raw,Static compression time,288,16,0,0
+compressed_files/hd08.raw,Static compression time,297,16,0,0
+compressed_files/hd09.raw,Static compression time,3680,16,0,0
+compressed_files/hd12.raw,Static compression time,8990,16,0,0
+compressed_files/nk01.raw,Static compression time,8996,16,0,0
+compressed_files/df1hvx.raw,Static compression time,383,32,0,0
+compressed_files/df1v.raw,Static compression time,432,32,0,0
+compressed_files/hd01.raw,Static compression time,363,32,0,0
+compressed_files/hd02.raw,Static compression time,521,32,0,0
+compressed_files/hd07.raw,Static compression time,704,32,0,0
+compressed_files/hd08.raw,Static compression time,432,32,0,0
+compressed_files/hd09.raw,Static compression time,743,32,0,0
+compressed_files/hd12.raw,Static compression time,490,32,0,0
+compressed_files/nk01.raw,Static compression time,599,32,0,0
+compressed_files/df1h.raw,Adaptive compression time,1435,1,0,0
+compressed_files/df1hvx.raw,Adaptive compression time,2299,1,0,0
+compressed_files/df1v.raw,Adaptive compression time,1849,1,0,0
+compressed_files/hd01.raw,Adaptive compression time,2184,1,0,0
+compressed_files/hd02.raw,Adaptive compression time,2437,1,0,0
+compressed_files/hd07.raw,Adaptive compression time,3433,1,0,0
+compressed_files/hd08.raw,Adaptive compression time,2757,1,0,0
+compressed_files/hd09.raw,Adaptive compression time,4432,1,0,0
+compressed_files/hd12.raw,Adaptive compression time,3851,1,0,0
+compressed_files/nk01.raw,Adaptive compression time,4542,1,0,0
+compressed_files/df1h.raw,Adaptive compression time,1284,2,0,0
+compressed_files/df1hvx.raw,Adaptive compression time,1769,2,0,0
+compressed_files/df1v.raw,Adaptive compression time,1322,2,0,0
+compressed_files/hd01.raw,Adaptive compression time,1686,2,0,0
+compressed_files/hd02.raw,Adaptive compression time,1610,2,0,0
+compressed_files/hd07.raw,Adaptive compression time,2540,2,0,0
+compressed_files/hd08.raw,Adaptive compression time,2139,2,0,0
+compressed_files/hd09.raw,Adaptive compression time,2709,2,0,0
+compressed_files/hd12.raw,Adaptive compression time,2306,2,0,0
+compressed_files/nk01.raw,Adaptive compression time,2770,2,0,0
+compressed_files/df1h.raw,Adaptive compression time,1030,4,0,0
+compressed_files/df1hvx.raw,Adaptive compression time,1454,4,0,0
+compressed_files/df1v.raw,Adaptive compression time,1653,4,0,0
+compressed_files/hd01.raw,Adaptive compression time,1634,4,0,0
+compressed_files/hd02.raw,Adaptive compression time,1629,4,0,0
+compressed_files/hd07.raw,Adaptive compression time,1694,4,0,0
+compressed_files/hd08.raw,Adaptive compression time,1864,4,0,0
+compressed_files/hd09.raw,Adaptive compression time,2398,4,0,0
+compressed_files/hd12.raw,Adaptive compression time,1604,4,0,0
+compressed_files/nk01.raw,Adaptive compression time,2567,4,0,0
+compressed_files/df1h.raw,Adaptive compression time,1421,8,0,0
+compressed_files/df1hvx.raw,Adaptive compression time,2308,8,0,0
+compressed_files/df1v.raw,Adaptive compression time,2002,8,0,0
+compressed_files/hd01.raw,Adaptive compression time,2344,8,0,0
+compressed_files/hd02.raw,Adaptive compression time,2396,8,0,0
+compressed_files/hd07.raw,Adaptive compression time,2641,8,0,0
+compressed_files/hd08.raw,Adaptive compression time,2351,8,0,0
+compressed_files/hd09.raw,Adaptive compression time,3142,8,0,0
+compressed_files/hd12.raw,Adaptive compression time,2358,8,0,0
+compressed_files/nk01.raw,Adaptive compression time,3969,8,0,0
+compressed_files/df1h.raw,Adaptive compression time,4143,16,0,0
+compressed_files/df1hvx.raw,Adaptive compression time,12961,16,0,0
+compressed_files/df1v.raw,Adaptive compression time,4151,16,0,0
+compressed_files/hd01.raw,Adaptive compression time,3892,16,0,0
+compressed_files/hd02.raw,Adaptive compression time,12999,16,0,0
+compressed_files/hd07.raw,Adaptive compression time,17991,16,0,0
+compressed_files/hd08.raw,Adaptive compression time,4913,16,0,0
+compressed_files/hd09.raw,Adaptive compression time,7988,16,0,0
+compressed_files/hd12.raw,Adaptive compression time,3995,16,0,0
+compressed_files/nk01.raw,Adaptive compression time,4240,16,0,0
+compressed_files/df1h.raw,Adaptive compression time,5386,32,0,0
+compressed_files/df1hvx.raw,Adaptive compression time,3789,32,0,0
+compressed_files/df1v.raw,Adaptive compression time,3343,32,0,0
+compressed_files/hd01.raw,Adaptive compression time,3421,32,0,0
+compressed_files/hd02.raw,Adaptive compression time,3666,32,0,0
+compressed_files/hd07.raw,Adaptive compression time,5434,32,0,0
+compressed_files/hd08.raw,Adaptive compression time,3644,32,0,0
+compressed_files/hd09.raw,Adaptive compression time,3665,32,0,0
+compressed_files/hd12.raw,Adaptive compression time,3485,32,0,0
+compressed_files/nk01.raw,Adaptive compression time,3972,32,0,0
+compressed_files/df1h.raw,Static compression with model time,354,1,0,0
+compressed_files/df1hvx.raw,Static compression with model time,1674,1,0,0
+compressed_files/df1v.raw,Static compression with model time,398,1,0,0
+compressed_files/hd01.raw,Static compression with model time,2107,1,0,0
+compressed_files/hd02.raw,Static compression with model time,2048,1,0,0
+compressed_files/hd07.raw,Static compression with model time,3356,1,0,0
+compressed_files/hd08.raw,Static compression with model time,2726,1,0,0
+compressed_files/hd09.raw,Static compression with model time,4420,1,0,0
+compressed_files/hd12.raw,Static compression with model time,3407,1,0,0
+compressed_files/nk01.raw,Static compression with model time,4560,1,0,0
+compressed_files/df1h.raw,Static compression with model time,319,2,0,0
+compressed_files/df1hvx.raw,Static compression with model time,890,2,0,0
+compressed_files/df1v.raw,Static compression with model time,233,2,0,0
+compressed_files/hd01.raw,Static compression with model time,1215,2,0,0
+compressed_files/hd02.raw,Static compression with model time,1073,2,0,0
+compressed_files/hd07.raw,Static compression with model time,1741,2,0,0
+compressed_files/hd08.raw,Static compression with model time,1638,2,0,0
+compressed_files/hd09.raw,Static compression with model time,2269,2,0,0
+compressed_files/hd12.raw,Static compression with model time,2077,2,0,0
+compressed_files/nk01.raw,Static compression with model time,2244,2,0,0
+compressed_files/df1h.raw,Static compression with model time,169,4,0,0
+compressed_files/df1hvx.raw,Static compression with model time,613,4,0,0
+compressed_files/df1v.raw,Static compression with model time,278,4,0,0
+compressed_files/hd01.raw,Static compression with model time,888,4,0,0
+compressed_files/hd02.raw,Static compression with model time,795,4,0,0
+compressed_files/hd07.raw,Static compression with model time,1014,4,0,0
+compressed_files/hd08.raw,Static compression with model time,865,4,0,0
+compressed_files/hd09.raw,Static compression with model time,1172,4,0,0
+compressed_files/hd12.raw,Static compression with model time,1482,4,0,0
+compressed_files/nk01.raw,Static compression with model time,1159,4,0,0
+compressed_files/df1h.raw,Static compression with model time,218,8,0,0
+compressed_files/df1hvx.raw,Static compression with model time,385,8,0,0
+compressed_files/df1v.raw,Static compression with model time,133,8,0,0
+compressed_files/hd01.raw,Static compression with model time,479,8,0,0
+compressed_files/hd02.raw,Static compression with model time,470,8,0,0
+compressed_files/hd07.raw,Static compression with model time,567,8,0,0
+compressed_files/hd08.raw,Static compression with model time,537,8,0,0
+compressed_files/hd09.raw,Static compression with model time,711,8,0,0
+compressed_files/hd12.raw,Static compression with model time,720,8,0,0
+compressed_files/nk01.raw,Static compression with model time,707,8,0,0
+compressed_files/df1h.raw,Static compression with model time,11987,16,0,0
+compressed_files/df1hvx.raw,Static compression with model time,916,16,0,0
+compressed_files/df1v.raw,Static compression with model time,180,16,0,0
+compressed_files/hd01.raw,Static compression with model time,804,16,0,0
+compressed_files/hd02.raw,Static compression with model time,331,16,0,0
+compressed_files/hd07.raw,Static compression with model time,10984,16,0,0
+compressed_files/hd08.raw,Static compression with model time,502,16,0,0
+compressed_files/hd09.raw,Static compression with model time,16991,16,0,0
+compressed_files/hd12.raw,Static compression with model time,12985,16,0,0
+compressed_files/nk01.raw,Static compression with model time,611,16,0,0
+compressed_files/df1h.raw,Static compression with model time,726,32,0,0
+compressed_files/df1hvx.raw,Static compression with model time,658,32,0,0
+compressed_files/df1v.raw,Static compression with model time,430,32,0,0
+compressed_files/hd01.raw,Static compression with model time,622,32,0,0
+compressed_files/hd02.raw,Static compression with model time,745,32,0,0
+compressed_files/hd07.raw,Static compression with model time,844,32,0,0
+compressed_files/hd08.raw,Static compression with model time,711,32,0,0
+compressed_files/hd09.raw,Static compression with model time,882,32,0,0
+compressed_files/hd12.raw,Static compression with model time,789,32,0,0
+compressed_files/nk01.raw,Static compression with model time,891,32,0,0
+compressed_files/df1h.raw,Adaptive compression with model time,698,1,0,0
+compressed_files/df1hvx.raw,Adaptive compression with model time,1601,1,0,0
+compressed_files/df1v.raw,Adaptive compression with model time,688,1,0,0
+compressed_files/hd01.raw,Adaptive compression with model time,2363,1,0,0
+compressed_files/hd02.raw,Adaptive compression with model time,2278,1,0,0
+compressed_files/hd07.raw,Adaptive compression with model time,3666,1,0,0
+compressed_files/hd08.raw,Adaptive compression with model time,3066,1,0,0
+compressed_files/hd09.raw,Adaptive compression with model time,4638,1,0,0
+compressed_files/hd12.raw,Adaptive compression with model time,3634,1,0,0
+compressed_files/nk01.raw,Adaptive compression with model time,5047,1,0,0
+compressed_files/df1h.raw,Adaptive compression with model time,918,2,0,0
+compressed_files/df1hvx.raw,Adaptive compression with model time,1351,2,0,0
+compressed_files/df1v.raw,Adaptive compression with model time,914,2,0,0
+compressed_files/hd01.raw,Adaptive compression with model time,1781,2,0,0
+compressed_files/hd02.raw,Adaptive compression with model time,1674,2,0,0
+compressed_files/hd07.raw,Adaptive compression with model time,2483,2,0,0
+compressed_files/hd08.raw,Adaptive compression with model time,2832,2,0,0
+compressed_files/hd09.raw,Adaptive compression with model time,2869,2,0,0
+compressed_files/hd12.raw,Adaptive compression with model time,2966,2,0,0
+compressed_files/nk01.raw,Adaptive compression with model time,3100,2,0,0
+compressed_files/df1h.raw,Adaptive compression with model time,1309,4,0,0
+compressed_files/df1hvx.raw,Adaptive compression with model time,1392,4,0,0
+compressed_files/df1v.raw,Adaptive compression with model time,1374,4,0,0
+compressed_files/hd01.raw,Adaptive compression with model time,1786,4,0,0
+compressed_files/hd02.raw,Adaptive compression with model time,1737,4,0,0
+compressed_files/hd07.raw,Adaptive compression with model time,2235,4,0,0
+compressed_files/hd08.raw,Adaptive compression with model time,1908,4,0,0
+compressed_files/hd09.raw,Adaptive compression with model time,1949,4,0,0
+compressed_files/hd12.raw,Adaptive compression with model time,1724,4,0,0
+compressed_files/nk01.raw,Adaptive compression with model time,2625,4,0,0
+compressed_files/df1h.raw,Adaptive compression with model time,2054,8,0,0
+compressed_files/df1hvx.raw,Adaptive compression with model time,3781,8,0,0
+compressed_files/df1v.raw,Adaptive compression with model time,2534,8,0,0
+compressed_files/hd01.raw,Adaptive compression with model time,2751,8,0,0
+compressed_files/hd02.raw,Adaptive compression with model time,2150,8,0,0
+compressed_files/hd07.raw,Adaptive compression with model time,2310,8,0,0
+compressed_files/hd08.raw,Adaptive compression with model time,2347,8,0,0
+compressed_files/hd09.raw,Adaptive compression with model time,2411,8,0,0
+compressed_files/hd12.raw,Adaptive compression with model time,2282,8,0,0
+compressed_files/nk01.raw,Adaptive compression with model time,3093,8,0,0
+compressed_files/df1h.raw,Adaptive compression with model time,18973,16,0,0
+compressed_files/df1hvx.raw,Adaptive compression with model time,3957,16,0,0
+compressed_files/df1v.raw,Adaptive compression with model time,3990,16,0,0
+compressed_files/hd01.raw,Adaptive compression with model time,4591,16,0,0
+compressed_files/hd02.raw,Adaptive compression with model time,17001,16,0,0
+compressed_files/hd07.raw,Adaptive compression with model time,16940,16,0,0
+compressed_files/hd08.raw,Adaptive compression with model time,6039,16,0,0
+compressed_files/hd09.raw,Adaptive compression with model time,3953,16,0,0
+compressed_files/hd12.raw,Adaptive compression with model time,4651,16,0,0
+compressed_files/nk01.raw,Adaptive compression with model time,7425,16,0,0
+compressed_files/df1h.raw,Adaptive compression with model time,3456,32,0,0
+compressed_files/df1hvx.raw,Adaptive compression with model time,3725,32,0,0
+compressed_files/df1v.raw,Adaptive compression with model time,3606,32,0,0
+compressed_files/hd01.raw,Adaptive compression with model time,4100,32,0,0
+compressed_files/hd02.raw,Adaptive compression with model time,3812,32,0,0
+compressed_files/hd07.raw,Adaptive compression with model time,3761,32,0,0
+compressed_files/hd08.raw,Adaptive compression with model time,5727,32,0,0
+compressed_files/hd09.raw,Adaptive compression with model time,4608,32,0,0
+compressed_files/hd12.raw,Adaptive compression with model time,3653,32,0,0
+compressed_files/nk01.raw,Adaptive compression with model time,4120,32,0,0
