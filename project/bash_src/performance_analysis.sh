@@ -7,19 +7,22 @@ fi
 mkdir -p compressed_files
 mkdir -p decompressed_files
 
-for i in {1..100}; do
-    for output_type in partial algorithm full; do
-        executable="./huff_codec"
-        if [ ! -f $executable ]; then
-            cd ..
-            make ${output_type}_measure
-            cd -
-            executable=".$executable"
-        else
-            make ${output_type}_measure
-        fi
-        echo "file_name,measurement_name,value,number_of_threads,adaptive,model" > compression_${output_type}_performance_analysis.csv
-        echo "file_name,measurement_name,value,number_of_threads,adaptive,model" > decompression_${output_type}_performance_analysis.csv
+for output_type in partial algorithm full; do
+    executable="./huff_codec"
+    if [ ! -f $executable ]; then
+        cd ..
+        make ${output_type}_measure
+        cd -
+        executable=".$executable"
+    else
+        make ${output_type}_measure
+    fi
+    echo "file_name,measurement_name,value,number_of_threads,adaptive,model" > compression_${output_type}_performance_analysis.csv
+    echo "file_name,measurement_name,value,number_of_threads,adaptive,model" > decompression_${output_type}_performance_analysis.csv
+
+    for i in {1..100}; do
+        echo -e "\n\e[0;34mRunning $output_type measurement $i\e[0m\n"
+        sleep 1
         for switch in "" "-a" "-m" "-m -a"; do
             for threads in 1 2 4 8 16 32; do
                 rm -f compressed_files/*

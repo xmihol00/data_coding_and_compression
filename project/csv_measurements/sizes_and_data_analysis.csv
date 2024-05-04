@@ -71,8 +71,8 @@ data_benchmark/df1hvx.raw,Block types byte size,0,2,0,0
 data_benchmark/df1hvx.raw,Compressed depth maps size,54,2,0,0
 data_benchmark/df1hvx.raw,Header size,11,2,0,0
 data_benchmark/df1hvx.raw,Uncompressed file size,262144,2,0,0
-data_benchmark/df1v.raw,Compressed file size,2515,2,0,0
-data_benchmark/df1v.raw,Compressed data size,2500,2,0,0
+data_benchmark/df1v.raw,Compressed file size,2323,2,0,0
+data_benchmark/df1v.raw,Compressed data size,2308,2,0,0
 data_benchmark/df1v.raw,Block types byte size,0,2,0,0
 data_benchmark/df1v.raw,Compressed depth maps size,3,2,0,0
 data_benchmark/df1v.raw,Header size,11,2,0,0
@@ -479,8 +479,8 @@ data_benchmark/df1hvx.raw,Major diagonal zig-zag traversals,0,2,1,0
 data_benchmark/df1hvx.raw,Vertical zig-zag traversals,484,2,1,0
 data_benchmark/df1hvx.raw,Horizontal zig-zag traversals,540,2,1,0
 data_benchmark/df1hvx.raw,Uncompressed file size,262144,2,1,0
-data_benchmark/df1v.raw,Compressed file size,71956,2,1,0
-data_benchmark/df1v.raw,Compressed data size,71684,2,1,0
+data_benchmark/df1v.raw,Compressed file size,65812,2,1,0
+data_benchmark/df1v.raw,Compressed data size,65540,2,1,0
 data_benchmark/df1v.raw,Block types byte size,256,2,1,0
 data_benchmark/df1v.raw,Header size,11,2,1,0
 data_benchmark/df1v.raw,Compressed depth maps size,3,2,1,0

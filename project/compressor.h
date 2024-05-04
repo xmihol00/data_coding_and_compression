@@ -68,22 +68,22 @@ private:
     /**
      * @brief Symbol with highest frequency (UINT32_MAX) to represent unused symbols or already processed symbols.
      */
-    static constexpr FrequencySymbolIndex EMPTY_FREQUENCY_SYMBOL_INDEX = { .index = 0xff, .frequencyLowBits = 0xff, .frequencyHighBits = 0xffff };
+    static constexpr FrequencySymbolIndex EMPTY_FREQUENCY_SYMBOL_INDEX{ .index = 0xff, .frequencyLowBits = 0xff, .frequencyHighBits = 0xffff };
 
     /**
      * @brief Highest valid symbol frequency, all higher frequencies will be clamped to it (last significant byte is reserved for the index).
      */
-    static constexpr uint32_t MAX_VALID_FREQUENCY_SYMBOL_INDEX = 0xfffe'00;
+    static constexpr uint32_t MAX_VALID_FREQUENCY_SYMBOL_INDEX{0xfffe'00};
 
     /**
      * @brief Maximum number of bits used for frequency representation.
      */
-    static constexpr uint8_t MAX_BITS_FOR_FREQUENCY = 24;
+    static constexpr uint8_t MAX_BITS_FOR_FREQUENCY{24};
 
     /**
      * @brief Maximum number of threads used for histogram computation.
      */
-    static constexpr uint8_t MAX_HISTOGRAM_THREADS = 8;
+    static constexpr uint8_t MAX_HISTOGRAM_THREADS{MAX_NUMBER_OF_THREADS};
 
     /**
      * @brief Frees all memory allocated for compression.
@@ -221,7 +221,7 @@ private:
     /**
      * @brief A memory pool recycled for different purposes during the compression.
      */
-    uint8_t _memoryPool[10 * NUMBER_OF_SYMBOLS * sizeof(uint64_t)] __attribute__((aligned(64)));
+    uint8_t _memoryPool[(MAX_HISTOGRAM_THREADS + 2) * NUMBER_OF_SYMBOLS * sizeof(uint64_t)] __attribute__((aligned(64)));
     FrequencySymbolIndex *_structHistogram{reinterpret_cast<FrequencySymbolIndex *>(_memoryPool)};
     uint32v16_t *_vectorHistogram{reinterpret_cast<uint32v16_t *>(_memoryPool)};
     uint64_t *_intHistogram{reinterpret_cast<uint64_t *>(_memoryPool + NUMBER_OF_SYMBOLS * sizeof(uint64_t))};

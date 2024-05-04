@@ -28,6 +28,7 @@ thread_combinations=(
     "16 16"
     "16 8"
     "8 16"
+    "32 32"
 )
 
 mkdir -p compressed_files

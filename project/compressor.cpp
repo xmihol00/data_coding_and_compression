@@ -88,9 +88,14 @@ void Compressor::readInputFile()
 
     if (_numberOfThreads > 1 && _size < (static_cast<uint64_t>(_numberOfThreads) << 4)) // size must be at least 16 times the number of threads
     {
-        omp_set_num_threads(1);
-        _numberOfThreads = 1;
-        cerr << "Warning: Input file is too small for multi-threaded compression. Proceeding with a single thread." << endl;
+        cerr << "Warning: Input file is too small for multi-threaded compression with " << _numberOfThreads << ".\n"; 
+        do
+        {
+            _numberOfThreads >>= 1;
+        }
+        while (_numberOfThreads > 1 && _size < (static_cast<uint64_t>(_numberOfThreads) << 4));
+        omp_set_num_threads(_numberOfThreads);
+        cerr << "         Proceeding with " << _numberOfThreads << " threads instead." << endl;
     }
 
     _height = _size / _width;
@@ -149,7 +154,7 @@ void Compressor::readInputFile()
 
 void Compressor::computeHistogram()
 {
-    DEBUG_PRINT("Thread " << omp_get_num_threads() << ": computing histogram");
+    DEBUG_PRINT("Thread " << omp_get_thread_num() << ": computing histogram");
     startHistogramComputationTimer(); // NOP if partial measurements are disabled
 
     int threadId = omp_get_thread_num();
@@ -159,10 +164,10 @@ void Compressor::computeHistogram()
 
     if (threadId < MAX_HISTOGRAM_THREADS)
     {
-        uint64_t symbolsToProcess = (_size + MAX_HISTOGRAM_THREADS - 1) / numberOfThreads;
+        uint64_t symbolsToProcess = (_size + numberOfThreads - 1) / numberOfThreads;
         intHistogram += threadId * NUMBER_OF_SYMBOLS;
         buffer += threadId * symbolsToProcess;
-        if (threadId == _numberOfThreads - 1)
+        if (threadId == numberOfThreads - 1)
         {
             symbolsToProcess = _size - threadId * symbolsToProcess;
         }
@@ -1103,16 +1108,12 @@ void Compressor::applyDiferenceModel(symbol_t *source, symbol_t *destination)
     startApplyDiferenceModelTimer(); // NOP if performance measurements are disabled
 
     int threadNumber = omp_get_thread_num();
-    uint64_t bytesToProcess = (_size + _numberOfThreads - 1) / _numberOfThreads;
+    uint64_t bytesToProcess = (_size + _numberOfThreads - 1) / _numberOfThreads; // last thread can run out of bounds, the memory is padded
     bytesToProcess += bytesToProcess & 0b1; // ensure even number of bytes per thread
     uint64_t startingIdx = bytesToProcess * threadNumber;
-    if (threadNumber == _numberOfThreads - 1) // last thread
-    {
-        bytesToProcess -= bytesToProcess * _numberOfThreads - _size; // ensure last thread does not run out of bounds
-    }
+
     source += startingIdx;
     destination += startingIdx;
-
     destination[0] = source[0];
 
     #pragma omp simd simdlen(64)

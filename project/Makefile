@@ -9,7 +9,7 @@ AVX512BW = $(shell grep avx512bw /proc/cpuinfo >/dev/null && echo "-mavx512bw" |
 AVX512VPOPCNTDQ = $(shell grep avx512vpopcntdq /proc/cpuinfo >/dev/null && echo "-mavx512vpopcntdq" || echo "")
 AVX512FLAGS = $(AVX2) $(AVX512F) $(AVX512VL) $(AVX512BW) $(AVX512VPOPCNTDQ)
 
-CC = g++
+CC = $(shell command -v icpx >/dev/null 2>&1 && echo "icpx" || echo "g++")
 CFLAGS = -Wall -Wextra -std=c++20 -O3
 OMPFLAGS = -fopenmp
 PRGAMA_IGNORE = -Wno-unknown-pragmas

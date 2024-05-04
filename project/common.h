@@ -157,7 +157,7 @@ protected:
     /**
      * @brief Maximum number of threads that can be used for multi-threaded compression.
      */
-    static constexpr uint16_t MAX_NUM_THREADS{32};
+    static constexpr uint16_t MAX_NUMBER_OF_THREADS{32};
 
     /**
      * @brief Number of bits (size of a repetition chunk) used to encode repetitions of a character, the MSB is used to determine if the next chunk of bits is 
@@ -210,8 +210,8 @@ protected:
 
     int32_t _numberOfThreads;   ///< Number of active threads used for multi-threaded compression.
 
-    uint64_t _compressedSizes[MAX_NUM_THREADS + 1];         ///< Sizes of compressed data by each thread.
-    uint64_t _compressedSizesExScan[MAX_NUM_THREADS + 1];   ///< Exclusive scan of compressed sizes by each thread.
+    uint64_t _compressedSizes[MAX_NUMBER_OF_THREADS + 1];         ///< Sizes of compressed data by each thread.
+    uint64_t _compressedSizesExScan[MAX_NUMBER_OF_THREADS + 1];   ///< Exclusive scan of compressed sizes by each thread.
 
     uint8_t _symbolsPerDepth[MAX_NUMBER_OF_CODES * 2];      ///< Number of symbols at each depth of the huffman tree.
     uint32_t _usedDepths;                                   ///< Bitmap of used depths in the final huffman tree (rebalanced if needed).

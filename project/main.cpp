@@ -128,16 +128,16 @@ Arguments parseArguments(int argc, char* argv[])
         }
         else if (arguments[i] == "-h")
         {
-            cout << "Usage: " << arguments[0] << " [-c | -d] [-m] [-a] [-w <width>] [-i <input_file>] [-o <output_file>]" << endl;
+            cout << "Usage: " << arguments[0] << " [-c | -d] [-m] [-a] [-w <width>] [-i <input file>] [-o <output file>] [-t <number of threads>]" << endl;
             cout << "Options:" << endl;
-            cout << "  -c:               Compress the input file." << endl;
-            cout << "  -d:               Decompress the input file." << endl;
-            cout << "  -m:               Use the model-based compression." << endl;
-            cout << "  -a:               Use the adaptive model-based compression." << endl;
-            cout << "  -w <width>:       Width of the compressed image." << endl;
-            cout << "  -i <input_file>:  Specify the input file." << endl;
-            cout << "  -o <output_file>: Specify the output file." << endl;
-            cout << "  -t <threads>:     Number of threads to use (default is " << DEFAULT_NUMBER_OF_THREADS << "), must be a power of 2." << endl;
+            cout << "  -c:                     Compress the input file." << endl;
+            cout << "  -d:                     Decompress the input file." << endl;
+            cout << "  -m:                     Use the model-based compression." << endl;
+            cout << "  -a:                     Use the adaptive model-based compression." << endl;
+            cout << "  -w <width>:             Width of the compressed image." << endl;
+            cout << "  -i <input file>:        Specify the input file." << endl;
+            cout << "  -o <output file>:       Specify the output file." << endl;
+            cout << "  -t <number of threads>: Number of threads to use (default is " << DEFAULT_NUMBER_OF_THREADS << "), must be a power of 2." << endl;
 
             exit(HuffmanRLECompression::SUCCESS);
         }

@@ -133,17 +133,20 @@ bool Decompressor::readInputFile()
             _width = header.getWidth();
             _height = header.getHeight();
             _size = _width * _height;
+            _adaptive = true;
             break;
         
         case STATIC:
             // 1D size of the image
             _size = header.getSize();
+            _adaptive = false;
             break;
 
         default: // corrupted header
             cerr << "Error: Unsupported header type." << endl;
             exit(CORRUPTED_FILE_ERROR);
     }
+    _model = header.getHeaderType() & MODEL; // get the model type
 
     _compressedData = reinterpret_cast<uint16_t *>(aligned_alloc(64, _size + 64));
     if (_compressedData == nullptr)
@@ -159,7 +162,7 @@ bool Decompressor::readInputFile()
         exit(MEMORY_ALLOCATION_ERROR);
     }
 
-    if (header.getHeaderType() & ADAPTIVE)
+    if (_adaptive)
     {
         initializeBlockTypes(); // allocate memory for the block types
         uint32_t packedBlockCount = (_numberOfTraversalBlocks * BITS_PER_BLOCK_TYPE + 7) / 8; // round to bytes
@@ -841,9 +844,9 @@ void Decompressor::decompress(string inputFileName, string outputFileName)
         #pragma omp parallel // launch threads, i.e. create a parallel region
         {
             // use the correct decompression method based on the header type
-            if (_header.getHeaderType() & MODEL)
+            if (_model)
             {
-                if (_header.getHeaderType() & ADAPTIVE)
+                if (_adaptive)
                 {
                     startAdaptiveDecompressionWithModelTimer(); // NOP if algorithm measurements are disabled
                     decompressAdaptiveModel();
@@ -858,7 +861,7 @@ void Decompressor::decompress(string inputFileName, string outputFileName)
             }
             else
             {
-                if (_header.getHeaderType() & ADAPTIVE)
+                if (_adaptive)
                 {
                     startAdaptiveDecompressionTimer(); // NOP if algorithm measurements are disabled
                     decompressAdaptive();
