@@ -1102,7 +1102,7 @@ void Compressor::analyzeImageAdaptive()
     DEBUG_PRINT("Thread: " << omp_get_thread_num() << " image analyzed");
 }
 
-void Compressor::applyDiferenceModel(symbol_t *source, symbol_t *destination)
+void Compressor::applyDifferenceModel(symbol_t *source, symbol_t *destination)
 {
     DEBUG_PRINT("Thread: " << omp_get_thread_num() << " applying difference model");
     startApplyDiferenceModelTimer(); // NOP if performance measurements are disabled
@@ -1195,7 +1195,7 @@ void Compressor::compressAdaptive()
 void Compressor::compressStaticModel()
 {
     // apply the difference model
-    applyDiferenceModel(_sourceBuffer, _destinationBuffer);
+    applyDifferenceModel(_sourceBuffer, _destinationBuffer);
     #pragma omp barrier
 
     #pragma omp single
@@ -1211,7 +1211,7 @@ void Compressor::compressStaticModel()
 void Compressor::compressAdaptiveModel()
 {
     // apply the difference model
-    applyDiferenceModel(_sourceBuffer, _destinationBuffer);
+    applyDifferenceModel(_sourceBuffer, _destinationBuffer);
     #pragma omp barrier
 
     #pragma omp single

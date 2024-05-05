@@ -171,3 +171,4 @@ data/
 *.out
 old/
 large_*.bin
+*.zip

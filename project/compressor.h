@@ -164,7 +164,7 @@ private:
     /**
      * @brief Applies a difference model to the source data.
      */
-    void applyDiferenceModel(symbol_t *source, symbol_t *destination);
+    void applyDifferenceModel(symbol_t *source, symbol_t *destination);
 
     /**
      * @brief Serializes a block of symbols row by row into a destination buffer.

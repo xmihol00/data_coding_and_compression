@@ -17,10 +17,11 @@ PRGAMA_IGNORE = -Wno-unknown-pragmas
 CPP_SRC = $(wildcard $(PROJECT_DIR)/*.cpp)
 
 TARGET = $(PROJECT_DIR)/huff_codec
+PACK_TARGET= xmihol00.zip
 
 ADDITIONAL_DEFINES =  # add by running make ADDITIONAL_DEFINES="-D<define name>"
 
-.PHONY: all plain no_omp no_avx debug plain_debug clean partial_measure algorithm_measure full_measure data_analysis
+.PHONY: all plain no_omp no_avx debug plain_debug clean partial_measure algorithm_measure full_measure data_analysis pack
 
 all:
 	$(CC) $(CFLAGS) $(OMPFLAGS) $(AVX512FLAGS) $(CPP_SRC) $(ADDITIONAL_DEFINES) -o $(TARGET)
@@ -53,4 +54,7 @@ data_analysis:
 	$(CC) $(CFLAGS) $(OMPFLAGS) $(AVX512FLAGS) $(CPP_SRC) -D_PERFORM_DATA_ANALYSIS_ $(ADDITIONAL_DEFINES) -o $(TARGET)
 
 clean: 
-	rm -f $(TARGET) $(TARGET_TEST)
+	rm -f $(TARGET) $(PACK_TARGET)
+
+pack: clean
+	zip -r $(PACK_TARGET) ./* -x kko.proj.zadani24.pdf "compressed_files/*" "csv_measurements/*" "decompressed_files/*" "pgm_images/*" "data_random/*"
