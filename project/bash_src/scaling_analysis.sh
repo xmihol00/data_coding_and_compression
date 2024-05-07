@@ -21,11 +21,10 @@ for output_type in algorithm; do
     else
         make ${output_type}_measure
     fi
-    echo "file_name,measurement_name,value,number_of_threads,adaptive,model" > compression_${output_type}_performance_analysis.csv
-    echo "file_name,measurement_name,value,number_of_threads,adaptive,model" > decompression_${output_type}_performance_analysis.csv
 
     for size_multiple in 1 2 4 8 16 32; do
         rm -rf $data_dir/*
+        file_size=0
         for file in $benchmar_dir/*.raw; do
             basename=$(basename $file)
             for ((i=0; i<$size_multiple; i++)); do
@@ -34,6 +33,9 @@ for output_type in algorithm; do
             file_size=$(wc -c < "$data_dir/$basename")
             echo -e "\e[0;35m$data_dir/$basename: $file_size B\e[0m"
         done
+        echo -e "\e[0;35mUsing files: compression_${file_size}_scaling_analysis.csv and decompression_${file_size}_scaling_analysis.csv\e[0m"
+        echo "file_name,measurement_name,value,number_of_threads,adaptive,model" > compression_${file_size}_scaling_analysis.csv
+        echo "file_name,measurement_name,value,number_of_threads,adaptive,model" > decompression_${file_size}_scaling_analysis.csv
 
         for i in {1..100}; do
             echo -e "\n\e[0;34mRunning $output_type measurement $i\e[0m\n"
@@ -46,8 +48,8 @@ for output_type in algorithm; do
                         echo -e "\e[0;35mProcessing $file with $threads threads and switch $switch\e[0m"
                         basename=$(basename $file)
                         width=512
-                        $executable -c -i $file -o compressed_files/$basename -w $width $switch -t $threads >> compression_${output_type}_performance_analysis.csv
-                        $executable -d -i compressed_files/$basename -o decompressed_files/$basename -t $threads >> decompression_${output_type}_performance_analysis.csv
+                        $executable -c -i $file -o compressed_files/$basename -w $width $switch -t $threads >> compression_${file_size}_scaling_analysis.csv
+                        $executable -d -i compressed_files/$basename -o decompressed_files/$basename -t $threads >> decompression_${file_size}_scaling_analysis.csv
                         compressed_size=$(wc -c < compressed_files/$basename)
                         echo "$basename, $threads, $compressed_size"
                     done

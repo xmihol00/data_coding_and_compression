@@ -7,6 +7,7 @@ os.makedirs("tex_tables", exist_ok=True)
 for input_file_prefix in ["compression", "decompression"]:
     df = pd.read_csv(os.path.join("csv_measurements", input_file_prefix + "_full_performance_analysis.csv"), header=0, index_col=False)
     df["file_name"] = df["file_name"].apply(lambda x: x.split("/")[-1])
+    print(df["file_name"])
 
     unique_file_names = df["file_name"].unique()
     aggregates = ["mean", "std"]
@@ -32,6 +33,6 @@ for input_file_prefix in ["compression", "decompression"]:
                     pass
         
         (aggregated_df.style
-            .set_caption(f"Performance of full {'static' if not adaptive else 'adaptive'} compression {'without a' if not model else 'with a difference'} model in microseconds")
+            .set_caption(f"Performance of full {'static' if not adaptive else 'adaptive'} {input_file_prefix} {'without a' if not model else 'with implemented difference'} model")
             .format("{:.2f}")
             .to_latex(os.path.join("tex_tables", f"{input_file_prefix}_{output_file}")))
