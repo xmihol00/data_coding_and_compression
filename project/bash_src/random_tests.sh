@@ -18,6 +18,14 @@ thread_combinations=(
     "4 8"
     "8 8"
     "8 1"
+    "16 1"
+    "1 16"
+    "16 16"
+    "16 8"
+    "8 16"
+    "32 16"
+    "16 32"
+    "32 32"
 )
 
 mkdir -p compressed_files
@@ -25,7 +33,7 @@ mkdir -p decompressed_files
 
 for i in {1..100}; do
     echo -e "\e[0;35mGenerating random file $i\e[0m"
-    file=$(python3 generate_random_file.py)
+    file=$(python3 py_src/generate_random_file.py)
 
     current_failed=false
     for switch in "" "-m"; do
