@@ -1,7 +1,7 @@
 # Huffman and RLE Compression of Grayscale Images
-This project provides an implementation of a compressor and decompressor intended for grayscale images. Both the compressor and decompressor are optimized with the use of vector AVX instructions and allow multi-threaded execution facilitated with OpenMP.
+This project provides an implementation of a compressor and decompressor intended for grayscale images using Huffman coding and run length encoding. Both the compressor and decompressor are optimized with the use of Intel® Advanced Vector Extensions 512 instructions and allow multi-threaded execution facilitated with OpenMP.
 
-## Directory structure
+## Directory Structure
 ```
 ├── bash_src/                - test, performance analysis and other bash scripts
 ├── compressed_files/        - should be empty, used for testing 
@@ -29,17 +29,32 @@ This project provides an implementation of a compressor and decompressor intende
 ```
 
 ## Requirements and Compilation
-To run the full version of the code OpenMPI compilation and the following instruction sets must be supported:
+To run the full version of the code, OpenMP compilation and the following instruction sets must be supported:
 * `AVX2`,
 * `AVX512BW`,
 * `AVX512F`,
 * `AVX512VL`.
+
 The `Makefile` checks for the availability of these instructions and downgrades the algorithms based on what instructions sets are available. Files compressed with a downgraded compressor yield worse compression rates, but can be decompressed by the full decompressor, vice versa backward compatibility is not, however, supported.
 
-Execute command `make` to compile the best possible version for your system. If any issues occur, the following alternatives can be tried:
-* command `make no_omp` will compile without OpenMP support and the application will be bound to single threaded execution, 
-* command `make no_avx` will compile with OpenMP support but with fully downgraded algorithms,
-* command `make plain` will compile without OpenMP and with fully downgraded algorithms.
+Execute the command `make` to compile the best possible version for your system. If any issues occur, the following alternatives can be tried:
+* the command `make no_omp` will compile without OpenMP support and the application will be bound to single threaded execution, 
+* the command `make no_avx` will compile with OpenMP support but with fully downgraded algorithms,
+* the command `make plain` will compile without OpenMP and with fully downgraded algorithms.
+
+## Usage
+```
+Usage: ./huff_codec [-c | -d] [-m] [-a] [-w <width>] [-i <input file name>] [-o <output file name>] [-t <number of threads>]
+Options:
+  -c:                     Compress the input file.
+  -d:                     Decompress the input file.
+  -m:                     Use the model-based compression (ignored for decompression).
+  -a:                     Use the adaptive model-based compression (ignored for decompression).
+  -w <width>:             Width of the compressed image (ignored for decompression).
+  -i <input file name>:   The input file name.
+  -o <output file name>:  The output file names.
+  -t <number of threads>: Number of threads to use (default is 4), must be a power of 2 between 1 and 32 inclusive.
+```
 
 ## Tests
 The following commands thoroughly test the implemented algorithms:
